@@ -1,0 +1,103 @@
+import React, { useState } from 'react';
+import { ToolItem } from '../../types';
+import { ToolHeader } from '../common/ToolHeader';
+import { GeneralCalculators } from './GeneralCalculators';
+import { FinanceCalculators } from './FinanceCalculators';
+import { ConversionHub } from './ConversionHub';
+import { StudentTools } from './StudentTools';
+import { HomeDailyTools } from './HomeDailyTools';
+import { DiyConstructionTools } from './DiyConstructionTools';
+import { SmartphoneMediaTools } from './SmartphoneMediaTools';
+import { CameraImageTools } from './CameraImageTools';
+import { TextWritingTools } from './TextWritingTools';
+import { SecurityPrivacyTools } from './SecurityPrivacyTools';
+import { TravelTools } from './TravelTools';
+import { InternetTools } from './InternetTools';
+import { GameZone } from './GameZone';
+import { EverydayQuickTools } from './EverydayQuickTools';
+import { PdfDocumentTools } from './PdfDocumentTools';
+import { HealthWellnessTools } from './HealthWellnessTools';
+import { DeveloperTools } from './DeveloperTools';
+import { LiveDataTools } from './LiveDataTools';
+import { AudioMusicTools } from './AudioMusicTools';
+import { ExtendedUtilities } from './ExtendedUtilities';
+
+interface ToolDispatcherProps {
+  tool: ToolItem;
+  onBack: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+}
+
+export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
+  tool,
+  onBack,
+  isFavorite,
+  onToggleFavorite,
+}) => {
+  const [resetKey, setResetKey] = useState<number>(0);
+
+  const handleReset = () => {
+    setResetKey(prev => prev + 1);
+  };
+
+  const renderToolBody = () => {
+    switch (tool.categoryId) {
+      case 'general':
+        return <GeneralCalculators key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'finance':
+        return <FinanceCalculators key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'conversions':
+        return <ConversionHub key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'health':
+        return <HealthWellnessTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'student':
+        return <StudentTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'home':
+        return <HomeDailyTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'diy':
+        return <DiyConstructionTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'smartphone':
+        return <SmartphoneMediaTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'camera':
+        return <CameraImageTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'text':
+        return <TextWritingTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'security':
+        return <SecurityPrivacyTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'travel':
+        return <TravelTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'internet':
+        return <InternetTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'games':
+        return <GameZone key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'quick':
+        return <EverydayQuickTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'pdf':
+        return <PdfDocumentTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'developer':
+        return <DeveloperTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'live-data':
+        return <LiveDataTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'audio-music':
+        return <AudioMusicTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      default: {
+        // Check if handled by extended utilities
+        return <ExtendedUtilities key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      }
+    }
+  };
+
+  return (
+    <div className="w-full pb-20">
+      <ToolHeader
+        tool={tool}
+        onBack={onBack}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
+        onReset={handleReset}
+      />
+      {renderToolBody()}
+    </div>
+  );
+};

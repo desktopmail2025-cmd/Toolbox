@@ -1,0 +1,10 @@
+{
+  "name": "OmniToolbox — All-in-One Utility Hub",
+  "description": "Comprehensive, lightning-fast utility suite featuring 100+ calculators, financial planners, unit converter hub, student tools, camera utilities, text workbench, games, and PDF tools for mobile, tablet, and PC.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
