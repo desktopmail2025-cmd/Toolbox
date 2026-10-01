@@ -105,9 +105,9 @@ export const CATEGORIES: CategoryMeta[] = [
   },
   {
     id: 'live-data',
-    name: 'Real-Time & Public APIs',
+    name: 'Real-Time & Live Utilities',
     iconName: 'Globe',
-    description: 'Live weather, crypto monitor, AQI, Wikipedia, NASA APOD, quotes & open APIs',
+    description: 'Live weather, crypto monitor, AQI, Wikipedia, NASA APOD, quotes & global data',
   },
   {
     id: 'audio-music',
@@ -423,6 +423,14 @@ export const TOOLS: ToolItem[] = [
     description: 'Randomize students or items into balanced teams and breakout groups',
     iconName: 'Users2',
     keywords: ['group', 'teams', 'randomize', 'students', 'pairs', 'breakout'],
+  },
+  {
+    id: 'student-whiteboard',
+    name: 'Interactive Study Whiteboard',
+    categoryId: 'student',
+    description: 'Digital sketchpad for problem solving, diagrams, math scratchpad & notes with brush, shapes, highlighter, eraser & image export',
+    iconName: 'Edit3',
+    keywords: ['whiteboard', 'canvas', 'sketch', 'draw', 'diagram', 'math scratchpad', 'notes', 'study board'],
   },
 
   // 5. Home & Daily Life
@@ -1094,15 +1102,6 @@ export const TOOLS: ToolItem[] = [
     isOnline: true,
   },
   {
-    id: 'pokemon-lookup',
-    name: 'Open Gaming Companion',
-    categoryId: 'live-data',
-    description: 'Comprehensive battle stats, elemental typings, HP, attack, and speed lookup',
-    iconName: 'Flame',
-    keywords: ['pokemon', 'gaming', 'stats', 'pokedex', 'pikachu', 'charizard'],
-    isOnline: true,
-  },
-  {
     id: 'joke-trivia',
     name: 'Joke & Trivia Break',
     categoryId: 'live-data',
@@ -1359,12 +1358,12 @@ export const TOOLS: ToolItem[] = [
     isOnline: false,
   },
   {
-    id: 'pill-reminder',
-    name: 'Daily Medication & Pill Log',
+    id: 'medicine-reminder',
+    name: 'Medicine Reminder & Prescription Log',
     categoryId: 'health',
-    description: 'Track daily vitamins and prescriptions with times and taken status check-offs',
+    description: 'Track daily medications, vitamins, dosage times, food instructions and taken status',
     iconName: 'Pill',
-    keywords: ['pill reminder', 'medication log', 'vitamins', 'prescriptions', 'health tracker'],
+    keywords: ['medicine reminder', 'medication log', 'vitamins', 'prescriptions', 'health tracker', 'pill reminder', 'pills'],
     isOnline: false,
   },
   {
@@ -1458,6 +1457,15 @@ export const TOOLS: ToolItem[] = [
     isOnline: false,
   },
   {
+    id: 'game-word-maker',
+    name: 'Word Maker & Biz Scramble Challenge',
+    categoryId: 'games',
+    description: 'Create valid words from letter tiles against the timer with score combos and streak multiplier',
+    iconName: 'Sparkles',
+    keywords: ['word maker', 'word biz', 'word challenge', 'word puzzle', 'anagram', 'scramble', 'boggle'],
+    isOnline: false,
+  },
+  {
     id: 'whiteboard-canvas',
     name: 'Digital Whiteboard Sketchpad',
     categoryId: 'diy',
@@ -1491,15 +1499,6 @@ export const TOOLS: ToolItem[] = [
     description: 'Stream adorable public-domain cats and dogs photos with uplifting companion notes',
     iconName: 'Sparkles',
     keywords: ['animals', 'cats', 'dogs', 'cute', 'pets', 'photos'],
-    isOnline: true,
-  },
-  {
-    id: 'public-holiday-directory',
-    name: '2026 Statutory & Bank Holidays',
-    categoryId: 'travel',
-    description: 'Statutory bank holidays, public celebrations, and national observances across global countries',
-    iconName: 'Calendar',
-    keywords: ['holidays', 'bank holiday', 'statutory', 'calendar', 'vacation', 'days off'],
     isOnline: true,
   },
 ];

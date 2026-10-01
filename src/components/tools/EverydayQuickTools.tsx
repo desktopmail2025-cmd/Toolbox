@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../utils/audio';
-import { Play, Pause, RotateCcw, Plus, Minus, Disc } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Minus, Disc, Trophy, Trash2, Clock, Sparkles, Check } from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -12,7 +12,7 @@ export const EverydayQuickTools: React.FC<ToolComponentProps> = ({ toolId }) => 
     case 'quick-stopwatch':
       return <StopwatchView />;
     case 'quick-timer':
-      return <QuickTimerView />;
+      return <MultiTimerView />;
     case 'quick-coin-toss':
       return <CoinTossView />;
     case 'quick-dice-roller':
@@ -28,7 +28,7 @@ export const EverydayQuickTools: React.FC<ToolComponentProps> = ({ toolId }) => 
   }
 };
 
-// 1. Stopwatch with Laps
+// 1. Stopwatch with Dynamic Colored Lap Effects (Item 33)
 const StopwatchView: React.FC = () => {
   const [timeMs, setTimeMs] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -67,7 +67,7 @@ const StopwatchView: React.FC = () => {
   const lap = () => {
     if (!isRunning) return;
     sounds.playClick();
-    setLaps([timeMs, ...laps]);
+    setLaps(prev => [timeMs, ...prev]);
   };
 
   const minutes = Math.floor(timeMs / 60000);
@@ -81,18 +81,31 @@ const StopwatchView: React.FC = () => {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(centis).padStart(2, '0')}`;
   };
 
+  // Compute lap splits (time between this lap and previous lap)
+  const splits = laps.map((curr, idx) => {
+    const prev = laps[idx + 1] ?? 0;
+    return curr - prev;
+  });
+
+  const minSplit = splits.length > 1 ? Math.min(...splits) : null;
+  const maxSplit = splits.length > 1 ? Math.max(...splits) : null;
+
   return (
     <div className="max-w-md mx-auto space-y-6 text-center">
-      <div className="py-6 rounded-3xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-sm">
-        <div className="text-6xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums">
+      <div className="py-7 rounded-3xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-sm space-y-2">
+        <div className="text-6xl font-mono font-black tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums">
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-          <span className="text-3xl text-zinc-400">.{String(ms).padStart(2, '0')}</span>
+          <span className="text-3xl text-indigo-500 font-bold">.{String(ms).padStart(2, '0')}</span>
         </div>
 
-        <div className="flex items-center justify-center gap-3 mt-6">
+        <div className="flex items-center justify-center gap-3 pt-4">
           <button
             onClick={toggle}
-            className="h-12 px-6 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-semibold flex items-center gap-2 hover:opacity-90"
+            className={`h-12 px-7 rounded-2xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-xs ${
+              isRunning
+                ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:opacity-90'
+            }`}
           >
             {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             <span>{isRunning ? 'Stop' : 'Start'}</span>
@@ -100,104 +113,312 @@ const StopwatchView: React.FC = () => {
           <button
             onClick={lap}
             disabled={!isRunning}
-            className="h-12 px-4 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 text-xs font-semibold disabled:opacity-40"
+            className="h-12 px-5 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold disabled:opacity-40 cursor-pointer transition-all shadow-2xs"
           >
-            Lap
+            + Lap
           </button>
           <button
             onClick={reset}
-            className="h-12 w-12 rounded-xl border border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500"
+            className="h-12 w-12 rounded-2xl border border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 cursor-pointer shadow-2xs transition-all"
+            title="Reset stopwatch"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
+      {/* Laps List with Dynamic Vibrant Color Effects (Item 33) */}
       {laps.length > 0 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 max-h-48 overflow-y-auto space-y-1.5">
-          {laps.map((l, i) => (
-            <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-zinc-50 dark:bg-zinc-950 font-mono">
-              <span className="text-zinc-400 font-sans">Lap {laps.length - i}</span>
-              <span className="font-bold">{formatLap(l)}</span>
-            </div>
-          ))}
+        <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 max-h-64 overflow-y-auto space-y-2 text-left shadow-xs">
+          <div className="flex justify-between items-center px-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+            <span>Lap Number</span>
+            <span>Split Delta · Total</span>
+          </div>
+
+          {laps.map((l, i) => {
+            const split = splits[i];
+            const isFastest = minSplit !== null && split === minSplit;
+            const isSlowest = maxSplit !== null && split === maxSplit && minSplit !== maxSplit;
+
+            return (
+              <div
+                key={i}
+                className={`flex justify-between items-center p-3 rounded-2xl border transition-all text-xs font-mono font-bold ${
+                  isFastest
+                    ? 'border-emerald-300 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-2xs'
+                    : isSlowest
+                    ? 'border-rose-300 bg-gradient-to-r from-rose-500/15 to-rose-500/5 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                    : 'border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-950/60 text-zinc-800 dark:text-zinc-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                      isFastest
+                        ? 'bg-emerald-500 text-white shadow-2xs'
+                        : isSlowest
+                        ? 'bg-rose-500 text-white'
+                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    {laps.length - i}
+                  </span>
+                  <span className="font-sans font-semibold">
+                    Lap {laps.length - i}
+                  </span>
+                  {isFastest && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-sans font-bold flex items-center gap-1">
+                      <Trophy className="w-3 h-3" /> Fastest
+                    </span>
+                  )}
+                  {isSlowest && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[10px] font-sans font-semibold">
+                      Slowest
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <span className="block text-zinc-900 dark:text-zinc-50 font-bold">
+                    +{formatLap(split)}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-normal">
+                    {formatLap(l)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
 
-// 2. Multi-Timer & Countdown
-const QuickTimerView: React.FC = () => {
-  const [totalSecs, setTotalSecs] = useState(300); // 5 mins
-  const [remaining, setRemaining] = useState(300);
-  const [isRunning, setIsRunning] = useState(false);
-  const timerRef = useRef<number | null>(null);
+// 2. Multi-Timer & Countdown (Item 32: True Concurrent Multi-Timers)
+interface CountdownTimer {
+  id: string;
+  name: string;
+  totalSecs: number;
+  remainingSecs: number;
+  isRunning: boolean;
+}
 
+const MultiTimerView: React.FC = () => {
+  const [timers, setTimers] = useState<CountdownTimer[]>([
+    { id: '1', name: 'Pomodoro Focus', totalSecs: 1500, remainingSecs: 1500, isRunning: false },
+    { id: '2', name: 'Coffee / Tea Brew', totalSecs: 240, remainingSecs: 240, isRunning: false },
+    { id: '3', name: 'Workout Rest', totalSecs: 60, remainingSecs: 60, isRunning: false },
+  ]);
+
+  const [newTitle, setNewTitle] = useState('');
+  const [newMins, setNewMins] = useState('10');
+  const [newSecs, setNewSecs] = useState('0');
+
+  // Master ticking loop for all running countdowns
   useEffect(() => {
-    if (isRunning && remaining > 0) {
-      timerRef.current = window.setInterval(() => {
-        setRemaining(r => {
-          if (r <= 1) {
-            sounds.playTone(880, 1.5);
-            setIsRunning(false);
-            return 0;
+    const interval = setInterval(() => {
+      setTimers(prev =>
+        prev.map(t => {
+          if (!t.isRunning) return t;
+          if (t.remainingSecs <= 1) {
+            sounds.playSuccess();
+            return { ...t, remainingSecs: 0, isRunning: false };
           }
-          return r - 1;
-        });
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRunning, remaining]);
+          return { ...t, remainingSecs: t.remainingSecs - 1 };
+        })
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const setTime = (mins: number) => {
+  const toggleTimer = (id: string) => {
     sounds.playClick();
-    setIsRunning(false);
-    setTotalSecs(mins * 60);
-    setRemaining(mins * 60);
+    setTimers(prev =>
+      prev.map(t => (t.id === id ? { ...t, isRunning: !t.isRunning } : t))
+    );
   };
 
-  const m = Math.floor(remaining / 60);
-  const s = remaining % 60;
+  const resetTimer = (id: string) => {
+    sounds.playClick();
+    setTimers(prev =>
+      prev.map(t => (t.id === id ? { ...t, remainingSecs: t.totalSecs, isRunning: false } : t))
+    );
+  };
+
+  const deleteTimer = (id: string) => {
+    sounds.playClick();
+    setTimers(prev => prev.filter(t => t.id !== id));
+  };
+
+  const addTimer = () => {
+    const m = parseInt(newMins, 10) || 0;
+    const s = parseInt(newSecs, 10) || 0;
+    const total = m * 60 + s;
+    if (total <= 0) return;
+
+    sounds.playSuccess();
+    setTimers(prev => [
+      ...prev,
+      {
+        id: String(Date.now()),
+        name: newTitle.trim() || `Timer (${m}m ${s}s)`,
+        totalSecs: total,
+        remainingSecs: total,
+        isRunning: false,
+      },
+    ]);
+    setNewTitle('');
+  };
+
+  const formatRemaining = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   return (
-    <div className="max-w-md mx-auto space-y-6 text-center">
-      <div className="flex justify-center gap-2">
-        {[1, 5, 10, 15, 30].map(mins => (
-          <button
-            key={mins}
-            onClick={() => setTime(mins)}
-            className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          >
-            {mins}m
-          </button>
-        ))}
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header Info */}
+      <div className="flex justify-between items-center pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Multi-Timer & Concurrent Countdowns
+          </h2>
+          <span className="text-[11px] text-zinc-400">
+            Run multiple named timers simultaneously with audio chimes
+          </span>
+        </div>
+        <span className="text-xs font-mono font-bold px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+          {timers.length} active timers
+        </span>
       </div>
 
-      <div className="py-6 rounded-3xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-sm">
-        <div className="text-6xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums">
-          {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
+      {/* Add New Timer Bar */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Create New Countdown Timer
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <input
+            type="text"
+            placeholder="Timer Label (e.g. Pasta, Nap)..."
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            className="sm:col-span-2 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-xs font-medium focus:outline-indigo-500"
+          />
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={0}
+              placeholder="Mins"
+              value={newMins}
+              onChange={e => setNewMins(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-xs font-mono font-bold text-center"
+            />
+            <span className="text-xs text-zinc-400 font-semibold">m</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={0}
+              max={59}
+              placeholder="Secs"
+              value={newSecs}
+              onChange={e => setNewSecs(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-xs font-mono font-bold text-center"
+            />
+            <span className="text-xs text-zinc-400 font-semibold">s</span>
+          </div>
         </div>
+        <button
+          onClick={addTimer}
+          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-2xs"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add Countdown Timer</span>
+        </button>
+      </div>
 
-        <div className="flex items-center justify-center gap-3 mt-6">
-          <button
-            onClick={() => { sounds.playClick(); setIsRunning(!isRunning); }}
-            className="h-12 px-6 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-semibold flex items-center gap-2 hover:opacity-90"
-          >
-            {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            <span>{isRunning ? 'Pause' : 'Start'}</span>
-          </button>
-          <button
-            onClick={() => { sounds.playClick(); setIsRunning(false); setRemaining(totalSecs); }}
-            className="h-12 w-12 rounded-xl border flex items-center justify-center text-zinc-500"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Concurrent Running Timers Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        {timers.map(t => {
+          const progressPct = t.totalSecs > 0 ? (t.remainingSecs / t.totalSecs) * 100 : 0;
+          const isDone = t.remainingSecs === 0;
+
+          return (
+            <div
+              key={t.id}
+              className={`p-5 rounded-3xl border transition-all shadow-2xs space-y-3 ${
+                isDone
+                  ? 'border-emerald-400 bg-emerald-50/40 dark:border-emerald-700 dark:bg-emerald-950/20'
+                  : t.isRunning
+                  ? 'border-indigo-400/80 bg-white dark:border-indigo-700/80 dark:bg-zinc-900'
+                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{t.name}</h4>
+                  <span className="text-[10px] text-zinc-400 font-mono">
+                    Total: {formatRemaining(t.totalSecs)}
+                  </span>
+                </div>
+                <button
+                  onClick={() => deleteTimer(t.id)}
+                  className="text-zinc-400 hover:text-rose-500 p-1 cursor-pointer transition-colors"
+                  title="Delete timer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Countdown Digits */}
+              <div className="text-4xl font-mono font-black tracking-tight text-center tabular-nums text-zinc-900 dark:text-zinc-50 py-1">
+                {formatRemaining(t.remainingSecs)}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    isDone ? 'bg-emerald-500' : t.isRunning ? 'bg-indigo-600' : 'bg-zinc-400'
+                  }`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <button
+                  onClick={() => toggleTimer(t.id)}
+                  disabled={isDone}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    t.isRunning
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                      : isDone
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90'
+                  }`}
+                >
+                  {t.isRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                  <span>{isDone ? 'Completed' : t.isRunning ? 'Pause' : 'Start'}</span>
+                </button>
+                <button
+                  onClick={() => resetTimer(t.id)}
+                  className="p-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 rounded-xl cursor-pointer"
+                  title="Reset to start"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

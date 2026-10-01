@@ -2,6 +2,7 @@ import React from 'react';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
+import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, ArrowRight, Globe, ShieldCheck } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -61,7 +62,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
                       <IconRenderer name={tool.iconName} size={20} />
                     </div>
                     <div className="flex items-center gap-1.5">

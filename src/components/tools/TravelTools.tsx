@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
+import { sounds } from '../../utils/audio';
+import { Globe, Search, Clock, Sun, Moon, Sparkles } from 'lucide-react';
+import { PublicHolidayDirectoryView } from './LiveDataTools';
 
 interface ToolComponentProps {
   toolId: string;
@@ -239,57 +242,246 @@ const SpeedDistTimeView: React.FC = () => {
   );
 };
 
-// 4. World Clock & Time Zones
+// 4. World Clock & Time Zones (Item 26: Live Real-Time + Global World Capitals)
+interface WorldCapital {
+  city: string;
+  country: string;
+  continent: string;
+  iana: string;
+  flag: string;
+}
+
+const WORLD_CAPITALS: WorldCapital[] = [
+  // Europe
+  { city: 'London', country: 'United Kingdom', continent: 'Europe', iana: 'Europe/London', flag: '🇬🇧' },
+  { city: 'Paris', country: 'France', continent: 'Europe', iana: 'Europe/Paris', flag: '🇫🇷' },
+  { city: 'Berlin', country: 'Germany', continent: 'Europe', iana: 'Europe/Berlin', flag: '🇩🇪' },
+  { city: 'Rome', country: 'Italy', continent: 'Europe', iana: 'Europe/Rome', flag: '🇮🇹' },
+  { city: 'Madrid', country: 'Spain', continent: 'Europe', iana: 'Europe/Madrid', flag: '🇪🇸' },
+  { city: 'Amsterdam', country: 'Netherlands', continent: 'Europe', iana: 'Europe/Amsterdam', flag: '🇳🇱' },
+  { city: 'Brussels', country: 'Belgium', continent: 'Europe', iana: 'Europe/Brussels', flag: '🇧🇪' },
+  { city: 'Bern', country: 'Switzerland', continent: 'Europe', iana: 'Europe/Zurich', flag: '🇨🇭' },
+  { city: 'Vienna', country: 'Austria', continent: 'Europe', iana: 'Europe/Vienna', flag: '🇦🇹' },
+  { city: 'Stockholm', country: 'Sweden', continent: 'Europe', iana: 'Europe/Stockholm', flag: '🇸🇪' },
+  { city: 'Oslo', country: 'Norway', continent: 'Europe', iana: 'Europe/Oslo', flag: '🇳🇴' },
+  { city: 'Helsinki', country: 'Finland', continent: 'Europe', iana: 'Europe/Helsinki', flag: '🇫🇮' },
+  { city: 'Copenhagen', country: 'Denmark', continent: 'Europe', iana: 'Europe/Copenhagen', flag: '🇩🇰' },
+  { city: 'Dublin', country: 'Ireland', continent: 'Europe', iana: 'Europe/Dublin', flag: '🇮🇪' },
+  { city: 'Warsaw', country: 'Poland', continent: 'Europe', iana: 'Europe/Warsaw', flag: '🇵🇱' },
+  { city: 'Lisbon', country: 'Portugal', continent: 'Europe', iana: 'Europe/Lisbon', flag: '🇵🇹' },
+  { city: 'Athens', country: 'Greece', continent: 'Europe', iana: 'Europe/Athens', flag: '🇬🇷' },
+  { city: 'Prague', country: 'Czechia', continent: 'Europe', iana: 'Europe/Prague', flag: '🇨🇿' },
+  { city: 'Budapest', country: 'Hungary', continent: 'Europe', iana: 'Europe/Budapest', flag: '🇭🇺' },
+  { city: 'Bucharest', country: 'Romania', continent: 'Europe', iana: 'Europe/Bucharest', flag: '🇷🇴' },
+
+  // Americas
+  { city: 'Washington, D.C.', country: 'United States', continent: 'Americas', iana: 'America/New_York', flag: '🇺🇸' },
+  { city: 'Ottawa', country: 'Canada', continent: 'Americas', iana: 'America/Toronto', flag: '🇨🇦' },
+  { city: 'Mexico City', country: 'Mexico', continent: 'Americas', iana: 'America/Mexico_City', flag: '🇲🇽' },
+  { city: 'Brasília', country: 'Brazil', continent: 'Americas', iana: 'America/Sao_Paulo', flag: '🇧🇷' },
+  { city: 'Buenos Aires', country: 'Argentina', continent: 'Americas', iana: 'America/Argentina/Buenos_Aires', flag: '🇦🇷' },
+  { city: 'Santiago', country: 'Chile', continent: 'Americas', iana: 'America/Santiago', flag: '🇨🇱' },
+  { city: 'Bogotá', country: 'Colombia', continent: 'Americas', iana: 'America/Bogota', flag: '🇨🇴' },
+  { city: 'Lima', country: 'Peru', continent: 'Americas', iana: 'America/Lima', flag: '🇵🇪' },
+  { city: 'Quito', country: 'Ecuador', continent: 'Americas', iana: 'America/Guayaquil', flag: '🇪🇨' },
+  { city: 'Caracas', country: 'Venezuela', continent: 'Americas', iana: 'America/Caracas', flag: '🇻🇪' },
+  { city: 'Montevideo', country: 'Uruguay', continent: 'Americas', iana: 'America/Montevideo', flag: '🇺🇾' },
+  { city: 'San José', country: 'Costa Rica', continent: 'Americas', iana: 'America/Costa_Rica', flag: '🇨🇷' },
+  { city: 'Panama City', country: 'Panama', continent: 'Americas', iana: 'America/Panama', flag: '🇵🇦' },
+
+  // Asia
+  { city: 'Tokyo', country: 'Japan', continent: 'Asia', iana: 'Asia/Tokyo', flag: '🇯🇵' },
+  { city: 'Beijing', country: 'China', continent: 'Asia', iana: 'Asia/Shanghai', flag: '🇨🇳' },
+  { city: 'New Delhi', country: 'India', continent: 'Asia', iana: 'Asia/Kolkata', flag: '🇮🇳' },
+  { city: 'Seoul', country: 'South Korea', continent: 'Asia', iana: 'Asia/Seoul', flag: '🇰🇷' },
+  { city: 'Singapore', country: 'Singapore', continent: 'Asia', iana: 'Asia/Singapore', flag: '🇸🇬' },
+  { city: 'Bangkok', country: 'Thailand', continent: 'Asia', iana: 'Asia/Bangkok', flag: '🇹🇭' },
+  { city: 'Jakarta', country: 'Indonesia', continent: 'Asia', iana: 'Asia/Jakarta', flag: '🇮🇩' },
+  { city: 'Kuala Lumpur', country: 'Malaysia', continent: 'Asia', iana: 'Asia/Kuala_Lumpur', flag: '🇲🇾' },
+  { city: 'Manila', country: 'Philippines', continent: 'Asia', iana: 'Asia/Manila', flag: '🇵🇭' },
+  { city: 'Hanoi', country: 'Vietnam', continent: 'Asia', iana: 'Asia/Ho_Chi_Minh', flag: '🇻🇳' },
+  { city: 'Riyadh', country: 'Saudi Arabia', continent: 'Asia', iana: 'Asia/Riyadh', flag: '🇸🇦' },
+  { city: 'Abu Dhabi', country: 'United Arab Emirates', continent: 'Asia', iana: 'Asia/Dubai', flag: '🇦🇪' },
+  { city: 'Doha', country: 'Qatar', continent: 'Asia', iana: 'Asia/Qatar', flag: '🇶🇦' },
+  { city: 'Jerusalem', country: 'Israel', continent: 'Asia', iana: 'Asia/Jerusalem', flag: '🇮🇱' },
+  { city: 'Ankara', country: 'Turkey', continent: 'Asia', iana: 'Europe/Istanbul', flag: '🇹🇷' },
+  { city: 'Islamabad', country: 'Pakistan', continent: 'Asia', iana: 'Asia/Karachi', flag: '🇵🇰' },
+  { city: 'Dhaka', country: 'Bangladesh', continent: 'Asia', iana: 'Asia/Dhaka', flag: '🇧🇩' },
+
+  // Oceania
+  { city: 'Canberra', country: 'Australia', continent: 'Oceania', iana: 'Australia/Sydney', flag: '🇦🇺' },
+  { city: 'Wellington', country: 'New Zealand', continent: 'Oceania', iana: 'Pacific/Auckland', flag: '🇳🇿' },
+  { city: 'Suva', country: 'Fiji', continent: 'Oceania', iana: 'Pacific/Fiji', flag: '🇫🇯' },
+  { city: 'Port Moresby', country: 'Papua New Guinea', continent: 'Oceania', iana: 'Pacific/Port_Moresby', flag: '🇵🇬' },
+
+  // Africa
+  { city: 'Cairo', country: 'Egypt', continent: 'Africa', iana: 'Africa/Cairo', flag: '🇪🇬' },
+  { city: 'Pretoria', country: 'South Africa', continent: 'Africa', iana: 'Africa/Johannesburg', flag: '🇿🇦' },
+  { city: 'Nairobi', country: 'Kenya', continent: 'Africa', iana: 'Africa/Nairobi', flag: '🇰🇪' },
+  { city: 'Abuja', country: 'Nigeria', continent: 'Africa', iana: 'Africa/Lagos', flag: '🇳🇬' },
+  { city: 'Addis Ababa', country: 'Ethiopia', continent: 'Africa', iana: 'Africa/Addis_Ababa', flag: '🇪🇹' },
+  { city: 'Rabat', country: 'Morocco', continent: 'Africa', iana: 'Africa/Casablanca', flag: '🇲🇦' },
+  { city: 'Accra', country: 'Ghana', continent: 'Africa', iana: 'Africa/Accra', flag: '🇬🇭' },
+];
+
 const WorldClockView: React.FC = () => {
-  const [sliderHour, setSliderHour] = useState(new Date().getUTCHours());
+  const [now, setNow] = useState(new Date());
+  const [search, setSearch] = useState('');
+  const [selectedContinent, setSelectedContinent] = useState<string>('All');
+  const [use24Hour, setUse24Hour] = useState(false);
 
-  const cities = [
-    { name: 'London (UTC+0)', offset: 0 },
-    { name: 'Paris / Berlin (UTC+1)', offset: 1 },
-    { name: 'Dubai (UTC+4)', offset: 4 },
-    { name: 'Tokyo (UTC+9)', offset: 9 },
-    { name: 'Sydney (UTC+10)', offset: 10 },
-    { name: 'New York (UTC-5)', offset: -5 },
-    { name: 'San Francisco (UTC-8)', offset: -8 },
-  ];
+  // Live real-time seconds ticking
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const formatHour = (utcH: number, offset: number) => {
-    let h = (utcH + offset) % 24;
-    if (h < 0) h += 24;
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayH = h % 12 || 12;
-    return `${displayH}:00 ${period}`;
+  const formatCityTime = (iana: string) => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: iana,
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: !use24Hour,
+      });
+
+      const dayFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: iana,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+
+      // Hour of day to determine day or night icon
+      const hourPart = new Intl.DateTimeFormat('en-US', {
+        timeZone: iana,
+        hour: 'numeric',
+        hourCycle: 'h23',
+      }).format(now);
+      const hour24 = parseInt(hourPart, 10);
+      const isDaytime = hour24 >= 6 && hour24 < 18;
+
+      return {
+        timeStr: formatter.format(now),
+        dateStr: dayFormatter.format(now),
+        isDaytime,
+      };
+    } catch {
+      return { timeStr: '--:--:--', dateStr: 'Invalid TZ', isDaytime: true };
+    }
   };
 
+  const continents = ['All', 'Europe', 'Americas', 'Asia', 'Oceania', 'Africa'];
+
+  const filteredCapitals = WORLD_CAPITALS.filter(c => {
+    const matchesContinent = selectedContinent === 'All' || c.continent === selectedContinent;
+    const matchesQuery =
+      c.city.toLowerCase().includes(search.toLowerCase()) ||
+      c.country.toLowerCase().includes(search.toLowerCase());
+    return matchesContinent && matchesQuery;
+  });
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-        <div className="flex justify-between items-center text-xs font-semibold">
-          <span>UTC Time Horizon: {sliderHour}:00 UTC</span>
-          <span className="text-zinc-400">Drag to test meetings</span>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Live Global World Clock & Time Zones
+          </h2>
+          <span className="text-[11px] text-zinc-400">
+            Real-time live ticking clocks for world capitals across 6 continents
+          </span>
         </div>
-        <input
-          type="range"
-          min={0}
-          max={23}
-          value={sliderHour}
-          onChange={e => setSliderHour(parseInt(e.target.value))}
-          className="w-full accent-zinc-900 dark:accent-zinc-100"
-        />
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUse24Hour(!use24Hour)}
+            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+          >
+            {use24Hour ? '24h Military' : '12h AM/PM'}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {cities.map(c => (
-          <div
-            key={c.name}
-            className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{c.name}</span>
-            <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-50">
-              {formatHour(sliderHour, c.offset)}
-            </span>
-          </div>
-        ))}
+      {/* Controls: Search & Continent Filter */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="text"
+            placeholder="Search capital city or nation (e.g. Tokyo, Paris, Canada, Brazil)..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {continents.map(c => (
+            <button
+              key={c}
+              onClick={() => {
+                sounds.playClick();
+                setSelectedContinent(c);
+              }}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                selectedContinent === c
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+          <span className="ml-auto text-xs text-zinc-400 self-center font-mono">
+            {filteredCapitals.length} capitals
+          </span>
+        </div>
+      </div>
+
+      {/* Capitals Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {filteredCapitals.map(item => {
+          const { timeStr, dateStr, isDaytime } = formatCityTime(item.iana);
+          return (
+            <div
+              key={item.city}
+              className="p-4 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs space-y-2"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">{item.flag}</span>
+                    <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{item.city}</h4>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 truncate block max-w-[140px]">{item.country}</span>
+                </div>
+
+                <span
+                  className={`p-1.5 rounded-lg text-xs flex items-center gap-1 font-semibold ${
+                    isDaytime
+                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+                      : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
+                  }`}
+                  title={isDaytime ? 'Daytime' : 'Nighttime'}
+                >
+                  {isDaytime ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                </span>
+              </div>
+
+              <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between items-baseline">
+                <span className="font-mono text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
+                  {timeStr}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-medium">{dateStr}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

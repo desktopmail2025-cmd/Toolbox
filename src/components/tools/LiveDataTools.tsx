@@ -4,7 +4,7 @@ import { sounds } from '../../utils/audio';
 import {
   CloudSun, Wind, BookOpen, Quote, Sparkles, RefreshCw, Copy, Check, Search,
   ExternalLink, HelpCircle, MapPin, Compass, ShieldAlert, TrendingUp, Navigation,
-  Calendar, Eye, Info
+  Calendar, Eye, Info, Newspaper, Bookmark, Trash2, Plus, Globe, Radio, ArrowUpRight
 } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -13,6 +13,10 @@ interface ToolComponentProps {
 
 export const LiveDataTools: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
+    case 'world-news-picks':
+    case 'breaking-news':
+    case 'newspaper-picks':
+      return <WorldNewsPicksView />;
     case 'live-weather':
       return <LiveWeatherView />;
     case 'crypto-monitor':
@@ -27,16 +31,12 @@ export const LiveDataTools: React.FC<ToolComponentProps> = ({ toolId }) => {
       return <NasaApodView />;
     case 'advice-generator':
       return <AdviceGeneratorView />;
-    case 'pokemon-lookup':
-      return <PokemonLookupView />;
     case 'joke-trivia':
       return <JokeTriviaView />;
     case 'stock-market-ticker':
       return <StockMarketTickerView />;
     case 'animal-photo-streamer':
       return <AnimalPhotoStreamerView />;
-    case 'public-holiday-directory':
-      return <PublicHolidayDirectoryView />;
     default:
       return <LiveWeatherView />;
   }
@@ -1443,7 +1443,7 @@ const HOLIDAYS = [
   { name: 'Boxing Day', date: '2026-12-26', day: 'Saturday', nation: 'UK & Commonwealth' },
 ];
 
-const PublicHolidayDirectoryView: React.FC = () => {
+export const PublicHolidayDirectoryView: React.FC = () => {
   return (
     <div className="space-y-4 max-w-xl mx-auto">
       <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -1464,6 +1464,528 @@ const PublicHolidayDirectoryView: React.FC = () => {
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+// 12. World's Famous Newspapers & Breaking News Picks (Item 4: Forbes, Guardian, CNN, BBC with 6 Categories, Direct Original Links & Add/Delete Beside Each)
+export interface NewsPickItem {
+  id: string;
+  title: string;
+  source: string;
+  sourceBadgeClass: string;
+  category: 'breaking' | 'world' | 'business' | 'tech' | 'science' | 'culture';
+  time: string;
+  summary: string;
+  readTime: string;
+  originalUrl: string;
+  isSaved?: boolean;
+}
+
+const DEFAULT_NEWS_PICKS: NewsPickItem[] = [
+  {
+    id: 'n1',
+    title: 'Global Renewable Energy Reaches Historic 40% Share of Worldwide Electricity Generation',
+    source: 'The Guardian',
+    sourceBadgeClass: 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300 border-sky-300 dark:border-sky-800',
+    category: 'world',
+    time: '24 mins ago',
+    summary: 'International climate observatory reports unprecedented wind and solar capacity installations across Europe, Asia and the Americas, setting new decarbonization milestones.',
+    readTime: '4 min read',
+    originalUrl: 'https://www.theguardian.com/environment',
+  },
+  {
+    id: 'n2',
+    title: 'The AI Infrastructure Supercycle: Tech Giants Surpass $250 Billion in Compute Capex',
+    source: 'Forbes',
+    sourceBadgeClass: 'bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 border-zinc-700',
+    category: 'business',
+    time: '42 mins ago',
+    summary: 'Next-generation semiconductor accelerators, optical interconnects, and nuclear-powered data centers attract the largest capital deployment in corporate history.',
+    readTime: '6 min read',
+    originalUrl: 'https://www.forbes.com/business',
+  },
+  {
+    id: 'n3',
+    title: 'International Space Station Welcomes Advanced Commercial Bioscience Mission',
+    source: 'CNN',
+    sourceBadgeClass: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-300 dark:border-red-800',
+    category: 'breaking',
+    time: '1 hour ago',
+    summary: 'Astronauts and robotics researchers initiate zero-gravity protein crystallization experiments aimed at accelerating oncology drug discovery and cellular therapeutics.',
+    readTime: '3 min read',
+    originalUrl: 'https://edition.cnn.com/world',
+  },
+  {
+    id: 'n4',
+    title: 'Central Banks Signal Coordinated Shifts in Global Interest Rate Frameworks',
+    source: 'BBC News',
+    sourceBadgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800',
+    category: 'business',
+    time: '1.5 hours ago',
+    summary: 'Monetary policy committees in London, Frankfurt and Tokyo evaluate inflation stability metrics, balancing employment momentum against sovereign debt yields.',
+    readTime: '5 min read',
+    originalUrl: 'https://www.bbc.com/news',
+  },
+  {
+    id: 'n5',
+    title: 'Next-Gen Open Weights Architecture Matches Frontier Cognitive Reasoning Benchmarks',
+    source: 'MIT Tech Review',
+    sourceBadgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+    category: 'tech',
+    time: '2 hours ago',
+    summary: 'Researchers demonstrate that synthetic curriculum distillation allows efficient 7B models to solve complex mathematical proofs previously reserved for mega-clusters.',
+    readTime: '7 min read',
+    originalUrl: 'https://www.technologyreview.com',
+  },
+  {
+    id: 'n6',
+    title: 'Deep Ocean Expedition Uncovers Pristine 50-Mile Coral Super-Colony in South Pacific',
+    source: 'National Geographic',
+    sourceBadgeClass: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-300 border-yellow-300 dark:border-yellow-800',
+    category: 'science',
+    time: '3 hours ago',
+    summary: 'Marine biologists utilizing deep-submersible autonomous rovers document a thriving mesophotic coral ecosystem remarkably resilient to ocean temperature oscillations.',
+    readTime: '5 min read',
+    originalUrl: 'https://www.nationalgeographic.com/environment',
+  },
+  {
+    id: 'n7',
+    title: 'Quantum Advantage in Materials Discovery: Superconducting Alloy Synthesized at Microscale',
+    source: 'Reuters',
+    sourceBadgeClass: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 border-orange-300 dark:border-orange-800',
+    category: 'science',
+    time: '3.5 hours ago',
+    summary: 'A multinational consortium verifies the predictive design and rapid molecular beam synthesis of high-durability alloys for next-generation fusion energy containment.',
+    readTime: '4 min read',
+    originalUrl: 'https://www.reuters.com/technology',
+  },
+  {
+    id: 'n8',
+    title: 'The Modern Digital Renaissance: How Archival Preservation is Rescuing Cultural History',
+    source: 'The Guardian',
+    sourceBadgeClass: 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300 border-sky-300 dark:border-sky-800',
+    category: 'culture',
+    time: '4 hours ago',
+    summary: 'High-resolution multispectral scanning uncovers hidden manuscripts, forgotten musical scores, and lost Renaissance paintings from centuries-old library vaults.',
+    readTime: '5 min read',
+    originalUrl: 'https://www.theguardian.com/culture',
+  },
+  {
+    id: 'n9',
+    title: 'Global Semiconductor Supply Chains Solidify with $120B in Advanced Packaging Hubs',
+    source: 'Forbes',
+    sourceBadgeClass: 'bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 border-zinc-700',
+    category: 'tech',
+    time: '5 hours ago',
+    summary: 'New foundry mega-complexes in North America, Europe and Southeast Asia begin volume testing of 2-nanometer nanosheet transistors and 3D chiplet stacking.',
+    readTime: '6 min read',
+    originalUrl: 'https://www.forbes.com/innovation',
+  },
+  {
+    id: 'n10',
+    title: 'Diplomatic Envoys Establish Unified Framework for Humanitarian Maritime Corridors',
+    source: 'BBC News',
+    sourceBadgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800',
+    category: 'breaking',
+    time: '5.5 hours ago',
+    summary: 'United Nations delegates approve guaranteed safe-passage protocols for global grain shipments and critical medical aid logistics across key international shipping straits.',
+    readTime: '4 min read',
+    originalUrl: 'https://www.bbc.com/news/world',
+  },
+];
+
+const NEWS_CATEGORIES = [
+  { id: 'all', label: 'All Picks', icon: '📰' },
+  { id: 'breaking', label: 'Breaking & Top', icon: '⚡' },
+  { id: 'world', label: 'World & Politics', icon: '🌍' },
+  { id: 'business', label: 'Business & Markets', icon: '💼' },
+  { id: 'tech', label: 'Tech & AI', icon: '🤖' },
+  { id: 'science', label: 'Science & Health', icon: '🔬' },
+  { id: 'culture', label: 'Culture & Ideas', icon: '🎨' },
+] as const;
+
+export const WorldNewsPicksView: React.FC = () => {
+  const [picks, setPicks] = useState<NewsPickItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_world_news_picks');
+      return saved ? JSON.parse(saved) : DEFAULT_NEWS_PICKS;
+    } catch {
+      return DEFAULT_NEWS_PICKS;
+    }
+  });
+
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [onlySaved, setOnlySaved] = useState<boolean>(false);
+
+  // New pick form state
+  const [customTitle, setCustomTitle] = useState('');
+  const [customSource, setCustomSource] = useState('Forbes');
+  const [customCategory, setCustomCategory] = useState<NewsPickItem['category']>('business');
+  const [customUrl, setCustomUrl] = useState('');
+  const [customSummary, setCustomSummary] = useState('');
+
+  const savePicks = (updated: NewsPickItem[]) => {
+    setPicks(updated);
+    localStorage.setItem('omni_world_news_picks', JSON.stringify(updated));
+  };
+
+  // Toggle Save / Reading List
+  const handleToggleSave = (id: string) => {
+    sounds.playSuccess();
+    const updated = picks.map(p => (p.id === id ? { ...p, isSaved: !p.isSaved } : p));
+    savePicks(updated);
+  };
+
+  // Delete pick from feed
+  const handleDeletePick = (id: string) => {
+    sounds.playClick();
+    const updated = picks.filter(p => p.id !== id);
+    savePicks(updated);
+  };
+
+  // Add custom news pick
+  const handleAddPick = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customTitle.trim() || !customUrl.trim()) return;
+
+    sounds.playSuccess();
+    const newPick: NewsPickItem = {
+      id: String(Date.now()),
+      title: customTitle.trim(),
+      source: customSource.trim() || 'Custom Pick',
+      sourceBadgeClass: 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300',
+      category: customCategory,
+      time: 'Just now',
+      summary: customSummary.trim() || 'Curated newspaper pick added to personal feed.',
+      readTime: '3 min read',
+      originalUrl: customUrl.trim().startsWith('http') ? customUrl.trim() : `https://${customUrl.trim()}`,
+      isSaved: true,
+    };
+
+    savePicks([newPick, ...picks]);
+    setCustomTitle('');
+    setCustomUrl('');
+    setCustomSummary('');
+    setShowAddModal(false);
+  };
+
+  const filteredPicks = picks.filter(pick => {
+    if (onlySaved && !pick.isSaved) return false;
+    if (activeCategory !== 'all' && pick.category !== activeCategory) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        pick.title.toLowerCase().includes(q) ||
+        pick.source.toLowerCase().includes(q) ||
+        pick.summary.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const savedCount = picks.filter(p => p.isSaved).length;
+
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto select-none">
+      {/* Header bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+              World Famous Newspapers & Breaking Picks
+            </h2>
+          </div>
+          <span className="text-xs text-zinc-400 mt-0.5 block">
+            Curated daily top stories from Forbes, The Guardian, CNN, BBC, Reuters & MIT Tech Review with direct source links
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setOnlySaved(v => !v);
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs ${
+              onlySaved
+                ? 'bg-amber-500 text-white border-amber-500 shadow-amber-500/20'
+                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+            }`}
+          >
+            <Bookmark className={`w-3.5 h-3.5 ${onlySaved ? 'fill-white' : ''}`} />
+            <span>Saved Picks ({savedCount})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setShowAddModal(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Custom News Link</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 6 Category Filter Tabs + Search Bar */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {NEWS_CATEGORIES.map(cat => {
+              const isActive = !onlySaved && activeCategory === cat.id;
+              const count =
+                cat.id === 'all'
+                  ? picks.length
+                  : picks.filter(p => p.category === cat.id).length;
+
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    sounds.playClick();
+                    setOnlySaved(false);
+                    setActiveCategory(cat.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
+                      : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
+                  <span className="text-[10px] font-mono opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative min-w-[220px]">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search headline, Forbes, BBC..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Add Custom News Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleAddPick}
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Newspaper className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                  Add News Article / Newspaper Link
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="text-zinc-400 hover:text-zinc-600 text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Article Headline *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Breakthrough in Fusion Energy Reached by Scientists"
+                value={customTitle}
+                onChange={e => setCustomTitle(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold focus:outline-indigo-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 mb-1">Newspaper / Source</label>
+                <select
+                  value={customSource}
+                  onChange={e => setCustomSource(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold focus:outline-indigo-500"
+                >
+                  <option value="Forbes">Forbes</option>
+                  <option value="The Guardian">The Guardian</option>
+                  <option value="CNN">CNN</option>
+                  <option value="BBC News">BBC News</option>
+                  <option value="Reuters">Reuters</option>
+                  <option value="Financial Times">Financial Times</option>
+                  <option value="Bloomberg">Bloomberg</option>
+                  <option value="Wall Street Journal">Wall Street Journal</option>
+                  <option value="Wired">Wired</option>
+                  <option value="Other Publication">Other Publication</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 mb-1">Category</label>
+                <select
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold focus:outline-indigo-500"
+                >
+                  <option value="breaking">Breaking & Top</option>
+                  <option value="business">Business & Markets</option>
+                  <option value="world">World & Geopolitics</option>
+                  <option value="tech">Tech & AI</option>
+                  <option value="science">Science & Health</option>
+                  <option value="culture">Culture & Ideas</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Original Article URL *</label>
+              <input
+                type="url"
+                required
+                placeholder="https://www.forbes.com/article/..."
+                value={customUrl}
+                onChange={e => setCustomUrl(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono focus:outline-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Brief Excerpt / Notes</label>
+              <textarea
+                rows={2}
+                placeholder="Key takeaway or summary of the article..."
+                value={customSummary}
+                onChange={e => setCustomSummary(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+              >
+                Add to News Feed
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* News Cards Grid with Direct Source Links and Add/Delete Beside Each Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredPicks.map(item => (
+          <div
+            key={item.id}
+            className="flex flex-col justify-between p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 space-y-3"
+          >
+            <div>
+              {/* Publication Header */}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${item.sourceBadgeClass}`}>
+                    {item.source}
+                  </span>
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    {item.time}
+                  </span>
+                </div>
+
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  {item.readTime}
+                </span>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 leading-snug hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                {item.title}
+              </h3>
+
+              {/* Excerpt */}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 line-clamp-3 leading-relaxed">
+                {item.summary}
+              </p>
+            </div>
+
+            {/* Bottom Actions Bar: Visit Original Source + ADD and DELETE Buttons Beside Each News Pick */}
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+              {/* Direct Link to Original Newspaper Source */}
+              <a
+                href={item.originalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => sounds.playClick()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold hover:opacity-90 transition-all shadow-2xs group"
+                title={`Visit original article on ${item.source}`}
+              >
+                <span>Read on {item.source}</span>
+                <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </a>
+
+              {/* ADD and DELETE Buttons Beside EACH Pick (User Request #4) */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Add / Save to Reading List Button */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleSave(item.id)}
+                  className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs ${
+                    item.isSaved
+                      ? 'bg-amber-50 text-amber-600 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300'
+                  }`}
+                  title={item.isSaved ? 'Remove from Saved' : 'Add to Reading List'}
+                >
+                  <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-[11px]">{item.isSaved ? 'Saved' : 'Add'}</span>
+                </button>
+
+                {/* Delete / Dismiss Button */}
+                <button
+                  type="button"
+                  onClick={() => handleDeletePick(item.id)}
+                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                  title="Delete this news pick from feed"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="text-[11px]">Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredPicks.length === 0 && (
+        <div className="p-12 text-center rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-2">
+          <Newspaper className="w-8 h-8 text-zinc-400 mx-auto opacity-60" />
+          <h4 className="text-sm font-bold text-zinc-700 dark:text-zinc-300">No News Picks Found</h4>
+          <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+            Try adjusting your search terms or switch category filters. You can also click &ldquo;Add Custom News Link&rdquo; to add your own articles.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

@@ -22,7 +22,10 @@ export const FinanceCalculators: React.FC<ToolComponentProps> = ({ toolId }) => 
     case 'investment-roi-calc':
       return <RoiCagrCalcView />;
     case 'salary-calc':
-      return <SalaryCalcView />;
+    case 'freelance-rate-calc':
+      return <SalaryFreelanceCalcView />;
+    case 'car-lease-buy-calc':
+      return <CarLeaseBuyCalcView />;
     case 'vat-tax-calc':
       return <VatTaxCalcView />;
     case 'currency-converter':
@@ -409,55 +412,302 @@ const RoiCagrCalcView: React.FC = () => {
   );
 };
 
-// 7. Salary & Take-Home Calculator
-const SalaryCalcView: React.FC = () => {
+// 7. Salary, Hourly & Freelance Billing Rate Calculator (Unified)
+const SalaryFreelanceCalcView: React.FC = () => {
+  const [tab, setTab] = useState<'salary' | 'freelance'>('salary');
+
+  // Salary mode state
   const [annualSalary, setAnnualSalary] = useState(75000);
   const [estimatedTax, setEstimatedTax] = useState(22);
   const [hoursPerWeek, setHoursPerWeek] = useState(40);
 
+  // Freelance mode state
+  const [desiredAnnualNet, setDesiredAnnualNet] = useState(85000);
+  const [annualOverhead, setAnnualOverhead] = useState(12000); // software, hardware, accounting
+  const [weeksVacation, setWeeksVacation] = useState(4);
+  const [billableHoursPerWeek, setBillableHoursPerWeek] = useState(25);
+  const [taxRateFreelance, setTaxRateFreelance] = useState(28); // self-employment tax
+  const [profitMargin, setProfitMargin] = useState(15); // % business buffer
+
+  // Calculations for Salary
   const netAnnual = annualSalary * (1 - estimatedTax / 100);
   const monthly = netAnnual / 12;
   const biweekly = netAnnual / 26;
   const weekly = netAnnual / 52;
-  const hourly = netAnnual / (52 * hoursPerWeek);
+  const hourly = hoursPerWeek > 0 ? netAnnual / (52 * hoursPerWeek) : 0;
+  const grossHourly = hoursPerWeek > 0 ? annualSalary / (52 * hoursPerWeek) : 0;
+
+  // Calculations for Freelance
+  const grossTargetIncome = (desiredAnnualNet / (1 - taxRateFreelance / 100)) + annualOverhead;
+  const totalTargetWithMargin = grossTargetIncome * (1 + profitMargin / 100);
+  const workingWeeks = Math.max(1, 52 - weeksVacation);
+  const annualBillableHours = workingWeeks * billableHoursPerWeek;
+  const targetHourlyRate = annualBillableHours > 0 ? totalTargetWithMargin / annualBillableHours : 0;
+  const targetDayRate = targetHourlyRate * (billableHoursPerWeek / 5);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Gross Annual Salary ($)</label>
-          <input
-            type="number"
-            value={annualSalary}
-            onChange={e => setAnnualSalary(parseFloat(e.target.value) || 0)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+      {/* Mode Switcher */}
+      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl max-w-sm mx-auto">
+        <button
+          onClick={() => { sounds.playClick(); setTab('salary'); }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl cursor-pointer transition-all ${
+            tab === 'salary'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          💼 Salary ⇄ Hourly Wage
+        </button>
+        <button
+          onClick={() => { sounds.playClick(); setTab('freelance'); }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl cursor-pointer transition-all ${
+            tab === 'freelance'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          ⚡ Freelance Hourly Rate
+        </button>
+      </div>
+
+      {tab === 'salary' ? (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Gross Annual Salary ($)</label>
+              <input
+                type="number"
+                value={annualSalary}
+                onChange={e => setAnnualSalary(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Tax & Deductions (%)</label>
+              <input
+                type="number"
+                value={estimatedTax}
+                onChange={e => setEstimatedTax(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Work Hours / Week</label>
+              <input
+                type="number"
+                value={hoursPerWeek}
+                onChange={e => setHoursPerWeek(parseInt(e.target.value) || 40)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ResultCard label="Monthly Take-Home" value={`$${monthly.toFixed(2)}`} highlight />
+            <ResultCard label="Bi-Weekly Paycheck" value={`$${biweekly.toFixed(2)}`} />
+            <ResultCard label="Net Hourly Wage" value={`$${hourly.toFixed(2)}`} />
+            <ResultCard label="Gross Hourly Rate" value={`$${grossHourly.toFixed(2)}`} />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Estimated Tax & Deductions (%)</label>
-          <input
-            type="number"
-            value={estimatedTax}
-            onChange={e => setEstimatedTax(parseFloat(e.target.value) || 0)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+      ) : (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Desired Net Income ($/yr)</label>
+              <input
+                type="number"
+                value={desiredAnnualNet}
+                onChange={e => setDesiredAnnualNet(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Annual Business Expenses ($)</label>
+              <input
+                type="number"
+                value={annualOverhead}
+                onChange={e => setAnnualOverhead(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Self-Employment Tax (%)</label>
+              <input
+                type="number"
+                value={taxRateFreelance}
+                onChange={e => setTaxRateFreelance(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Billable Hours / Week</label>
+              <input
+                type="number"
+                value={billableHoursPerWeek}
+                onChange={e => setBillableHoursPerWeek(parseInt(e.target.value) || 20)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+              />
+              <span className="text-[10px] text-zinc-400">Excludes admin, emails, marketing</span>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Vacation Weeks / Year</label>
+              <input
+                type="number"
+                value={weeksVacation}
+                onChange={e => setWeeksVacation(parseInt(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Profit Buffer / Margin (%)</label>
+              <input
+                type="number"
+                value={profitMargin}
+                onChange={e => setProfitMargin(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ResultCard label="Recommended Hourly Rate" value={`$${targetHourlyRate.toFixed(2)} / hr`} highlight />
+            <ResultCard label="Day Rate (Equiv.)" value={`$${targetDayRate.toFixed(0)} / day`} />
+            <ResultCard label="Gross Target Invoiced" value={`$${totalTargetWithMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })} / yr`} />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Work Hours / Week</label>
-          <input
-            type="number"
-            value={hoursPerWeek}
-            onChange={e => setHoursPerWeek(parseInt(e.target.value) || 40)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+      )}
+    </div>
+  );
+};
+
+// Vehicle Lease vs. Buy Calculator
+const CarLeaseBuyCalcView: React.FC = () => {
+  const [carPrice, setCarPrice] = useState(35000);
+  const [downPayment, setDownPayment] = useState(4000);
+  const [loanInterestRate, setLoanInterestRate] = useState(6.5);
+  const [leaseMonthlyPayment, setLeaseMonthlyPayment] = useState(420);
+  const [leaseDownPayment, setLeaseDownPayment] = useState(2500);
+  const [termMonths] = useState(36); // standard 3-year term
+  const [estimatedResaleValue, setEstimatedResaleValue] = useState(21000); // 60% after 3 yrs
+
+  // Purchase loan calculation
+  const loanPrincipal = Math.max(0, carPrice - downPayment);
+  const monthlyLoanRate = (loanInterestRate / 100) / 12;
+  const loanMonthlyPayment = monthlyLoanRate > 0
+    ? (loanPrincipal * monthlyLoanRate * Math.pow(1 + monthlyLoanRate, termMonths)) / (Math.pow(1 + monthlyLoanRate, termMonths) - 1)
+    : loanPrincipal / termMonths;
+
+  const totalBuyCost = downPayment + (loanMonthlyPayment * termMonths);
+  const netBuyCostAfterEquity = totalBuyCost - estimatedResaleValue;
+
+  // Lease calculation
+  const totalLeaseCost = leaseDownPayment + (leaseMonthlyPayment * termMonths);
+
+  const buyIsBetter = netBuyCostAfterEquity < totalLeaseCost;
+  const savings = Math.abs(netBuyCostAfterEquity - totalLeaseCost);
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Purchase Parameters */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            Vehicle Purchase (Buy)
+          </h4>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Vehicle Price ($)</label>
+            <input
+              type="number"
+              value={carPrice}
+              onChange={e => setCarPrice(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Down Payment ($)</label>
+            <input
+              type="number"
+              value={downPayment}
+              onChange={e => setDownPayment(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Auto Loan Interest Rate (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={loanInterestRate}
+              onChange={e => setLoanInterestRate(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Estimated 3-Yr Resale / Equity ($)</label>
+            <input
+              type="number"
+              value={estimatedResaleValue}
+              onChange={e => setEstimatedResaleValue(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+        </div>
+
+        {/* Lease Parameters */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Vehicle Lease
+          </h4>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Monthly Lease Payment ($)</label>
+            <input
+              type="number"
+              value={leaseMonthlyPayment}
+              onChange={e => setLeaseMonthlyPayment(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Lease Down Payment / Drive-Off ($)</label>
+            <input
+              type="number"
+              value={leaseDownPayment}
+              onChange={e => setLeaseDownPayment(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Lease Tenure (Fixed 36 Months)</label>
+            <input
+              type="text"
+              readOnly
+              value="36 Months (3 Years)"
+              className="w-full border rounded-xl p-2 font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-xs"
+            />
+          </div>
         </div>
       </div>
 
+      {/* Comparison Verdict */}
+      <div className={`p-4 rounded-2xl border text-center ${
+        buyIsBetter
+          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-900 dark:text-emerald-200'
+          : 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 text-indigo-900 dark:text-indigo-200'
+      }`}>
+        <span className="font-bold text-sm block">
+          Verdict: {buyIsBetter ? 'Buying is Financially Cheaper' : 'Leasing is Financially Cheaper'}
+        </span>
+        <span className="text-xs opacity-90">
+          After 3 years factoring retained equity, {buyIsBetter ? 'buying' : 'leasing'} saves approx ${savings.toFixed(0)}.
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <ResultCard label="Monthly Take-Home" value={`$${monthly.toFixed(2)}`} highlight />
-        <ResultCard label="Bi-Weekly" value={`$${biweekly.toFixed(2)}`} />
-        <ResultCard label="Weekly" value={`$${weekly.toFixed(2)}`} />
-        <ResultCard label="Net Hourly Wage" value={`$${hourly.toFixed(2)}`} />
+        <ResultCard label="Loan Monthly" value={`$${loanMonthlyPayment.toFixed(2)}`} />
+        <ResultCard label="Lease Monthly" value={`$${leaseMonthlyPayment.toFixed(2)}`} />
+        <ResultCard label="Net 3-Yr Buy Cost" value={`$${netBuyCostAfterEquity.toFixed(0)}`} highlight={buyIsBetter} />
+        <ResultCard label="Total 3-Yr Lease Cost" value={`$${totalLeaseCost.toFixed(0)}`} highlight={!buyIsBetter} />
       </div>
     </div>
   );
@@ -585,45 +835,59 @@ const CurrencyConverterView: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<string>('Standard Rates');
   const [copied, setCopied] = useState(false);
 
-  // Fetch live exchange rates from Open Exchange API
-  const fetchLiveRates = async () => {
+  // Fetch live exchange rates directly from primary currency API matching Google Finance / ECB
+  const fetchLiveRates = async (base: string = fromCurr) => {
     setLoading(true);
     try {
-      const res = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (!res.ok) throw new Error('Live API unreachable');
+      // 1. Try fawazahmed0 currency-api (mirrors Google Finance & ECB daily/hourly)
+      const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${base.toLowerCase()}.json`);
+      if (!res.ok) throw new Error('CDN unavailable');
       const data = await res.json();
-      if (data && data.rates) {
-        setRates(prev => ({
-          ...prev,
-          ...data.rates,
-        }));
+      const rawRates = data[base.toLowerCase()];
+      if (rawRates) {
+        const uppercaseRates: Record<string, number> = {};
+        Object.entries(rawRates).forEach(([k, v]) => {
+          uppercaseRates[k.toUpperCase()] = v as number;
+        });
+        setRates(uppercaseRates);
         setIsLive(true);
-        const dateStr = data.time_last_update_utc ? new Date(data.time_last_update_utc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        setLastUpdated(`Live at ${dateStr}`);
+        setLastUpdated(`Live (Google/ECB source · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
         sounds.playSuccess();
+        return;
       }
     } catch {
-      setIsLive(false);
-      setLastUpdated('Offline (Verified Base Rates)');
+      // 2. Fallback to open.er-api.com with base currency
+      try {
+        const res2 = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+        if (!res2.ok) throw new Error('Fallback failed');
+        const data2 = await res2.json();
+        if (data2 && data2.rates) {
+          setRates(data2.rates);
+          setIsLive(true);
+          setLastUpdated(`Live (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+          sounds.playSuccess();
+          return;
+        }
+      } catch {
+        setIsLive(false);
+        setLastUpdated('Cached baseline');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLiveRates();
-  }, []);
+    fetchLiveRates(fromCurr);
+  }, [fromCurr]);
 
   const currencies = Object.keys(VERIFIED_FALLBACK_RATES);
 
-  // Exchange calculation relative to USD base
-  const fromRate = rates[fromCurr] || VERIFIED_FALLBACK_RATES[fromCurr]?.rate || 1;
-  const toRate = rates[toCurr] || VERIFIED_FALLBACK_RATES[toCurr]?.rate || 1;
-
-  // Formula: Amount in USD = Amount / fromRate; Converted Amount = Amount in USD * toRate
-  const converted = fromRate > 0 ? (amount / fromRate) * toRate : 0;
-  const singleUnitConverted = fromRate > 0 ? (1 / fromRate) * toRate : 0;
-  const inverseUnitConverted = toRate > 0 ? (1 / toRate) * fromRate : 0;
+  // Direct accurate conversion
+  const directRate = rates[toCurr] || (rates[toCurr.toLowerCase()] as number) || (VERIFIED_FALLBACK_RATES[toCurr]?.rate / (VERIFIED_FALLBACK_RATES[fromCurr]?.rate || 1)) || 1;
+  const converted = amount * directRate;
+  const singleUnitConverted = directRate;
+  const inverseUnitConverted = directRate > 0 ? 1 / directRate : 0;
 
   const handleSwap = () => {
     sounds.playClick();
@@ -662,7 +926,7 @@ const CurrencyConverterView: React.FC = () => {
         </div>
 
         <button
-          onClick={fetchLiveRates}
+          onClick={() => fetchLiveRates()}
           disabled={loading}
           className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 cursor-pointer active:scale-95 transition-all shadow-2xs"
           title="Refresh live exchange rates"
@@ -802,8 +1066,7 @@ const CurrencyConverterView: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {popularMatrix.map(code => {
-            const targetRate = rates[code] || VERIFIED_FALLBACK_RATES[code]?.rate || 1;
-            const singleVal = fromRate > 0 ? (1 / fromRate) * targetRate : 0;
+            const singleVal = rates[code] || (rates[code.toLowerCase()] as number) || (VERIFIED_FALLBACK_RATES[code]?.rate / (VERIFIED_FALLBACK_RATES[fromCurr]?.rate || 1)) || 1;
             const info = VERIFIED_FALLBACK_RATES[code];
             return (
               <button
@@ -880,6 +1143,16 @@ const ExpenseSplitterView: React.FC = () => {
     setNewMember('');
   };
 
+  const removeMember = (name: string) => {
+    if (members.length <= 1) return;
+    sounds.playClick();
+    const updated = members.filter(m => m !== name);
+    setMembers(updated);
+    if (payer === name && updated.length > 0) {
+      setPayer(updated[0]);
+    }
+  };
+
   // Balance calculation
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const sharePerPerson = members.length > 0 ? total / members.length : 0;
@@ -896,11 +1169,22 @@ const ExpenseSplitterView: React.FC = () => {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* People */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Group Members</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Group Members ({members.length})</h4>
         <div className="flex flex-wrap gap-2 mb-3">
           {members.map(m => (
-            <span key={m} className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-medium">
-              {m}
+            <span key={m} className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-2xs">
+              <span>{m}</span>
+              {members.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeMember(m)}
+                  className="text-zinc-400 hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
+                  title={`Remove ${m}`}
+                  aria-label={`Remove ${m}`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -914,7 +1198,7 @@ const ExpenseSplitterView: React.FC = () => {
           />
           <button
             onClick={addMember}
-            className="px-4 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-medium rounded-xl hover:opacity-90"
+            className="px-4 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-medium rounded-xl hover:opacity-90 cursor-pointer"
           >
             Add
           </button>
@@ -998,30 +1282,125 @@ const ExpenseSplitterView: React.FC = () => {
   );
 };
 
-// 11. 50/30/20 Budget Calculator
+// 11. 50/30/20 Budget Calculator (With Editable Percentages & Presets)
 const BudgetCalcView: React.FC = () => {
   const [monthlyIncome, setMonthlyIncome] = useState(4500);
+  const [needsPct, setNeedsPct] = useState(50);
+  const [wantsPct, setWantsPct] = useState(30);
+  const [savingsPct, setSavingsPct] = useState(20);
 
-  const needs = monthlyIncome * 0.5;
-  const wants = monthlyIncome * 0.3;
-  const savings = monthlyIncome * 0.2;
+  const totalPct = needsPct + wantsPct + savingsPct;
+  const needs = (monthlyIncome * needsPct) / 100;
+  const wants = (monthlyIncome * wantsPct) / 100;
+  const savings = (monthlyIncome * savingsPct) / 100;
+
+  const setPreset = (n: number, w: number, s: number) => {
+    sounds.playClick();
+    setNeedsPct(n);
+    setWantsPct(w);
+    setSavingsPct(s);
+  };
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <label className="block text-xs text-zinc-500 mb-1">Monthly After-Tax Income ($)</label>
-        <input
-          type="number"
-          value={monthlyIncome}
-          onChange={e => setMonthlyIncome(parseFloat(e.target.value) || 0)}
-          className="w-full border rounded-xl p-3 font-mono text-xl bg-white dark:bg-zinc-950 dark:border-zinc-700"
-        />
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Monthly After-Tax Income ($)</label>
+          <input
+            type="number"
+            value={monthlyIncome}
+            onChange={e => setMonthlyIncome(parseFloat(e.target.value) || 0)}
+            className="w-full border rounded-xl p-3 font-mono text-xl bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+
+        {/* Quick Presets */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+            Budget Allocation Presets
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setPreset(50, 30, 20)}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
+                needsPct === 50 && wantsPct === 30 && savingsPct === 20
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+              }`}
+            >
+              50/30/20 Standard
+            </button>
+            <button
+              onClick={() => setPreset(60, 20, 20)}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
+                needsPct === 60 && wantsPct === 20 && savingsPct === 20
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+              }`}
+            >
+              60/20/20 High-Cost Living
+            </button>
+            <button
+              onClick={() => setPreset(70, 20, 10)}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
+                needsPct === 70 && wantsPct === 20 && savingsPct === 10
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+              }`}
+            >
+              70/20/10 Tight Margin
+            </button>
+          </div>
+        </div>
+
+        {/* Editable Percentage Inputs */}
+        <div className="grid grid-cols-3 gap-3 pt-2">
+          <div>
+            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Needs (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={needsPct}
+              onChange={e => setNeedsPct(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Wants (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={wantsPct}
+              onChange={e => setWantsPct(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Savings (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={savingsPct}
+              onChange={e => setSavingsPct(parseFloat(e.target.value) || 0)}
+              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+            />
+          </div>
+        </div>
+
+        {totalPct !== 100 && (
+          <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-xl text-center">
+            Total allocation is {totalPct}% (adjust inputs so they total 100% for a balanced budget)
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ResultCard label="Needs (50%)" value={`$${needs.toFixed(2)}`} subtext="Rent, food, utilities, health" highlight />
-        <ResultCard label="Wants (30%)" value={`$${wants.toFixed(2)}`} subtext="Dining, travel, hobbies" />
-        <ResultCard label="Savings & Debt (20%)" value={`$${savings.toFixed(2)}`} subtext="Investments, emergency fund" />
+        <ResultCard label={`Needs (${needsPct}%)`} value={`$${needs.toFixed(2)}`} subtext="Rent, food, utilities, health" highlight />
+        <ResultCard label={`Wants (${wantsPct}%)`} value={`$${wants.toFixed(2)}`} subtext="Dining, travel, hobbies" />
+        <ResultCard label={`Savings & Debt (${savingsPct}%)`} value={`$${savings.toFixed(2)}`} subtext="Investments, emergency fund" />
       </div>
     </div>
   );

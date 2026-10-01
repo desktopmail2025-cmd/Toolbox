@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, Github } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
+import { getCategoryTheme } from '../../utils/themeColors';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -239,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="w-full flex items-center justify-between p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors group cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${getCategoryTheme(tool.categoryId).iconBg} border ${getCategoryTheme(tool.categoryId).border} shadow-2xs`}>
                             <IconRenderer name={tool.iconName} size={14} />
                           </div>
                           <div className="min-w-0">
@@ -302,6 +303,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
+
+          {/* GitHub Repository Link */}
+          <a
+            href="https://github.com/desktopmail2025-cmd/Toolbox"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub Repository"
+            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 active:scale-95 transition-all"
+            title="View desktopmail2025-cmd/Toolbox on GitHub"
+          >
+            <Github className="w-4 h-4" />
+          </a>
         </div>
       </div>
     </header>

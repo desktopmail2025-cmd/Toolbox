@@ -3,6 +3,7 @@ import { Search, X, Star, ArrowRight } from 'lucide-react';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
+import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { sounds } from '../../utils/audio';
 
 interface SearchModalProps {
@@ -139,7 +140,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-200/70 text-zinc-700 dark:bg-zinc-700/60 dark:text-zinc-200">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
                         <IconRenderer name={tool.iconName} size={18} />
                       </div>
                       <div className="min-w-0">

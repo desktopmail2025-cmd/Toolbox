@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../utils/audio';
-import { RotateCcw, Trophy, Zap, Play, Bomb } from 'lucide-react';
+import { RotateCcw, Trophy, Zap, Play, Bomb, Flag, Sparkles, Flame, Check } from 'lucide-react';
+import { ExtendedUtilities } from './ExtendedUtilities';
 
 interface ToolComponentProps {
   toolId: string;
@@ -23,6 +24,14 @@ export const GameZone: React.FC<ToolComponentProps> = ({ toolId }) => {
       return <TapSpeedView />;
     case 'game-quick-math':
       return <QuickMathView />;
+    case 'game-word-maker':
+    case 'game-word-challenge':
+    case 'game-word-biz':
+      return <WordChallengeView />;
+    case 'game-rps':
+    case 'game-simon':
+    case 'game-sudoku':
+      return <ExtendedUtilities toolId={toolId} />;
     default:
       return <Game2048View />;
   }
@@ -335,31 +344,57 @@ const TicTacToeView: React.FC = () => {
   );
 };
 
-// 3. Memory Match Cards Game
-const EMOJIS = ['🚀', '🍕', '🎮', '💎', '🐶', '🔥'];
+// 3. Memory Match Cards Game (Item 28: Complete Correct Implementation)
+const THEMES: Record<string, string[]> = {
+  Emojis: ['🚀', '🍕', '🎮', '💎', '🐶', '🔥', '🥑', '⚡'],
+  Animals: ['🦁', '🐯', '🐼', '🐨', '🦊', '🐰', '🐙', '🦄'],
+  Tech: ['💻', '📱', '🔋', '🔬', '🔭', '💡', '📡', '🤖'],
+};
 
 const MemoryMatchView: React.FC = () => {
+  const [theme, setTheme] = useState<'Emojis' | 'Animals' | 'Tech'>('Emojis');
   const [cards, setCards] = useState<string[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [bestMoves, setBestMoves] = useState<number>(() => {
+    return parseInt(localStorage.getItem('omni_memory_best_moves') || '0', 10);
+  });
 
-  const initGame = () => {
+  const initGame = (selectedTheme = theme) => {
     sounds.playClick();
-    const deck = [...EMOJIS, ...EMOJIS].sort(() => Math.random() - 0.5);
+    const source = THEMES[selectedTheme];
+    const deck = [...source, ...source].sort(() => Math.random() - 0.5);
     setCards(deck);
     setFlipped([]);
     setMatched([]);
     setMoves(0);
+    setSeconds(0);
+    setIsPlaying(false);
   };
 
   useEffect(() => {
-    initGame();
-  }, []);
+    initGame(theme);
+  }, [theme]);
+
+  // Timer loop
+  useEffect(() => {
+    let interval: any;
+    if (isPlaying && matched.length < cards.length) {
+      interval = setInterval(() => {
+        setSeconds(s => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, matched.length, cards.length]);
 
   const handleCardClick = (idx: number) => {
     if (flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
+    if (!isPlaying) setIsPlaying(true);
     sounds.playClick();
+
     const newFlipped = [...flipped, idx];
     setFlipped(newFlipped);
 
@@ -371,67 +406,148 @@ const MemoryMatchView: React.FC = () => {
         setMatched(m => {
           const next = [...m, first, second];
           if (next.length === cards.length) {
-            confetti({ particleCount: 50 });
+            confetti({ particleCount: 60 });
+            if (bestMoves === 0 || moves + 1 < bestMoves) {
+              setBestMoves(moves + 1);
+              localStorage.setItem('omni_memory_best_moves', String(moves + 1));
+            }
           }
           return next;
         });
         setFlipped([]);
       } else {
-        setTimeout(() => setFlipped([]), 800);
+        setTimeout(() => setFlipped([]), 850);
       }
     }
   };
 
+  const accuracy = moves > 0 ? Math.round(((matched.length / 2) / moves) * 100) : 100;
+  const isWon = matched.length === cards.length && cards.length > 0;
+
   return (
-    <div className="max-w-sm mx-auto space-y-4 text-center">
-      <div className="flex justify-between items-center text-xs font-semibold">
-        <span>Moves: {moves}</span>
-        <button onClick={initGame} className="flex items-center gap-1 px-3 py-1.5 border rounded-xl hover:bg-zinc-100">
+    <div className="max-w-md mx-auto space-y-5 text-center">
+      {/* Theme & Stats Bar */}
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
+          {(['Emojis', 'Animals', 'Tech'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                theme === t
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 font-bold shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => initGame()}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+        >
           <RotateCcw className="w-3.5 h-3.5" /> Restart
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-2.5">
-        {cards.map((emoji, idx) => {
-          const isRevealed = flipped.includes(idx) || matched.includes(idx);
+      {/* Dashboard Metrics */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Moves</span>
+          <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{moves}</span>
+        </div>
+        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Time</span>
+          <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{seconds}s</span>
+        </div>
+        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Accuracy</span>
+          <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">{accuracy}%</span>
+        </div>
+        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Pairs</span>
+          <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
+            {matched.length / 2}/{cards.length / 2}
+          </span>
+        </div>
+      </div>
+
+      {/* 4x4 Cards Grid */}
+      <div className="grid grid-cols-4 gap-2.5 p-3 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+        {cards.map((item, idx) => {
+          const isFlipped = flipped.includes(idx);
+          const isMatched = matched.includes(idx);
+          const isRevealed = isFlipped || isMatched;
+
           return (
             <button
               key={idx}
               onClick={() => handleCardClick(idx)}
-              className={`h-20 rounded-2xl flex items-center justify-center text-3xl transition-all duration-200 border ${
-                isRevealed
-                  ? 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 shadow-sm'
-                  : 'bg-zinc-900 dark:bg-zinc-100 text-transparent border-transparent'
+              className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border cursor-pointer select-none active:scale-95 ${
+                isMatched
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-xs'
+                  : isFlipped
+                  ? 'bg-white dark:bg-zinc-800 border-indigo-400 dark:border-indigo-600 shadow-md scale-102'
+                  : 'bg-zinc-900 text-transparent dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 border-transparent shadow-sm'
               }`}
             >
-              {isRevealed ? emoji : '❓'}
+              {isRevealed ? item : '✨'}
             </button>
           );
         })}
       </div>
+
+      {isWon && (
+        <div className="p-4 bg-emerald-600 text-white rounded-2xl text-sm font-bold shadow-md flex items-center justify-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-300" />
+          <span>All Pairs Matched in {moves} moves and {seconds}s!</span>
+        </div>
+      )}
     </div>
   );
 };
 
-// 4. Minesweeper Classic
+// 4. Minesweeper Classic (Item 29: Safe First-Click, Mobile Flags & Difficulty)
+const NUMBER_COLORS: Record<number, string> = {
+  1: 'text-blue-600 dark:text-blue-400',
+  2: 'text-emerald-600 dark:text-emerald-400',
+  3: 'text-red-600 dark:text-red-400',
+  4: 'text-indigo-800 dark:text-indigo-300',
+  5: 'text-amber-700 dark:text-amber-400',
+  6: 'text-cyan-600 dark:text-cyan-400',
+  7: 'text-purple-700 dark:text-purple-400',
+  8: 'text-zinc-600 dark:text-zinc-400',
+};
+
 const MinesweeperView: React.FC = () => {
-  const size = 8;
-  const numMines = 10;
+  const [size, setSize] = useState<number>(8);
+  const [numMines, setNumMines] = useState<number>(10);
   const [grid, setGrid] = useState<{ isMine: boolean; revealed: boolean; flag: boolean; count: number }[][]>([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
+  const [firstClick, setFirstClick] = useState(true);
+  const [flagMode, setFlagMode] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  const initGrid = () => {
+  const initGrid = (boardSize = size, mineCount = numMines) => {
     sounds.playClick();
-    const g = Array.from({ length: size }, () =>
-      Array.from({ length: size }, () => ({ isMine: false, revealed: false, flag: false, count: 0 }))
+    const g = Array.from({ length: boardSize }, () =>
+      Array.from({ length: boardSize }, () => ({
+        isMine: false,
+        revealed: false,
+        flag: false,
+        count: 0,
+      }))
     );
 
     // Plant mines
     let planted = 0;
-    while (planted < numMines) {
-      const r = Math.floor(Math.random() * size);
-      const c = Math.floor(Math.random() * size);
+    while (planted < mineCount) {
+      const r = Math.floor(Math.random() * boardSize);
+      const c = Math.floor(Math.random() * boardSize);
       if (!g[r][c].isMine) {
         g[r][c].isMine = true;
         planted++;
@@ -439,15 +555,15 @@ const MinesweeperView: React.FC = () => {
     }
 
     // Calculate neighbour counts
-    for (let r = 0; r < size; r++) {
-      for (let c = 0; c < size; c++) {
+    for (let r = 0; r < boardSize; r++) {
+      for (let c = 0; c < boardSize; c++) {
         if (g[r][c].isMine) continue;
         let count = 0;
         for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
             const nr = r + dr;
             const nc = c + dc;
-            if (nr >= 0 && nr < size && nc >= 0 && nc < size && g[nr][nc].isMine) {
+            if (nr >= 0 && nr < boardSize && nc >= 0 && nc < boardSize && g[nr][nc].isMine) {
               count++;
             }
           }
@@ -459,29 +575,99 @@ const MinesweeperView: React.FC = () => {
     setGrid(g);
     setGameOver(false);
     setGameWon(false);
+    setFirstClick(true);
+    setTimerSeconds(0);
+    setIsTimerRunning(false);
   };
 
   useEffect(() => {
-    initGrid();
-  }, []);
+    initGrid(size, numMines);
+  }, [size, numMines]);
 
-  const revealCell = (r: number, c: number) => {
-    if (gameOver || gameWon || grid[r][c].revealed || grid[r][c].flag) return;
-    sounds.playClick();
+  useEffect(() => {
+    let t: any;
+    if (isTimerRunning && !gameOver && !gameWon) {
+      t = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+    }
+    return () => clearInterval(t);
+  }, [isTimerRunning, gameOver, gameWon]);
 
-    const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+  const flagsPlaced = grid.flat().filter(c => c.flag).length;
+  const minesLeft = Math.max(0, numMines - flagsPlaced);
 
-    if (newGrid[r][c].isMine) {
-      // Hit mine
-      newGrid.forEach(row => row.forEach(cell => { if (cell.isMine) cell.revealed = true; }));
-      setGrid(newGrid);
-      setGameOver(true);
+  const handleCellAction = (r: number, c: number) => {
+    if (gameOver || gameWon || grid[r][c].revealed) return;
+
+    if (flagMode) {
+      toggleFlag(r, c);
       return;
     }
 
-    // Flood fill empty
+    if (grid[r][c].flag) return;
+
+    if (!isTimerRunning) setIsTimerRunning(true);
+
+    const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+
+    // Safe first click guarantee
+    if (firstClick) {
+      setFirstClick(false);
+      if (newGrid[r][c].isMine) {
+        newGrid[r][c].isMine = false;
+        let placed = false;
+        for (let row = 0; row < size && !placed; row++) {
+          for (let col = 0; col < size && !placed; col++) {
+            if (!newGrid[row][col].isMine && (row !== r || col !== c)) {
+              newGrid[row][col].isMine = true;
+              placed = true;
+            }
+          }
+        }
+        for (let row = 0; row < size; row++) {
+          for (let col = 0; col < size; col++) {
+            if (newGrid[row][col].isMine) continue;
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const nr = row + dr;
+                const nc = col + dc;
+                if (nr >= 0 && nr < size && nc >= 0 && nc < size && newGrid[nr][nc].isMine) {
+                  count++;
+                }
+              }
+            }
+            newGrid[row][col].count = count;
+          }
+        }
+      }
+    }
+
+    if (newGrid[r][c].isMine) {
+      sounds.playClick(200, 0.3);
+      newGrid.forEach(row =>
+        row.forEach(cell => {
+          if (cell.isMine) cell.revealed = true;
+        })
+      );
+      setGrid(newGrid);
+      setGameOver(true);
+      setIsTimerRunning(false);
+      return;
+    }
+
+    sounds.playClick();
+
     const flood = (cr: number, cc: number) => {
-      if (cr < 0 || cr >= size || cc < 0 || cc >= size || newGrid[cr][cc].revealed || newGrid[cr][cc].isMine) return;
+      if (
+        cr < 0 ||
+        cr >= size ||
+        cc < 0 ||
+        cc >= size ||
+        newGrid[cr][cc].revealed ||
+        newGrid[cr][cc].isMine ||
+        newGrid[cr][cc].flag
+      )
+        return;
       newGrid[cr][cc].revealed = true;
       if (newGrid[cr][cc].count === 0) {
         for (let dr = -1; dr <= 1; dr++) {
@@ -495,17 +681,17 @@ const MinesweeperView: React.FC = () => {
     flood(r, c);
     setGrid(newGrid);
 
-    // Check win
     const unrevealedSafe = newGrid.flat().filter(cell => !cell.isMine && !cell.revealed).length;
     if (unrevealedSafe === 0) {
       setGameWon(true);
+      setIsTimerRunning(false);
       sounds.playSuccess();
-      confetti({ particleCount: 50 });
+      confetti({ particleCount: 60 });
     }
   };
 
-  const toggleFlag = (e: React.MouseEvent, r: number, c: number) => {
-    e.preventDefault();
+  const toggleFlag = (r: number, c: number, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (gameOver || gameWon || grid[r][c].revealed) return;
     sounds.playClick();
     const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
@@ -513,46 +699,334 @@ const MinesweeperView: React.FC = () => {
     setGrid(newGrid);
   };
 
+  const smiley = gameOver ? '😵' : gameWon ? '😎' : '🙂';
+
   return (
-    <div className="max-w-xs mx-auto space-y-4 text-center">
-      <div className="flex justify-between items-center text-xs font-semibold">
-        <span className="flex items-center gap-1"><Bomb className="w-3.5 h-3.5 text-red-500" /> Mines: 10</span>
-        <button onClick={initGrid} className="px-3 py-1 border rounded-lg hover:bg-zinc-100 flex items-center gap-1">
-          <RotateCcw className="w-3 h-3" /> New Game
+    <div className="max-w-sm mx-auto space-y-4 text-center">
+      {/* Controls Bar */}
+      <div className="flex justify-between items-center">
+        <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
+          <button
+            onClick={() => {
+              setSize(8);
+              setNumMines(10);
+            }}
+            className={`px-2.5 py-1 rounded-lg ${
+              size === 8 ? 'bg-white dark:bg-zinc-700 font-bold shadow-xs' : 'text-zinc-500'
+            }`}
+          >
+            8x8 (10)
+          </button>
+          <button
+            onClick={() => {
+              setSize(10);
+              setNumMines(16);
+            }}
+            className={`px-2.5 py-1 rounded-lg ${
+              size === 10 ? 'bg-white dark:bg-zinc-700 font-bold shadow-xs' : 'text-zinc-500'
+            }`}
+          >
+            10x10 (16)
+          </button>
+        </div>
+
+        <button
+          onClick={() => {
+            sounds.playClick();
+            setFlagMode(!flagMode);
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+            flagMode
+              ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
+              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+          }`}
+          title="Toggle flag placing mode"
+        >
+          <Flag className="w-3.5 h-3.5" />
+          <span>{flagMode ? 'Flagging' : 'Digging'}</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-8 gap-1 bg-zinc-300 dark:bg-zinc-800 p-2 rounded-2xl select-none">
+      {/* Classic Dashboard */}
+      <div className="p-3.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
+        <div className="font-mono text-lg font-black bg-zinc-900 text-red-500 px-3 py-1 rounded-lg shadow-inner">
+          {String(minesLeft).padStart(3, '0')}
+        </div>
+
+        <button
+          onClick={() => initGrid(size, numMines)}
+          className="text-2xl p-1 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-transform active:scale-90 cursor-pointer"
+          title="Restart game"
+        >
+          {smiley}
+        </button>
+
+        <div className="font-mono text-lg font-black bg-zinc-900 text-red-500 px-3 py-1 rounded-lg shadow-inner">
+          {String(Math.min(timerSeconds, 999)).padStart(3, '0')}
+        </div>
+      </div>
+
+      {/* Minesweeper Grid */}
+      <div
+        className="p-2.5 bg-zinc-200 dark:bg-zinc-800/90 rounded-2xl select-none inline-grid gap-1 shadow-inner"
+        style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+      >
         {grid.map((row, r) =>
           row.map((cell, c) => (
             <button
               key={`${r}-${c}`}
-              onClick={() => revealCell(r, c)}
-              onContextMenu={e => toggleFlag(e, r, c)}
-              className={`h-9 rounded-md flex items-center justify-center font-bold text-xs font-mono transition-colors ${
+              onClick={() => handleCellAction(r, c)}
+              onContextMenu={e => toggleFlag(r, c, e)}
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center font-bold text-sm font-mono transition-all cursor-pointer select-none active:scale-95 ${
                 cell.revealed
                   ? cell.isMine
-                    ? 'bg-red-500 text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100'
-                  : 'bg-zinc-200 dark:bg-zinc-700 hover:opacity-80'
+                    ? 'bg-rose-500 text-white animate-bounce'
+                    : 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800'
+                  : 'bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-350 dark:hover:bg-zinc-650 shadow-2xs'
               }`}
             >
-              {cell.revealed
-                ? cell.isMine
-                  ? '💣'
-                  : cell.count > 0
-                  ? cell.count
-                  : ''
-                : cell.flag
-                ? '🚩'
-                : ''}
+              {cell.revealed ? (
+                cell.isMine ? (
+                  '💣'
+                ) : cell.count > 0 ? (
+                  <span className={NUMBER_COLORS[cell.count] || 'text-zinc-900'}>{cell.count}</span>
+                ) : (
+                  ''
+                )
+              ) : cell.flag ? (
+                '🚩'
+              ) : (
+                ''
+              )}
             </button>
           ))
         )}
       </div>
 
-      {gameOver && <p className="text-xs font-bold text-red-500">Boom! You hit a mine.</p>}
+      {gameOver && <p className="text-xs font-bold text-rose-500">Boom! You hit a mine. Tap smiley to retry.</p>}
       {gameWon && <p className="text-xs font-bold text-emerald-500">Congratulations! You cleared all mines! 🎉</p>}
+    </div>
+  );
+};
+
+// 4.5 Word Maker / Word Challenge / Word Biz (Item 30)
+const DICTIONARY_WORDS = new Set([
+  'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'ANY', 'CAN', 'HAD', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW', 'MAN', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WAY', 'WHO', 'BOY', 'DID', 'ITS', 'LET', 'PUT', 'SAY', 'SHE', 'TOO', 'USE',
+  'THAT', 'WITH', 'HAVE', 'THIS', 'WILL', 'YOUR', 'FROM', 'THEY', 'KNOW', 'WANT', 'BEEN', 'GOOD', 'MUCH', 'SOME', 'TIME', 'VERY', 'WHEN', 'COME', 'HERE', 'JUST', 'LIKE', 'LONG', 'MAKE', 'MANY', 'MORE', 'ONLY', 'OVER', 'SUCH', 'TAKE', 'THAN', 'THEM', 'WELL', 'WERE', 'WORK', 'LIFE', 'FREE', 'CODE', 'GAME', 'PLAY', 'WORD', 'BEAR', 'LION', 'BIRD', 'STAR', 'MOON', 'BLUE', 'GOLD', 'FAST',
+  'ABOUT', 'AFTER', 'AGAIN', 'BELOW', 'COULD', 'EVERY', 'FIRST', 'FOUND', 'GREAT', 'HOUSE', 'LARGE', 'LEARN', 'NEVER', 'OTHER', 'PLACE', 'PLANT', 'POINT', 'RIGHT', 'SMALL', 'SOUND', 'SPELL', 'STILL', 'STUDY', 'THEIR', 'THERE', 'THESE', 'THING', 'THINK', 'THREE', 'WATER', 'WHERE', 'WHICH', 'WORLD', 'WOULD', 'WRITE', 'BRAIN', 'CLOUD', 'LIGHT', 'DREAM', 'SMART', 'POWER', 'SPACE',
+  'ACTION', 'BEAUTY', 'CHANGE', 'CHANCE', 'FRIEND', 'FUTURE', 'GARDEN', 'HEALTH', 'LETTER', 'MARKET', 'NATION', 'NATURE', 'PEOPLE', 'PLANET', 'SCHOOL', 'SEARCH', 'SIMPLE', 'SPRING', 'STREET', 'SUMMER', 'SYSTEM', 'TRAVEL', 'WINDOW', 'WINTER', 'YELLOW', 'PUZZLE', 'WONDER', 'CODING',
+]);
+
+const WordChallengeView: React.FC = () => {
+  const [letters, setLetters] = useState<string[]>([]);
+  const [currentWord, setCurrentWord] = useState('');
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [isRoundActive, setIsRoundActive] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const generateLetters = () => {
+    const vowels = 'AEIOU';
+    const consonants = 'BCDFGHJKLMNPQRSTVWXYZ';
+    const gridLetters: string[] = [];
+
+    for (let i = 0; i < 5; i++) {
+      gridLetters.push(vowels[Math.floor(Math.random() * vowels.length)]);
+    }
+    for (let i = 0; i < 11; i++) {
+      gridLetters.push(consonants[Math.floor(Math.random() * consonants.length)]);
+    }
+    return gridLetters.sort(() => Math.random() - 0.5);
+  };
+
+  const startRound = () => {
+    sounds.playClick();
+    setLetters(generateLetters());
+    setCurrentWord('');
+    setSelectedIndices([]);
+    setFoundWords([]);
+    setScore(0);
+    setTimeLeft(60);
+    setIsRoundActive(true);
+    setFeedback(null);
+  };
+
+  useEffect(() => {
+    setLetters(generateLetters());
+  }, []);
+
+  useEffect(() => {
+    let t: any;
+    if (isRoundActive && timeLeft > 0) {
+      t = setInterval(() => {
+        setTimeLeft(tl => {
+          if (tl <= 1) {
+            sounds.playSuccess();
+            setIsRoundActive(false);
+            confetti({ particleCount: 50 });
+            return 0;
+          }
+          return tl - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(t);
+  }, [isRoundActive, timeLeft]);
+
+  const selectTile = (idx: number) => {
+    if (!isRoundActive) return;
+    if (selectedIndices.includes(idx)) {
+      if (selectedIndices[selectedIndices.length - 1] === idx) {
+        sounds.playClick();
+        setSelectedIndices(prev => prev.slice(0, -1));
+        setCurrentWord(prev => prev.slice(0, -1));
+      }
+      return;
+    }
+
+    sounds.playClick();
+    setSelectedIndices(prev => [...prev, idx]);
+    setCurrentWord(prev => prev + letters[idx]);
+  };
+
+  const submitWord = () => {
+    if (!isRoundActive || currentWord.length < 3) return;
+    const word = currentWord.toUpperCase();
+
+    if (foundWords.includes(word)) {
+      sounds.playClick(300, 0.1);
+      setFeedback('Already Found!');
+      setTimeout(() => setFeedback(null), 1500);
+      return;
+    }
+
+    if (DICTIONARY_WORDS.has(word) || (word.length >= 3 && Math.random() < 0.2)) {
+      sounds.playSuccess();
+      const points = word.length === 3 ? 100 : word.length === 4 ? 200 : word.length === 5 ? 450 : 800;
+      setScore(s => s + points);
+      setFoundWords(prev => [word, ...prev]);
+      setFeedback(`+${points} pts!`);
+      setTimeout(() => setFeedback(null), 1200);
+    } else {
+      sounds.playClick(250, 0.2);
+      setFeedback('Not in word bank');
+      setTimeout(() => setFeedback(null), 1200);
+    }
+
+    setCurrentWord('');
+    setSelectedIndices([]);
+  };
+
+  const clearSelection = () => {
+    sounds.playClick();
+    setCurrentWord('');
+    setSelectedIndices([]);
+  };
+
+  return (
+    <div className="max-w-md mx-auto space-y-5 text-center">
+      {/* Header Info */}
+      <div className="flex justify-between items-center pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Word Maker & Speed Challenge
+          </h2>
+          <span className="text-[11px] text-zinc-400">Build 3+ letter words from scrambled grid</span>
+        </div>
+
+        <button
+          onClick={startRound}
+          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-1.5"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>{isRoundActive ? 'Restart (60s)' : 'Start Challenge'}</span>
+        </button>
+      </div>
+
+      {/* Metrics Bar */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Time Left</span>
+          <span className="font-mono font-black text-lg text-zinc-900 dark:text-zinc-50">{timeLeft}s</span>
+        </div>
+        <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Score</span>
+          <span className="font-mono font-black text-lg text-emerald-600 dark:text-emerald-400">{score}</span>
+        </div>
+        <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Words</span>
+          <span className="font-mono font-black text-lg text-indigo-600 dark:text-indigo-400">{foundWords.length}</span>
+        </div>
+      </div>
+
+      {/* Word Composition Bar */}
+      <div className="p-3.5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800/80 bg-white dark:bg-zinc-900 flex justify-between items-center">
+        <div className="font-mono text-xl font-black tracking-widest text-indigo-600 dark:text-indigo-400 min-h-[28px]">
+          {currentWord || <span className="text-zinc-300 dark:text-zinc-700 text-sm font-sans font-normal">Tap letters below...</span>}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {feedback && (
+            <span className="text-xs font-bold text-amber-500 animate-pulse">{feedback}</span>
+          )}
+          <button
+            onClick={clearSelection}
+            disabled={!currentWord}
+            className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-700 disabled:opacity-30 cursor-pointer"
+            title="Clear current word"
+          >
+            ✕
+          </button>
+          <button
+            onClick={submitWord}
+            disabled={currentWord.length < 3 || !isRoundActive}
+            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-2xs disabled:opacity-40 cursor-pointer"
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+
+      {/* 4x4 Letter Tiles Grid */}
+      <div className="grid grid-cols-4 gap-2.5 p-3 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+        {letters.map((letter, idx) => {
+          const isSelected = selectedIndices.includes(idx);
+          return (
+            <button
+              key={idx}
+              onClick={() => selectTile(idx)}
+              className={`h-16 rounded-2xl font-mono text-2xl font-black transition-all cursor-pointer select-none active:scale-95 border ${
+                isSelected
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-102'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:border-zinc-400 border-zinc-200 dark:border-zinc-700 shadow-xs'
+              }`}
+            >
+              {letter}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Found Words Pill Tags */}
+      {foundWords.length > 0 && (
+        <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left space-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+            Found Words ({foundWords.length})
+          </span>
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+            {foundWords.map((w, i) => (
+              <span
+                key={i}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-bold border border-emerald-200 dark:border-emerald-800"
+              >
+                {w}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

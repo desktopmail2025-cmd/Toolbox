@@ -19,6 +19,35 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Distinct High-Visibility Highlighter for Light and Dark Modes (Item 18) */
+  /* LIGHT MODE: Classic Fluorescent Stabilo Lime-Lemon Highlighter */
+  ::selection, *::selection, input::selection, textarea::selection {
+    background-color: #bef264 !important;
+    color: #0f172a !important;
+    text-shadow: none !important;
+  }
+
+  ::-moz-selection, *::-moz-selection, input::-moz-selection, textarea::-moz-selection {
+    background-color: #bef264 !important;
+    color: #0f172a !important;
+    text-shadow: none !important;
+  }
+
+  /* DARK MODE: Vibrant Electric Neon Cyan Highlighter */
+  html.dark ::selection, html.dark *::selection, .dark ::selection, .dark *::selection,
+  html.dark input::selection, html.dark textarea::selection, .dark input::selection, .dark textarea::selection {
+    background-color: #38bdf8 !important;
+    color: #020617 !important;
+    text-shadow: none !important;
+  }
+
+  html.dark ::-moz-selection, html.dark *::-moz-selection, .dark ::-moz-selection, .dark *::-moz-selection,
+  html.dark input::-moz-selection, html.dark textarea::-moz-selection, .dark input::-moz-selection, .dark textarea::-moz-selection {
+    background-color: #38bdf8 !important;
+    color: #020617 !important;
+    text-shadow: none !important;
+  }
+
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;

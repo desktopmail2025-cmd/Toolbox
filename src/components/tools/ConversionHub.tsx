@@ -10,7 +10,400 @@ interface ConversionSubCategory {
   symbols: Record<string, string>;
 }
 
-// 100% Scientifically Exact Conversion Standards (NIST, BIPM, ISO)
+// Dedicated Number System / Universal Base Converter (Item 2: Full Interchanging within all numbers)
+const NumberSystemConverterView: React.FC = () => {
+  const [decVal, setDecVal] = useState<bigint>(42n);
+  const [fromBase, setFromBase] = useState<number>(10);
+  const [toBase, setToBase] = useState<number>(2);
+  const [customInputValue, setCustomInputValue] = useState<string>('42');
+  const [customBaseN, setCustomBaseN] = useState<number>(12);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copy = (val: string, key: string) => {
+    sounds.playSuccess();
+    navigator.clipboard.writeText(val);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1800);
+  };
+
+  // Convert BigInt to arbitrary base string (2-36)
+  const bigIntToString = (val: bigint, base: number): string => {
+    if (val < 0n) return '-' + bigIntToString(-val, base);
+    if (val === 0n) return '0';
+    const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+    let res = '';
+    let current = val;
+    const b = BigInt(base);
+    while (current > 0n) {
+      const rem = Number(current % b);
+      res = digits[rem] + res;
+      current = current / b;
+    }
+    return base === 16 ? res.toUpperCase() : res;
+  };
+
+  // Parse string from arbitrary base to BigInt
+  const parseStringToBigInt = (str: string, base: number): bigint | null => {
+    const clean = str.trim().toLowerCase();
+    if (!clean) return 0n;
+    const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+    const validChars = digits.slice(0, base);
+    const regex = new RegExp(`^[${validChars}]+$`);
+    if (!regex.test(clean.replace(/^-/, ''))) return null;
+    
+    let isNeg = false;
+    let s = clean;
+    if (s.startsWith('-')) {
+      isNeg = true;
+      s = s.slice(1);
+    }
+
+    try {
+      let result = 0n;
+      const b = BigInt(base);
+      for (let i = 0; i < s.length; i++) {
+        const val = BigInt(digits.indexOf(s[i]));
+        result = result * b + val;
+      }
+      return isNeg ? -result : result;
+    } catch {
+      return null;
+    }
+  };
+
+  // Update decVal from any arbitrary base
+  const handleAnyBaseChange = (valueStr: string, base: number) => {
+    const parsed = parseStringToBigInt(valueStr, base);
+    if (parsed !== null) {
+      setDecVal(parsed);
+    }
+  };
+
+  // Pair converter interchange
+  const handlePairInput = (val: string) => {
+    setCustomInputValue(val);
+    const parsed = parseStringToBigInt(val, fromBase);
+    if (parsed !== null) {
+      setDecVal(parsed);
+    }
+  };
+
+  const handleSwapBases = () => {
+    sounds.playClick();
+    const temp = fromBase;
+    setFromBase(toBase);
+    setToBase(temp);
+    setCustomInputValue(bigIntToString(decVal, toBase));
+  };
+
+  // Preset bases
+  const binaryStr = bigIntToString(decVal, 2);
+  const octalStr = bigIntToString(decVal, 8);
+  const decimalStr = decVal.toString();
+  const hexStr = bigIntToString(decVal, 16);
+  const base12Str = bigIntToString(decVal, 12).toUpperCase();
+  const base32Str = bigIntToString(decVal, 32).toUpperCase();
+  const base36Str = bigIntToString(decVal, 36).toUpperCase();
+  const customStr = bigIntToString(decVal, customBaseN);
+
+  // ASCII check
+  let asciiChar = '(Non-printable)';
+  if (decVal >= 32n && decVal <= 126n) {
+    asciiChar = String.fromCharCode(Number(decVal));
+  }
+
+  // Interactive 8-bit toggle
+  const toggleBit = (bitIndex: number) => {
+    sounds.playClick();
+    const mask = 1n << BigInt(bitIndex);
+    const newVal = decVal ^ mask;
+    setDecVal(newVal);
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Universal Number System & Base Interchanger
+        </h2>
+        <span className="text-xs text-zinc-400">
+          Freely interchange and live-convert between all numerical bases (Binary, Octal, Decimal, Hexadecimal, Base 2–36)
+        </span>
+      </div>
+
+      {/* Two-Way Interchange Pair Panel */}
+      <div className="rounded-3xl border-2 border-indigo-200/80 bg-gradient-to-r from-indigo-50/60 via-purple-50/40 to-blue-50/60 dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-blue-950/40 p-5 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-2xs">
+              <ArrowRightLeft className="w-4 h-4" />
+            </span>
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+              Quick Two-Way Base Interchanger
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <span>From:</span>
+              <select
+                value={fromBase}
+                onChange={e => {
+                  const b = parseInt(e.target.value, 10);
+                  setFromBase(b);
+                  setCustomInputValue(bigIntToString(decVal, b));
+                }}
+                className="px-2.5 py-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-bold"
+              >
+                <option value={2}>Base 2 (Binary)</option>
+                <option value={3}>Base 3 (Ternary)</option>
+                <option value={8}>Base 8 (Octal)</option>
+                <option value={10}>Base 10 (Decimal)</option>
+                <option value={12}>Base 12 (Duodecimal)</option>
+                <option value={16}>Base 16 (Hexadecimal)</option>
+                <option value={20}>Base 20 (Vigesimal)</option>
+                <option value={32}>Base 32</option>
+                <option value={36}>Base 36 (Alphanumeric)</option>
+              </select>
+            </div>
+
+            <button
+              onClick={handleSwapBases}
+              className="p-1.5 rounded-xl border border-indigo-300 bg-white dark:border-indigo-800 dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition-all active:scale-95 shadow-2xs"
+              title="Swap From and To Bases"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <span>To:</span>
+              <select
+                value={toBase}
+                onChange={e => setToBase(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-bold"
+              >
+                <option value={2}>Base 2 (Binary)</option>
+                <option value={3}>Base 3 (Ternary)</option>
+                <option value={8}>Base 8 (Octal)</option>
+                <option value={10}>Base 10 (Decimal)</option>
+                <option value={12}>Base 12 (Duodecimal)</option>
+                <option value={16}>Base 16 (Hexadecimal)</option>
+                <option value={20}>Base 20 (Vigesimal)</option>
+                <option value={32}>Base 32</option>
+                <option value={36}>Base 36 (Alphanumeric)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[11px] font-bold text-zinc-500 mb-1">
+              Input in Base {fromBase}
+            </label>
+            <input
+              type="text"
+              value={customInputValue}
+              onChange={e => handlePairInput(e.target.value)}
+              placeholder={`Enter Base ${fromBase} value...`}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 font-mono text-lg font-bold bg-white dark:bg-zinc-950 focus:outline-indigo-500"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[11px] font-bold text-zinc-500">
+                Converted Result in Base {toBase}
+              </label>
+              <button
+                onClick={() => copy(bigIntToString(decVal, toBase), 'pair')}
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                {copiedKey === 'pair' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedKey === 'pair' ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+            <div className="w-full border border-indigo-200 dark:border-indigo-900 rounded-xl p-3 font-mono text-lg font-extrabold bg-white dark:bg-zinc-950 text-indigo-600 dark:text-indigo-400 select-all truncate shadow-2xs">
+              {bigIntToString(decVal, toBase)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Synchronized Live Matrix for Common Bases */}
+      <div>
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">
+          Synchronized All-Base Grid (Edit any box to interchange all)
+        </h4>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Decimal (Base 10) */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs hover:border-indigo-300 transition-colors">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span className="text-indigo-600 dark:text-indigo-400">Decimal (Base 10)</span>
+              <button
+                onClick={() => copy(decimalStr, 'dec')}
+                className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                title="Copy Decimal"
+              >
+                {copiedKey === 'dec' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={decimalStr}
+              onChange={e => handleAnyBaseChange(e.target.value, 10)}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+            />
+          </div>
+
+          {/* Binary (Base 2) */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs hover:border-indigo-300 transition-colors">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span className="text-emerald-600 dark:text-emerald-400">Binary (Base 2)</span>
+              <button
+                onClick={() => copy(binaryStr, 'bin')}
+                className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                title="Copy Binary"
+              >
+                {copiedKey === 'bin' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={binaryStr}
+              onChange={e => handleAnyBaseChange(e.target.value, 2)}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+            />
+          </div>
+
+          {/* Hexadecimal (Base 16) */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs hover:border-indigo-300 transition-colors">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span className="text-purple-600 dark:text-purple-400">Hexadecimal (Base 16)</span>
+              <button
+                onClick={() => copy(`0x${hexStr}`, 'hex')}
+                className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                title="Copy Hex"
+              >
+                {copiedKey === 'hex' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-zinc-400 font-bold">0x</span>
+              <input
+                type="text"
+                value={hexStr}
+                onChange={e => handleAnyBaseChange(e.target.value, 16)}
+                className="w-full pl-8 border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Octal (Base 8) */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs hover:border-indigo-300 transition-colors">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span className="text-amber-600 dark:text-amber-400">Octal (Base 8)</span>
+              <button
+                onClick={() => copy(octalStr, 'oct')}
+                className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                title="Copy Octal"
+              >
+                {copiedKey === 'oct' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={octalStr}
+              onChange={e => handleAnyBaseChange(e.target.value, 8)}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+            />
+          </div>
+
+          {/* Duodecimal (Base 12) */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span>Duodecimal (Base 12)</span>
+              <button
+                onClick={() => copy(base12Str, 'b12')}
+                className="p-1 hover:text-indigo-600 cursor-pointer"
+              >
+                {copiedKey === 'b12' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={base12Str}
+              onChange={e => handleAnyBaseChange(e.target.value, 12)}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+            />
+          </div>
+
+          {/* Base 36 */}
+          <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-1.5 shadow-2xs">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span>Alphanumeric (Base 36: 0-9, A-Z)</span>
+              <button
+                onClick={() => copy(base36Str, 'b36')}
+                className="p-1 hover:text-indigo-600 cursor-pointer"
+              >
+                {copiedKey === 'b36' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={base36Str}
+              onChange={e => handleAnyBaseChange(e.target.value, 36)}
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 font-mono text-base font-bold bg-zinc-50/50 dark:bg-zinc-950/60 focus:outline-indigo-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive 8-Bit Interactive Switcher */}
+      <div className="rounded-3xl border border-indigo-200/90 bg-indigo-50/30 p-5 dark:border-indigo-900/60 dark:bg-indigo-950/20 space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-zinc-700 dark:text-zinc-300">
+          <span>Interactive 8-Bit Register (Click any bit to toggle value live)</span>
+          <span className="font-mono text-[10px] text-zinc-400">MSB (Bit 7) → LSB (Bit 0)</span>
+        </div>
+
+        <div className="grid grid-cols-8 gap-2">
+          {[7, 6, 5, 4, 3, 2, 1, 0].map(bitIdx => {
+            const isSet = ((decVal >> BigInt(bitIdx)) & 1n) === 1n;
+            const weight = Math.pow(2, bitIdx);
+            return (
+              <button
+                key={bitIdx}
+                type="button"
+                onClick={() => toggleBit(bitIdx)}
+                className={`p-3 rounded-2xl border flex flex-col items-center justify-center cursor-pointer transition-all active:scale-95 ${
+                  isSet
+                    ? 'bg-indigo-600 border-indigo-700 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:border-indigo-400'
+                }`}
+              >
+                <span className="text-xl font-mono font-extrabold">{isSet ? '1' : '0'}</span>
+                <span className={`text-[9px] font-mono mt-0.5 ${isSet ? 'text-indigo-200' : 'text-zinc-400'}`}>
+                  {weight}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Summary Info Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <ResultCard label="ASCII Glyph" value={asciiChar} />
+        <ResultCard label="8-Bit Padded" value={binaryStr.padStart(8, '0').slice(-8)} />
+        <ResultCard label="16-Bit Word" value={binaryStr.padStart(16, '0').slice(-16)} />
+        <ResultCard label="Signed 8-Bit" value={String(Number(BigInt.asIntN(8, decVal)))} />
+      </div>
+    </div>
+  );
+};
+
 const CONVERSION_DATA: Record<string, ConversionSubCategory> = {
   length: {
     id: 'length',
@@ -316,7 +709,11 @@ interface ConversionHubProps {
   toolId?: string;
 }
 
-export const ConversionHub: React.FC<ConversionHubProps> = () => {
+export const ConversionHub: React.FC<ConversionHubProps> = ({ toolId }) => {
+  if (toolId === 'binary-hex-converter') {
+    return <NumberSystemConverterView />;
+  }
+
   const [activeCategory, setActiveCategory] = useState<string>('length');
   const [amount, setAmount] = useState<number>(100);
   const [fromUnit, setFromUnit] = useState<string>('Meter');

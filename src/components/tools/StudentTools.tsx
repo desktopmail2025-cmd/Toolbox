@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Plus, Trash2, Play, Pause, RotateCcw, Shuffle, Copy, Check } from 'lucide-react';
+import {
+  Plus, Trash2, Play, Pause, RotateCcw, Shuffle, Copy, Check,
+  Download, Undo2, Redo2, Square, Circle, Minus, ArrowRight,
+  Eraser, Highlighter, Pen, Grid, Type, Paintbrush,
+  BookOpen, Bookmark, Star, Calendar, Clock, MapPin, CheckCircle2, Heart, Sparkles, Bell, ExternalLink, Filter
+} from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -23,6 +28,14 @@ export const StudentTools: React.FC<ToolComponentProps> = ({ toolId }) => {
       return <CitationGeneratorView />;
     case 'group-generator':
       return <GroupGeneratorView />;
+    case 'student-whiteboard':
+      return <StudyWhiteboardView />;
+    case 'book-reading-list':
+    case 'book-lover-list':
+      return <BookReadingListView />;
+    case 'work-study-scheduler':
+    case 'scheduler':
+      return <WorkStudySchedulerView />;
     default:
       return <GpaCalcView />;
   }
@@ -663,6 +676,1437 @@ const GroupGeneratorView: React.FC = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// 8. Interactive Study Whiteboard (Item 19: Full Whiteboard with Drawing, Shapes, Highlighter, Grids & Export)
+type WhiteboardTool = 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'circle' | 'text';
+type GridStyle = 'plain' | 'dots' | 'ruled' | 'grid' | 'blackboard';
+
+const PRESET_COLORS = [
+  '#0f172a', // Slate / Black
+  '#2563eb', // Royal Blue
+  '#dc2626', // Crimson Red
+  '#16a34a', // Forest Green
+  '#d97706', // Amber Gold
+  '#9333ea', // Purple
+  '#0891b2', // Teal / Cyan
+  '#e11d48', // Rose Pink
+  '#ffffff', // Chalk White
+];
+
+const StudyWhiteboardView: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [tool, setTool] = useState<WhiteboardTool>('pen');
+  const [color, setColor] = useState('#2563eb');
+  const [strokeWidth, setStrokeWidth] = useState(3);
+  const [gridStyle, setGridStyle] = useState<GridStyle>('grid');
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [snapshot, setSnapshot] = useState<ImageData | null>(null);
+  const [history, setHistory] = useState<ImageData[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [copiedSuccess, setCopiedSuccess] = useState(false);
+
+  // Initialize Canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set internal resolution matching display aspect ratio
+    const width = 1000;
+    const height = 620;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Fill initial background
+    redrawBackground(ctx, width, height, gridStyle);
+
+    // Save initial blank state to history
+    const initialSnap = ctx.getImageData(0, 0, width, height);
+    setHistory([initialSnap]);
+    setHistoryIndex(0);
+  }, []);
+
+  // Update background when grid style changes
+  const redrawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, style: GridStyle) => {
+    if (style === 'blackboard') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, width, height);
+
+      // Fine blackboard texture/dots
+      ctx.fillStyle = '#334155';
+      for (let x = 20; x < width; x += 25) {
+        for (let y = 20; y < height; y += 25) {
+          ctx.fillRect(x, y, 1.5, 1.5);
+        }
+      }
+      return;
+    }
+
+    // Default light white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    if (style === 'dots') {
+      ctx.fillStyle = '#cbd5e1';
+      for (let x = 20; x < width; x += 25) {
+        for (let y = 20; y < height; y += 25) {
+          ctx.fillRect(x, y, 1.5, 1.5);
+        }
+      }
+    } else if (style === 'ruled') {
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let y = 35; y < height; y += 28) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      // Red margin line
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(60, 0);
+      ctx.lineTo(60, height);
+      ctx.stroke();
+    } else if (style === 'grid') {
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      for (let x = 20; x < width; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 20; y < height; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    }
+  };
+
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX = 0;
+    let clientY = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const saveHistoryStep = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const currentSnap = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const updated = history.slice(0, historyIndex + 1);
+    updated.push(currentSnap);
+    if (updated.length > 25) updated.shift();
+    setHistory(updated);
+    setHistoryIndex(updated.length - 1);
+  };
+
+  const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const coords = getCanvasCoords(e);
+    setIsDrawing(true);
+    setStartPos(coords);
+
+    // Save snapshot for shape drag preview
+    setSnapshot(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
+    if (tool === 'pen' || tool === 'highlighter' || tool === 'eraser') {
+      ctx.beginPath();
+      ctx.moveTo(coords.x, coords.y);
+    } else if (tool === 'text') {
+      const text = prompt('Enter text for whiteboard:');
+      if (text) {
+        sounds.playClick();
+        ctx.font = `bold ${strokeWidth * 6 + 12}px 'Plus Jakarta Sans', sans-serif`;
+        ctx.fillStyle = gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color;
+        ctx.fillText(text, coords.x, coords.y);
+        saveHistoryStep();
+      }
+      setIsDrawing(false);
+    }
+  };
+
+  const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !startPos) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const coords = getCanvasCoords(e);
+
+    if (tool === 'pen') {
+      ctx.strokeStyle = gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = 1.0;
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    } else if (tool === 'highlighter') {
+      ctx.strokeStyle = color === '#0f172a' ? '#facc15' : color;
+      ctx.lineWidth = strokeWidth * 4;
+      ctx.lineCap = 'square';
+      ctx.lineJoin = 'miter';
+      ctx.globalAlpha = 0.35;
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    } else if (tool === 'eraser') {
+      ctx.strokeStyle = gridStyle === 'blackboard' ? '#0f172a' : '#ffffff';
+      ctx.lineWidth = strokeWidth * 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = 1.0;
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    } else if (snapshot) {
+      // Shape live drag preview using snapshot restoration
+      ctx.putImageData(snapshot, 0, 0);
+      ctx.strokeStyle = gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 1.0;
+
+      if (tool === 'line') {
+        ctx.beginPath();
+        ctx.moveTo(startPos.x, startPos.y);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+      } else if (tool === 'arrow') {
+        // Draw straight line
+        ctx.beginPath();
+        ctx.moveTo(startPos.x, startPos.y);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+
+        // Arrow head
+        const angle = Math.atan2(coords.y - startPos.y, coords.x - startPos.x);
+        const headLen = Math.max(10, strokeWidth * 3);
+        ctx.beginPath();
+        ctx.moveTo(coords.x, coords.y);
+        ctx.lineTo(coords.x - headLen * Math.cos(angle - Math.PI / 6), coords.y - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(coords.x, coords.y);
+        ctx.lineTo(coords.x - headLen * Math.cos(angle + Math.PI / 6), coords.y - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+      } else if (tool === 'rect') {
+        ctx.beginPath();
+        ctx.strokeRect(startPos.x, startPos.y, coords.x - startPos.x, coords.y - startPos.y);
+      } else if (tool === 'circle') {
+        const radiusX = Math.abs(coords.x - startPos.x) / 2;
+        const radiusY = Math.abs(coords.y - startPos.y) / 2;
+        const centerX = Math.min(startPos.x, coords.x) + radiusX;
+        const centerY = Math.min(startPos.y, coords.y) + radiusY;
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  };
+
+  const handleEnd = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    setStartPos(null);
+    setSnapshot(null);
+    saveHistoryStep();
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      sounds.playClick();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const prev = history[historyIndex - 1];
+      ctx.putImageData(prev, 0, 0);
+      setHistoryIndex(i => i - 1);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      sounds.playClick();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const next = history[historyIndex + 1];
+      ctx.putImageData(next, 0, 0);
+      setHistoryIndex(i => i + 1);
+    }
+  };
+
+  const handleClear = () => {
+    if (window.confirm('Clear whiteboard contents? This will create a fresh blank board.')) {
+      sounds.playClick();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      redrawBackground(ctx, canvas.width, canvas.height, gridStyle);
+      saveHistoryStep();
+    }
+  };
+
+  const handleDownload = () => {
+    sounds.playSuccess();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `study-whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+  };
+
+  const handleCopyImage = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        sounds.playSuccess();
+        setCopiedSuccess(true);
+        setTimeout(() => setCopiedSuccess(false), 2000);
+      });
+    } catch {
+      handleDownload();
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-4xl mx-auto">
+      {/* Header & Title */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Interactive Study Whiteboard & Scratchpad
+          </h2>
+          <span className="text-[11px] text-zinc-400">
+            Full-featured digital canvas for diagrams, mathematical scratch work, notes & problem-solving
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 self-end sm:self-center">
+          <button
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 cursor-pointer shadow-2xs"
+            title="Undo stroke"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-30 cursor-pointer shadow-2xs"
+            title="Redo stroke"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleClear}
+            className="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1 cursor-pointer"
+            title="Clear all drawings"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Clear
+          </button>
+          <button
+            onClick={handleCopyImage}
+            className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+            title="Copy whiteboard image"
+          >
+            {copiedSuccess ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedSuccess ? 'Copied' : 'Copy'}</span>
+          </button>
+          <button
+            onClick={handleDownload}
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+            title="Download full resolution image"
+          >
+            <Download className="w-3.5 h-3.5" /> Export
+          </button>
+        </div>
+      </div>
+
+      {/* Control Toolbar */}
+      <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        {/* Drawing Tools Selection */}
+        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl">
+          <button
+            onClick={() => { sounds.playClick(); setTool('pen'); }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+              tool === 'pen' ? 'bg-white dark:bg-zinc-950 text-indigo-600 dark:text-indigo-400 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+            }`}
+            title="Pen Tool"
+          >
+            <Pen className="w-3.5 h-3.5" /> Pen
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('highlighter'); }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+              tool === 'highlighter' ? 'bg-white dark:bg-zinc-950 text-amber-500 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+            }`}
+            title="Translucent Highlighter"
+          >
+            <Highlighter className="w-3.5 h-3.5" /> Highlight
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('eraser'); }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+              tool === 'eraser' ? 'bg-white dark:bg-zinc-950 text-rose-500 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+            }`}
+            title="Eraser Tool"
+          >
+            <Eraser className="w-3.5 h-3.5" /> Eraser
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('line'); }}
+            className={`p-1.5 rounded-lg transition-all ${tool === 'line' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            title="Straight Line"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('arrow'); }}
+            className={`p-1.5 rounded-lg transition-all ${tool === 'arrow' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            title="Arrow"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('rect'); }}
+            className={`p-1.5 rounded-lg transition-all ${tool === 'rect' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            title="Rectangle"
+          >
+            <Square className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('circle'); }}
+            className={`p-1.5 rounded-lg transition-all ${tool === 'circle' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            title="Circle"
+          >
+            <Circle className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('text'); }}
+            className={`p-1.5 rounded-lg transition-all ${tool === 'text' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            title="Text Tool"
+          >
+            <Type className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Color Palette */}
+        <div className="flex items-center gap-1.5">
+          {PRESET_COLORS.map(c => (
+            <button
+              key={c}
+              onClick={() => { sounds.playClick(); setColor(c); }}
+              className={`w-5 h-5 rounded-full border border-black/10 dark:border-white/10 transition-transform ${
+                color === c ? 'scale-125 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-zinc-900' : 'hover:scale-110'
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+          <input
+            type="color"
+            value={color}
+            onChange={e => setColor(e.target.value)}
+            className="w-6 h-6 rounded-lg border-0 cursor-pointer p-0 bg-transparent"
+            title="Custom Color"
+          />
+        </div>
+
+        {/* Stroke Width Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-zinc-400">Size:</span>
+          {[2, 4, 8, 16].map(size => (
+            <button
+              key={size}
+              onClick={() => setStrokeWidth(size)}
+              className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold border transition-all ${
+                strokeWidth === size
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
+                  : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              {size}px
+            </button>
+          ))}
+        </div>
+
+        {/* Background Grid Style */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold text-zinc-400">Board:</span>
+          <select
+            value={gridStyle}
+            onChange={e => {
+              const newStyle = e.target.value as GridStyle;
+              setGridStyle(newStyle);
+              const canvas = canvasRef.current;
+              if (canvas) {
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  // Redraw background without destroying drawn strokes if possible, or redraw
+                  redrawBackground(ctx, canvas.width, canvas.height, newStyle);
+                  saveHistoryStep();
+                }
+              }
+            }}
+            className="text-xs font-bold rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-1.5 text-zinc-700 dark:text-zinc-300 focus:outline-indigo-500"
+          >
+            <option value="grid">Grid (Math/Engineering)</option>
+            <option value="dots">Dotted Matrix</option>
+            <option value="ruled">Ruled Lined Paper</option>
+            <option value="plain">Clean Whiteboard</option>
+            <option value="blackboard">Dark Blackboard</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Main Canvas Drawing Area */}
+      <div className="rounded-3xl border border-zinc-300 dark:border-zinc-800 overflow-hidden shadow-lg bg-zinc-100 dark:bg-zinc-950 flex justify-center items-center p-1 sm:p-2">
+        <canvas
+          ref={canvasRef}
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+          onTouchStart={e => {
+            e.preventDefault();
+            handleStart(e);
+          }}
+          onTouchMove={e => {
+            e.preventDefault();
+            handleMove(e);
+          }}
+          onTouchEnd={handleEnd}
+          className="w-full h-auto aspect-[1000/620] max-h-[640px] rounded-2xl shadow-inner cursor-crosshair touch-none"
+        />
+      </div>
+
+      {/* Instructions / Shortcuts Hint */}
+      <div className="flex flex-wrap items-center justify-between text-[11px] text-zinc-400 px-2">
+        <span>💡 Use stylus, touch, or mouse to sketch. Switch to Highlighter for translucent notes or Shapes for diagrams.</span>
+        <span>Resolution: 1000 × 620 HD Canvas</span>
+      </div>
+    </div>
+  );
+};
+
+// 9. Book Lover Reading List & Library Tracker (Item 3: Collect Books to Read Later, Reading Progress & Add/Delete Beside Each)
+export interface BookItem {
+  id: string;
+  title: string;
+  author: string;
+  genre: string;
+  totalPages: number;
+  currentPage: number;
+  status: 'want-to-read' | 'reading' | 'finished';
+  rating: number; // 0 to 5
+  notes?: string;
+  isFavorite: boolean;
+  addedAt: string;
+}
+
+const DEFAULT_BOOK_PICKS: BookItem[] = [
+  {
+    id: '1',
+    title: 'Atomic Habits',
+    author: 'James Clear',
+    genre: 'Self-Improvement',
+    totalPages: 320,
+    currentPage: 215,
+    status: 'reading',
+    rating: 5,
+    isFavorite: true,
+    notes: 'You do not rise to the level of your goals. You fall to the level of your systems.',
+    addedAt: '2026-09-15',
+  },
+  {
+    id: '2',
+    title: 'Dune',
+    author: 'Frank Herbert',
+    genre: 'Sci-Fi',
+    totalPages: 680,
+    currentPage: 0,
+    status: 'want-to-read',
+    rating: 0,
+    isFavorite: false,
+    notes: 'Epic science fiction classic to read before the next film adaptation.',
+    addedAt: '2026-09-20',
+  },
+  {
+    id: '3',
+    title: 'Deep Work: Rules for Focused Success',
+    author: 'Cal Newport',
+    genre: 'Productivity',
+    totalPages: 304,
+    currentPage: 304,
+    status: 'finished',
+    rating: 5,
+    isFavorite: true,
+    notes: 'The ability to perform deep work is becoming increasingly rare and valuable in our economy.',
+    addedAt: '2026-08-10',
+  },
+  {
+    id: '4',
+    title: 'To Kill a Mockingbird',
+    author: 'Harper Lee',
+    genre: 'Classic Literature',
+    totalPages: 336,
+    currentPage: 0,
+    status: 'want-to-read',
+    rating: 0,
+    isFavorite: false,
+    addedAt: '2026-09-28',
+  },
+];
+
+const POPULAR_RECOMMENDATIONS = [
+  { title: '1984', author: 'George Orwell', genre: 'Dystopian', pages: 328 },
+  { title: 'The Psychology of Money', author: 'Morgan Housel', genre: 'Finance', pages: 256 },
+  { title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', genre: 'History', pages: 464 },
+  { title: 'The Midnight Library', author: 'Matt Haig', genre: 'Fiction', pages: 304 },
+];
+
+const BookReadingListView: React.FC = () => {
+  const [books, setBooks] = useState<BookItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_book_reading_list');
+      return saved ? JSON.parse(saved) : DEFAULT_BOOK_PICKS;
+    } catch {
+      return DEFAULT_BOOK_PICKS;
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState<'all' | 'want-to-read' | 'reading' | 'finished'>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Form states
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [genre, setGenre] = useState('Fiction');
+  const [totalPages, setTotalPages] = useState('300');
+  const [notes, setNotes] = useState('');
+
+  const saveBooks = (updated: BookItem[]) => {
+    setBooks(updated);
+    localStorage.setItem('omni_book_reading_list', JSON.stringify(updated));
+  };
+
+  const handleAddBook = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    sounds.playSuccess();
+    const newBook: BookItem = {
+      id: String(Date.now()),
+      title: title.trim(),
+      author: author.trim() || 'Unknown Author',
+      genre,
+      totalPages: parseInt(totalPages, 10) || 100,
+      currentPage: 0,
+      status: 'want-to-read',
+      rating: 0,
+      isFavorite: false,
+      notes: notes.trim() || undefined,
+      addedAt: new Date().toISOString().slice(0, 10),
+    };
+
+    saveBooks([newBook, ...books]);
+    setTitle('');
+    setAuthor('');
+    setNotes('');
+    setShowAddModal(false);
+  };
+
+  const handleDeleteBook = (id: string) => {
+    sounds.playClick();
+    const updated = books.filter(b => b.id !== id);
+    saveBooks(updated);
+  };
+
+  const handleQuickAdd = (rec: { title: string; author: string; genre: string; pages: number }) => {
+    sounds.playSuccess();
+    const newBook: BookItem = {
+      id: String(Date.now()),
+      title: rec.title,
+      author: rec.author,
+      genre: rec.genre,
+      totalPages: rec.pages,
+      currentPage: 0,
+      status: 'want-to-read',
+      rating: 0,
+      isFavorite: false,
+      addedAt: new Date().toISOString().slice(0, 10),
+    };
+    saveBooks([newBook, ...books]);
+  };
+
+  const handleStatusChange = (id: string, newStatus: 'want-to-read' | 'reading' | 'finished') => {
+    sounds.playClick();
+    const updated = books.map(b => {
+      if (b.id === id) {
+        return {
+          ...b,
+          status: newStatus,
+          currentPage: newStatus === 'finished' ? b.totalPages : newStatus === 'want-to-read' ? 0 : b.currentPage,
+        };
+      }
+      return b;
+    });
+    saveBooks(updated);
+  };
+
+  const handleProgressStep = (id: string, delta: number) => {
+    sounds.playClick();
+    const updated = books.map(b => {
+      if (b.id === id) {
+        const next = Math.max(0, Math.min(b.totalPages, b.currentPage + delta));
+        const nextStatus = next >= b.totalPages ? 'finished' : next > 0 ? 'reading' : b.status;
+        return { ...b, currentPage: next, status: nextStatus };
+      }
+      return b;
+    });
+    saveBooks(updated);
+  };
+
+  const filteredBooks = books.filter(b => {
+    const matchesTab = activeTab === 'all' || b.status === activeTab;
+    const matchesQuery =
+      b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.genre.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesQuery;
+  });
+
+  const wantToReadCount = books.filter(b => b.status === 'want-to-read').length;
+  const readingCount = books.filter(b => b.status === 'reading').length;
+  const finishedCount = books.filter(b => b.status === 'finished').length;
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto select-none">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Book Lover Reading List & Library Tracker
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Collect books to read later, log reading progress, write quotes & organize your personal library
+          </span>
+        </div>
+        <button
+          onClick={() => { sounds.playClick(); setShowAddModal(true); }}
+          className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-90"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add New Book</span>
+        </button>
+      </div>
+
+      {/* Recommended Quick-Add Classics Shelf */}
+      <div className="p-4 rounded-3xl border border-indigo-100 dark:border-indigo-950 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2.5">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Popular Book Lover Picks (1-Click Add to Reading List)</span>
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {POPULAR_RECOMMENDATIONS.map(rec => (
+            <button
+              key={rec.title}
+              onClick={() => handleQuickAdd(rec)}
+              className="px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:border-indigo-500 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+            >
+              <Plus className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+              <span>{rec.title}</span>
+              <span className="text-[10px] text-zinc-400">by {rec.author}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Library Shelves Overview & Search */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3.5 shadow-xs">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          {/* Shelf Tabs */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'all', label: `All Books (${books.length})` },
+              { id: 'want-to-read', label: `To Read Later (${wantToReadCount})` },
+              { id: 'reading', label: `Currently Reading (${readingCount})` },
+              { id: 'finished', label: `Finished (${finishedCount})` },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { sounds.playClick(); setActiveTab(tab.id as any); }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === tab.id
+                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Box */}
+          <input
+            type="text"
+            placeholder="Search by title, author, genre..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full sm:w-64 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium focus:outline-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* Add Book Modal Form */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <form onSubmit={handleAddBook} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-xl">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Add Book to Reading List</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="text-zinc-400 hover:text-zinc-700 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 mb-1">Book Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sapiens, The Alchemist, Dune"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold focus:outline-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-500 mb-1">Author</label>
+                  <input
+                    type="text"
+                    placeholder="Author name"
+                    value={author}
+                    onChange={e => setAuthor(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium focus:outline-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-500 mb-1">Genre</label>
+                  <select
+                    value={genre}
+                    onChange={e => setGenre(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium focus:outline-indigo-500"
+                  >
+                    <option value="Fiction">Fiction</option>
+                    <option value="Non-Fiction">Non-Fiction</option>
+                    <option value="Sci-Fi">Sci-Fi & Fantasy</option>
+                    <option value="Self-Improvement">Self-Improvement</option>
+                    <option value="Philosophy">Philosophy</option>
+                    <option value="History">History</option>
+                    <option value="Tech">Technology</option>
+                    <option value="Mystery">Mystery & Thriller</option>
+                    <option value="Classic Literature">Classic Literature</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 mb-1">Total Page Count</label>
+                <input
+                  type="number"
+                  value={totalPages}
+                  onChange={e => setTotalPages(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-mono font-bold focus:outline-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 mb-1">Favorite Quote / Notes (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Memorable quote or reason you want to read this..."
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium focus:outline-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+              >
+                Save to Shelf
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Book Cards Grid with Add & Delete Buttons Beside Each Item */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredBooks.map(book => {
+          const progressPct = book.totalPages > 0 ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
+
+          return (
+            <div
+              key={book.id}
+              className="p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between space-y-4"
+            >
+              <div className="space-y-2">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                      {book.title}
+                    </h3>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                      by <span className="font-semibold text-zinc-700 dark:text-zinc-300">{book.author}</span> · {book.genre}
+                    </div>
+                  </div>
+
+                  {/* Shelf Status Dropdown */}
+                  <select
+                    value={book.status}
+                    onChange={e => handleStatusChange(book.id, e.target.value as any)}
+                    className="text-[11px] font-bold px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 cursor-pointer focus:outline-indigo-500"
+                  >
+                    <option value="want-to-read">To Read Later</option>
+                    <option value="reading">Reading Now</option>
+                    <option value="finished">Finished</option>
+                  </select>
+                </div>
+
+                {/* Progress Bar for currently reading / finished */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between text-[11px] font-mono">
+                    <span className="text-zinc-400">
+                      Page <strong className="text-zinc-800 dark:text-zinc-200">{book.currentPage}</strong> of {book.totalPages}
+                    </span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      {progressPct}% read
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {book.notes && (
+                  <p className="text-xs italic text-zinc-600 dark:text-zinc-400 pt-1 line-clamp-2">
+                    "{book.notes}"
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons: Add Another / Progress Stepper / Delete Beside Each Item */}
+              <div className="flex justify-between items-center pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleProgressStep(book.id, 10)}
+                    disabled={book.currentPage >= book.totalPages}
+                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer"
+                    title="Read 10 more pages"
+                  >
+                    +10p
+                  </button>
+                  <button
+                    onClick={() => handleProgressStep(book.id, 50)}
+                    disabled={book.currentPage >= book.totalPages}
+                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer"
+                    title="Read 50 more pages"
+                  >
+                    +50p
+                  </button>
+                </div>
+
+                {/* ADD and DELETE Buttons Beside Each Book (Item 3 Requirement) */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowAddModal(true);
+                      setGenre(book.genre);
+                    }}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="Add another book to shelf"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Add</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteBook(book.id)}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    title="Delete book from list"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredBooks.length === 0 && (
+          <div className="col-span-full p-10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-400 space-y-2">
+            <BookOpen className="w-8 h-8 text-zinc-400 mx-auto opacity-60" />
+            <p className="font-bold text-zinc-700 dark:text-zinc-300">Your reading shelf is empty here.</p>
+            <p>Click "Add New Book" or select from the popular picks above to build your reading list.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 10. Work & Study Scheduler (Item 7: Tuition, Meetings, Classes with Full Functionality & Add/Delete Beside Each)
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  category: 'class' | 'tuition' | 'meeting' | 'study' | 'gym' | 'other';
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  startTime: string; // e.g. "09:00"
+  endTime: string;   // e.g. "10:30"
+  location?: string;
+  notes?: string;
+  completed: boolean;
+}
+
+const CATEGORY_STYLES: Record<string, { label: string; badge: string; border: string; bg: string; icon: string }> = {
+  class: { label: 'Classes & Lectures', badge: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-800', bg: 'bg-blue-50/60 dark:bg-blue-950/20', icon: '🎓' },
+  tuition: { label: 'Tuition & Coaching', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300', border: 'border-emerald-300 dark:border-emerald-800', bg: 'bg-emerald-50/60 dark:bg-emerald-950/20', icon: '📚' },
+  meeting: { label: 'Work & Meetings', badge: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-800', bg: 'bg-purple-50/60 dark:bg-purple-950/20', icon: '💼' },
+  study: { label: 'Self Study / Lab', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-800', bg: 'bg-amber-50/60 dark:bg-amber-950/20', icon: '🔬' },
+  gym: { label: 'Gym & Fitness', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300', border: 'border-rose-300 dark:border-rose-800', bg: 'bg-rose-50/60 dark:bg-rose-950/20', icon: '🏋️' },
+  other: { label: 'Other Commitment', badge: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300', border: 'border-cyan-300 dark:border-cyan-800', bg: 'bg-cyan-50/60 dark:bg-cyan-950/20', icon: '⚡' },
+};
+
+const DEFAULT_SCHEDULE_EVENTS: ScheduleEvent[] = [
+  { id: '1', title: 'Calculus III & Linear Algebra', category: 'class', day: 'Monday', startTime: '09:00 AM', endTime: '10:30 AM', location: 'Hall A - Room 304', completed: false },
+  { id: '2', title: 'Advanced Physics Tuition with Sir John', category: 'tuition', day: 'Monday', startTime: '04:00 PM', endTime: '05:30 PM', location: 'Private Coaching Center', notes: 'Review electromagnetic wave problem set', completed: false },
+  { id: '3', title: 'Weekly Product Sprint & Team Meeting', category: 'meeting', day: 'Tuesday', startTime: '10:00 AM', endTime: '11:00 AM', location: 'Zoom Conference Room', completed: false },
+  { id: '4', title: 'Computer Algorithms Tuition', category: 'tuition', day: 'Wednesday', startTime: '05:00 PM', endTime: '06:30 PM', location: 'Online Lab', notes: 'Dynamic programming & graph traversal', completed: false },
+  { id: '5', title: 'Strength Training & Cardio Workout', category: 'gym', day: 'Thursday', startTime: '06:30 PM', endTime: '07:30 PM', location: 'University Gym', completed: false },
+  { id: '6', title: 'Chemistry Lab Exam Preparation', category: 'study', day: 'Friday', startTime: '02:00 PM', endTime: '04:00 PM', location: 'Main Library 2nd Floor', completed: false },
+];
+
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+const WorkStudySchedulerView: React.FC = () => {
+  const [events, setEvents] = useState<ScheduleEvent[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_work_study_schedule');
+      return saved ? JSON.parse(saved) : DEFAULT_SCHEDULE_EVENTS;
+    } catch {
+      return DEFAULT_SCHEDULE_EVENTS;
+    }
+  });
+
+  const [activeDayFilter, setActiveDayFilter] = useState<string>('All');
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Form states
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<ScheduleEvent['category']>('tuition');
+  const [day, setDay] = useState<ScheduleEvent['day']>('Monday');
+  const [startTime, setStartTime] = useState('09:00 AM');
+  const [endTime, setEndTime] = useState('10:30 AM');
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const saveEvents = (updated: ScheduleEvent[]) => {
+    setEvents(updated);
+    localStorage.setItem('omni_work_study_schedule', JSON.stringify(updated));
+  };
+
+  const handleAddEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    sounds.playSuccess();
+    const newEvent: ScheduleEvent = {
+      id: String(Date.now()),
+      title: title.trim(),
+      category,
+      day,
+      startTime,
+      endTime,
+      location: location.trim() || undefined,
+      notes: notes.trim() || undefined,
+      completed: false,
+    };
+
+    saveEvents([...events, newEvent]);
+    setTitle('');
+    setLocation('');
+    setNotes('');
+    setShowAddForm(false);
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    sounds.playClick();
+    const updated = events.filter(e => e.id !== id);
+    saveEvents(updated);
+  };
+
+  const handleToggleComplete = (id: string) => {
+    sounds.playSuccess();
+    const updated = events.map(e => (e.id === id ? { ...e, completed: !e.completed } : e));
+    saveEvents(updated);
+  };
+
+  // Export to iCalendar (.ics) format
+  const exportIcsCalendar = () => {
+    sounds.playClick();
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//OmniKit Work Study Scheduler//EN\n";
+
+    events.forEach(e => {
+      icsContent += "BEGIN:VEVENT\n";
+      icsContent += `SUMMARY:${e.title} (${CATEGORY_STYLES[e.category].label})\n`;
+      icsContent += `LOCATION:${e.location || 'Scheduled Event'}\n`;
+      icsContent += `DESCRIPTION:${e.notes || ''} - Day: ${e.day}\n`;
+      icsContent += `STATUS:${e.completed ? 'COMPLETED' : 'CONFIRMED'}\n`;
+      icsContent += "END:VEVENT\n";
+    });
+
+    icsContent += "END:VCALENDAR";
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `work_study_schedule_${new Date().toISOString().slice(0, 10)}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredEvents = events.filter(e => {
+    if (activeDayFilter === 'All') return true;
+    return e.day === activeDayFilter;
+  });
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto select-none">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Scheduler (Tuition, Meetings, Classes & Work)
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Interactive weekly schedule timetable, tuition & meeting organizers with iCal calendar export
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportIcsCalendar}
+            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-zinc-100 shadow-2xs"
+            title="Download .ics file for Google Calendar, Apple Calendar, Outlook"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Export iCal (.ics)</span>
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setShowAddForm(v => !v); }}
+            className="px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-90"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{showAddForm ? 'Close Form' : 'Schedule Event'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Day Filter Navigation */}
+      <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+        {['All', ...DAYS_OF_WEEK].map(d => (
+          <button
+            key={d}
+            onClick={() => { sounds.playClick(); setActiveDayFilter(d); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeDayFilter === d
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      {/* Add Schedule Item Form */}
+      {showAddForm && (
+        <form onSubmit={handleAddEvent} className="rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 p-5 space-y-3.5 shadow-xs animate-in fade-in">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+            <Calendar className="w-4 h-4" />
+            <span>Schedule New Tuition, Class or Meeting</span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Event / Class Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Physics Tuition, Team Standup, Calculus Lecture"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold focus:outline-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Category Type</label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value as any)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              >
+                <option value="tuition">📚 Tuition & Tutoring</option>
+                <option value="class">🎓 Classes & Lectures</option>
+                <option value="meeting">💼 Meetings & Work</option>
+                <option value="study">🔬 Lab & Study Session</option>
+                <option value="gym">🏋️ Gym & Fitness</option>
+                <option value="other">⚡ Other Commitment</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Day of Week</label>
+              <select
+                value={day}
+                onChange={e => setDay(e.target.value as any)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              >
+                {DAYS_OF_WEEK.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Start Time</label>
+              <input
+                type="text"
+                placeholder="09:00 AM"
+                value={startTime}
+                onChange={e => setStartTime(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-bold focus:outline-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">End Time</label>
+              <input
+                type="text"
+                placeholder="10:30 AM"
+                value={endTime}
+                onChange={e => setEndTime(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-bold focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Location / Online Link</label>
+              <input
+                type="text"
+                placeholder="e.g. Room 302, Coaching Center, Zoom Link"
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Notes / Agenda</label>
+              <input
+                type="text"
+                placeholder="Key focus, chapter numbers or prep instructions"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+            >
+              Add to Schedule
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Scheduled Events List with Add and Delete Buttons Beside Each Item */}
+      <div className="space-y-3">
+        {filteredEvents.map(evt => {
+          const style = CATEGORY_STYLES[evt.category] || CATEGORY_STYLES.other;
+
+          return (
+            <div
+              key={evt.id}
+              className={`p-4 rounded-3xl border transition-all ${
+                evt.completed
+                  ? 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20 opacity-75'
+                  : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-xs'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-start gap-3">
+                  {/* Complete check button */}
+                  <button
+                    onClick={() => handleToggleComplete(evt.id)}
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center border transition-all cursor-pointer mt-0.5 ${
+                      evt.completed
+                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-2xs'
+                        : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:border-emerald-400 text-transparent hover:text-zinc-300'
+                    }`}
+                    title={evt.completed ? 'Mark as active' : 'Mark as completed'}
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  </button>
+
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-base">{style.icon}</span>
+                      <h3 className={`text-sm font-bold ${evt.completed ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-900 dark:text-zinc-50'}`}>
+                        {evt.title}
+                      </h3>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${style.badge}`}>
+                        {style.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">{evt.day}</span>
+                      <span>·</span>
+                      <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {evt.startTime} – {evt.endTime}
+                      </span>
+                      {evt.location && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-zinc-400" />
+                            {evt.location}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {evt.notes && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 italic">
+                        {evt.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ADD and DELETE Buttons Beside Each Event (Item 7 Requirement) */}
+                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowAddForm(true);
+                      setCategory(evt.category);
+                      setDay(evt.day);
+                    }}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="Add another event on this day"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Add</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteEvent(evt.id)}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    title="Delete event from schedule"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredEvents.length === 0 && (
+          <div className="p-8 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-400">
+            No events scheduled for {activeDayFilter}. Click "Schedule Event" or "Add" to add tuition, classes, or meetings.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

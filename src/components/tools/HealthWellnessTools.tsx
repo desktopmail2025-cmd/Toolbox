@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Heart, Droplets, Flame, Moon, Footprints } from 'lucide-react';
+import {
+  Heart, Droplets, Flame, Moon, Footprints, Play, Pause, RotateCcw,
+  Activity, Baby, Wine, Cigarette, HeartPulse, Wind, Download, Check, Copy, Calendar, Sparkles, ShieldAlert,
+  Plus, Trash2, Bell, Clock, AlertTriangle, Pill, RefreshCw
+} from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -19,6 +23,30 @@ export const HealthWellnessTools: React.FC<ToolComponentProps> = ({ toolId }) =>
       return <SleepCycleView />;
     case 'step-distance-calc':
       return <StepDistanceView />;
+    case 'hiit-timer':
+      return <HiitWorkoutTimerView />;
+    case 'pregnancy-due-calc':
+    case 'pregnancy-calculator':
+      return <PregnancyMilestonesView />;
+    case 'bac-estimator':
+      return <BacEstimatorView />;
+    case 'smoke-free-tracker':
+    case 'smoking-cessation':
+      return <SmokeFreeSavingsView />;
+    case 'target-hr-zones':
+    case 'target-heart-rate':
+      return <TargetHeartRateView />;
+    case 'box-breathing-relaxer':
+    case 'breathing-coach':
+      return <BoxBreathingRelaxerView />;
+    case 'biorhythm-calc':
+    case 'biorhythm-chart':
+      return <BiorhythmCalculatorView />;
+    case 'pill-reminder':
+    case 'medicine-reminder':
+      return <MedicineReminderView />;
+    case 'emergency-ice-card':
+      return <EmergencyIceCardView />;
     default:
       return <BmiCalcView />;
   }
@@ -702,3 +730,1369 @@ const StepDistanceView: React.FC = () => {
     </div>
   );
 };
+
+// 6. HIIT & Workout Interval Timer (Item 8)
+const HiitWorkoutTimerView: React.FC = () => {
+  const [workSecs, setWorkSecs] = useState(30);
+  const [restSecs, setRestSecs] = useState(15);
+  const [totalRounds, setTotalRounds] = useState(8);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [phase, setPhase] = useState<'prepare' | 'work' | 'rest' | 'complete'>('prepare');
+  const [timeLeft, setTimeLeft] = useState(5); // 5s prep
+  const [isActive, setIsActive] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isActive) {
+      intervalRef.current = window.setInterval(() => {
+        setTimeLeft(t => {
+          if (t <= 1) {
+            sounds.playSuccess();
+            // Transition phase
+            if (phase === 'prepare') {
+              setPhase('work');
+              return workSecs;
+            } else if (phase === 'work') {
+              if (currentRound >= totalRounds) {
+                setPhase('complete');
+                setIsActive(false);
+                return 0;
+              } else {
+                setPhase('rest');
+                return restSecs;
+              }
+            } else if (phase === 'rest') {
+              setCurrentRound(r => r + 1);
+              setPhase('work');
+              return workSecs;
+            }
+            return 0;
+          }
+          if (t <= 4) {
+            sounds.playTone(660, 0.08); // countdown tick
+          }
+          return t - 1;
+        });
+      }, 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isActive, phase, workSecs, restSecs, currentRound, totalRounds]);
+
+  const toggleStart = () => {
+    sounds.playClick();
+    if (phase === 'complete') {
+      setPhase('prepare');
+      setCurrentRound(1);
+      setTimeLeft(5);
+    }
+    setIsActive(!isActive);
+  };
+
+  const handleReset = () => {
+    sounds.playClick();
+    setIsActive(false);
+    setPhase('prepare');
+    setCurrentRound(1);
+    setTimeLeft(5);
+  };
+
+  const totalWorkoutTimeSecs = 5 + (workSecs + restSecs) * totalRounds - restSecs;
+  const totalMins = Math.floor(totalWorkoutTimeSecs / 60);
+
+  return (
+    <div className="max-w-md mx-auto space-y-6 text-center">
+      {/* Visual Round Banner */}
+      <div className={`p-8 rounded-3xl border transition-all ${
+        phase === 'work'
+          ? 'bg-rose-500 text-white border-rose-600 shadow-xl'
+          : phase === 'rest'
+          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xl'
+          : phase === 'complete'
+          ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl'
+          : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50'
+      }`}>
+        <span className="text-xs font-bold uppercase tracking-widest block opacity-80 mb-1">
+          {phase === 'prepare' ? 'Get Ready' : phase === 'work' ? 'WORK HARD' : phase === 'rest' ? 'REST & RECOVER' : 'WORKOUT COMPLETE'}
+        </span>
+        <div className="text-7xl font-mono font-extrabold my-2">
+          {timeLeft}s
+        </div>
+        <div className="text-sm font-semibold opacity-90">
+          Round {currentRound} of {totalRounds}
+        </div>
+      </div>
+
+      {/* Control Buttons */}
+      <div className="flex justify-center gap-3">
+        <button
+          onClick={toggleStart}
+          className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm cursor-pointer shadow-md active:scale-95 transition-all ${
+            isActive
+              ? 'bg-amber-500 hover:bg-amber-600 text-white'
+              : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900'
+          }`}
+        >
+          {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          <span>{isActive ? 'Pause Interval' : phase === 'complete' ? 'Restart' : 'Start HIIT'}</span>
+        </button>
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-1.5 px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold text-sm cursor-pointer"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Reset</span>
+        </button>
+      </div>
+
+      {/* Settings Grid */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-3 text-left">
+        <div>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Work (sec)</label>
+          <input
+            type="number"
+            disabled={isActive}
+            value={workSecs}
+            onChange={e => setWorkSecs(Math.max(5, parseInt(e.target.value) || 20))}
+            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rest (sec)</label>
+          <input
+            type="number"
+            disabled={isActive}
+            value={restSecs}
+            onChange={e => setRestSecs(Math.max(5, parseInt(e.target.value) || 10))}
+            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rounds</label>
+          <input
+            type="number"
+            disabled={isActive}
+            value={totalRounds}
+            onChange={e => setTotalRounds(Math.max(1, parseInt(e.target.value) || 8))}
+            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+          />
+        </div>
+      </div>
+
+      <div className="text-xs text-zinc-400">
+        Total workout duration: ~{totalMins} min ({totalWorkoutTimeSecs}s)
+      </div>
+    </div>
+  );
+};
+
+// 7. Pregnancy Due Date & Milestones (Item 8 - Naegele's Rule)
+const PregnancyMilestonesView: React.FC = () => {
+  const [lmpDate, setLmpDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 70); // 10 weeks ago default
+    return d.toISOString().split('T')[0];
+  });
+  const [cycleDays, setCycleDays] = useState(28);
+
+  const lmp = new Date(lmpDate);
+  const cycleAdjustment = cycleDays - 28;
+  const dueDate = new Date(lmp.getTime() + (280 + cycleAdjustment) * 24 * 60 * 60 * 1000);
+
+  const now = new Date();
+  const diffDays = Math.max(0, Math.floor((now.getTime() - lmp.getTime()) / (1000 * 60 * 60 * 24)));
+  const weeks = Math.floor(diffDays / 7);
+  const days = diffDays % 7;
+
+  const currentTrimester = weeks < 13 ? '1st Trimester' : weeks < 27 ? '2nd Trimester' : '3rd Trimester';
+  const progressPct = Math.min(100, Math.round((diffDays / 280) * 100));
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            First Day of Last Menstrual Period (LMP)
+          </label>
+          <input
+            type="date"
+            value={lmpDate}
+            onChange={e => setLmpDate(e.target.value)}
+            className="w-full border rounded-xl p-2.5 bg-white dark:bg-zinc-950 dark:border-zinc-700 text-sm font-semibold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Average Menstrual Cycle Length (Days)
+          </label>
+          <input
+            type="number"
+            min={21}
+            max={40}
+            value={cycleDays}
+            onChange={e => setCycleDays(parseInt(e.target.value) || 28)}
+            className="w-full border rounded-xl p-2.5 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-pink-200 bg-pink-50/40 dark:border-pink-900/60 dark:bg-pink-950/20 p-6 text-center space-y-3 shadow-xs">
+        <span className="text-xs font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400">
+          Estimated Due Date (EDD)
+        </span>
+        <div className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-50">
+          {dueDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </div>
+        <div className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+          Current Gestational Age: <span className="font-bold text-pink-600 dark:text-pink-400">{weeks} weeks, {days} days</span> ({currentTrimester})
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden mt-3">
+          <div className="h-full bg-pink-500 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+        </div>
+        <span className="text-[11px] text-zinc-400 block">{progressPct}% of 40-week term completed</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <ResultCard label="1st Trimester End" value={new Date(lmp.getTime() + 13 * 7 * 86400000).toLocaleDateString()} />
+        <ResultCard label="2nd Trimester End" value={new Date(lmp.getTime() + 27 * 7 * 86400000).toLocaleDateString()} />
+        <ResultCard label="Days Until Birth" value={`${Math.max(0, 280 - diffDays)} days`} highlight />
+      </div>
+    </div>
+  );
+};
+
+// 8. Blood Alcohol Content (BAC) Estimator (Item 8 - Widmark Formula)
+const BacEstimatorView: React.FC = () => {
+  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [weightKg, setWeightKg] = useState(75);
+  const [standardDrinks, setStandardDrinks] = useState(3); // 1 drink = 14g pure ethanol
+  const [hoursDrinking, setHoursDrinking] = useState(2);
+
+  // Widmark formula: BAC = [Alcohol consumed in grams / (Body weight in grams * r)] * 100 - (Beta * hours)
+  // r = 0.68 for males, 0.55 for females
+  // Beta = 0.015% per hour metabolic elimination rate
+  const r = gender === 'male' ? 0.68 : 0.55;
+  const alcoholGrams = standardDrinks * 14;
+  const weightGrams = weightKg * 1000;
+  const rawBac = (alcoholGrams / (weightGrams * r)) * 100;
+  const elimination = hoursDrinking * 0.015;
+  const bac = Math.max(0, Number((rawBac - elimination).toFixed(3)));
+
+  const isOverLegalLimit = bac >= 0.08;
+  const soberTimeHours = bac > 0 ? (bac / 0.015).toFixed(1) : '0';
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Biological Gender</label>
+          <select
+            value={gender}
+            onChange={e => setGender(e.target.value as any)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          >
+            <option value="male">Male (Body Water r = 0.68)</option>
+            <option value="female">Female (Body Water r = 0.55)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Body Weight (kg)</label>
+          <input
+            type="number"
+            value={weightKg}
+            onChange={e => setWeightKg(parseFloat(e.target.value) || 1)}
+            className="w-full border rounded-xl p-2.5 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Standard Drinks Consumed</label>
+          <input
+            type="number"
+            min={0}
+            value={standardDrinks}
+            onChange={e => setStandardDrinks(parseInt(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2.5 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+          <span className="text-[10px] text-zinc-400">1 drink = 12oz beer / 5oz wine / 1.5oz shot</span>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Time Elapsed (Hours)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.5"
+            value={hoursDrinking}
+            onChange={e => setHoursDrinking(parseFloat(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2.5 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+      </div>
+
+      <div className={`p-6 rounded-3xl border text-center space-y-3 ${
+        isOverLegalLimit
+          ? 'bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:border-rose-900 text-rose-900 dark:text-rose-200'
+          : 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900 text-emerald-900 dark:text-emerald-200'
+      }`}>
+        <span className="text-xs font-bold uppercase tracking-wider block">Estimated Blood Alcohol Concentration</span>
+        <div className="text-5xl font-mono font-extrabold">{bac.toFixed(3)}% BAC</div>
+        <div className="font-bold text-sm">
+          {isOverLegalLimit
+            ? '⚠️ ILLEGAL TO DRIVE (Exceeds 0.08% Legal Limit)'
+            : 'Within Typical 0.08% Legal Threshold'}
+        </div>
+        <p className="text-xs opacity-80 max-w-sm mx-auto">
+          Widmark pharmacokinetic model. Always use a designated driver or taxi; individual metabolism and stomach contents vary.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <ResultCard label="Estimated Time to 0.00% Sober" value={`~${soberTimeHours} hours`} highlight />
+        <ResultCard label="Standard Pure Alcohol" value={`${alcoholGrams} grams`} />
+      </div>
+    </div>
+  );
+};
+
+// 9. Smoke-Free & Health Savings Tracker (Item 8)
+const SmokeFreeSavingsView: React.FC = () => {
+  const [quitDateStr, setQuitDateStr] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30); // 30 days ago default
+    return d.toISOString().split('T')[0];
+  });
+  const [cigsPerDay, setCigsPerDay] = useState(15);
+  const [packPrice, setPackPrice] = useState(11.50);
+  const [cigsPerPack] = useState(20);
+
+  const quitDate = new Date(quitDateStr);
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - quitDate.getTime());
+  const daysSmokeFree = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hoursSmokeFree = Math.floor(diffMs / (1000 * 60 * 60));
+
+  const totalCigsAvoided = Math.round(daysSmokeFree * cigsPerDay);
+  const totalPacksAvoided = totalCigsAvoided / cigsPerPack;
+  const moneySaved = totalPacksAvoided * packPrice;
+  const lifeRegainedHours = Math.round((totalCigsAvoided * 11) / 60); // 11 mins per cigarette
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Quit Date</label>
+          <input
+            type="date"
+            value={quitDateStr}
+            onChange={e => setQuitDateStr(e.target.value)}
+            className="w-full border rounded-xl p-2 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Cigarettes / Day</label>
+          <input
+            type="number"
+            value={cigsPerDay}
+            onChange={e => setCigsPerDay(parseInt(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Price per Pack ($)</label>
+          <input
+            type="number"
+            step="0.5"
+            value={packPrice}
+            onChange={e => setPackPrice(parseFloat(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <ResultCard label="Smoke-Free Days" value={`${daysSmokeFree} days`} highlight />
+        <ResultCard label="Money Saved" value={`$${moneySaved.toFixed(2)}`} highlight />
+        <ResultCard label="Cigarettes Avoided" value={`${totalCigsAvoided.toLocaleString()}`} />
+        <ResultCard label="Life Regained" value={`~${lifeRegainedHours} hrs`} />
+      </div>
+
+      {/* Recovery Milestones */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          WHO Physiological Recovery Milestones
+        </h4>
+        <div className="space-y-2 text-xs">
+          <div className={`p-2.5 rounded-xl border flex items-center justify-between ${hoursSmokeFree >= 8 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-400'}`}>
+            <span>8 Hours: Carbon monoxide in blood drops to normal levels</span>
+            <span className="font-bold">{hoursSmokeFree >= 8 ? '✓ Reached' : 'Pending'}</span>
+          </div>
+          <div className={`p-2.5 rounded-xl border flex items-center justify-between ${hoursSmokeFree >= 48 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-400'}`}>
+            <span>48 Hours: Nerve endings start regrowing; taste & smell heighten</span>
+            <span className="font-bold">{hoursSmokeFree >= 48 ? '✓ Reached' : 'Pending'}</span>
+          </div>
+          <div className={`p-2.5 rounded-xl border flex items-center justify-between ${daysSmokeFree >= 14 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-400'}`}>
+            <span>2 Weeks: Circulation and lung function improve by up to 30%</span>
+            <span className="font-bold">{daysSmokeFree >= 14 ? '✓ Reached' : 'Pending'}</span>
+          </div>
+          <div className={`p-2.5 rounded-xl border flex items-center justify-between ${daysSmokeFree >= 365 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-400'}`}>
+            <span>1 Year: Excess risk of coronary heart disease cut in half</span>
+            <span className="font-bold">{daysSmokeFree >= 365 ? '✓ Reached' : 'Pending'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 10. Target Training Heart Rate Zones (Item 8 - Karvonen Formula)
+const TargetHeartRateView: React.FC = () => {
+  const [age, setAge] = useState(30);
+  const [restingHr, setRestingHr] = useState(65);
+
+  // Tanaka Formula: Max HR = 208 - (0.7 * age)
+  const maxHr = Math.round(208 - (0.7 * age));
+  // Karvonen Heart Rate Reserve: HRR = Max HR - Resting HR
+  const hrr = maxHr - restingHr;
+
+  const zones = [
+    { name: 'Zone 1: Active Recovery (50–60%)', min: Math.round(restingHr + hrr * 0.5), max: Math.round(restingHr + hrr * 0.6), color: 'text-blue-500', desc: 'Easy walking, warm-up & active recovery' },
+    { name: 'Zone 2: Aerobic / Fat Burn (60–70%)', min: Math.round(restingHr + hrr * 0.6), max: Math.round(restingHr + hrr * 0.7), color: 'text-emerald-500', desc: 'Optimal metabolic fat oxidation & endurance building' },
+    { name: 'Zone 3: Tempo / Aerobic Endurance (70–80%)', min: Math.round(restingHr + hrr * 0.7), max: Math.round(restingHr + hrr * 0.8), color: 'text-amber-500', desc: 'Cardiovascular efficiency & marathon pacing' },
+    { name: 'Zone 4: Anaerobic Threshold (80–90%)', min: Math.round(restingHr + hrr * 0.8), max: Math.round(restingHr + hrr * 0.9), color: 'text-orange-500', desc: 'Lactate threshold & high-performance stamina' },
+    { name: 'Zone 5: VO2 Max Peak Exertion (90–100%)', min: Math.round(restingHr + hrr * 0.9), max: maxHr, color: 'text-rose-500', desc: 'All-out sprint intervals & maximal anaerobic power' },
+  ];
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Age (Years)</label>
+          <input
+            type="number"
+            min={10}
+            max={100}
+            value={age}
+            onChange={e => setAge(parseInt(e.target.value) || 20)}
+            className="w-full border rounded-xl p-2.5 font-mono text-base bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Resting Heart Rate (BPM)</label>
+          <input
+            type="number"
+            min={40}
+            max={120}
+            value={restingHr}
+            onChange={e => setRestingHr(parseInt(e.target.value) || 60)}
+            className="w-full border rounded-xl p-2.5 font-mono text-base bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <ResultCard label="Estimated Max Heart Rate" value={`${maxHr} BPM`} highlight />
+        <ResultCard label="Heart Rate Reserve (HRR)" value={`${hrr} BPM`} />
+        <ResultCard label="Target Fat-Burn Range" value={`${zones[1].min}–${zones[1].max} BPM`} />
+      </div>
+
+      {/* 5 Heart Rate Zones */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Karvonen Scientifically Calibrated Training Zones
+        </h4>
+        <div className="space-y-2">
+          {zones.map((z, idx) => (
+            <div key={idx} className="p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/60 flex items-center justify-between">
+              <div>
+                <span className={`text-xs font-bold block ${z.color}`}>{z.name}</span>
+                <span className="text-[11px] text-zinc-400">{z.desc}</span>
+              </div>
+              <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                {z.min} – {z.max} BPM
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 11. 4-4-4-4 Box Breathing Relaxer (Item 8)
+const BoxBreathingRelaxerView: React.FC = () => {
+  const [phase, setPhase] = useState<'Inhale' | 'Hold In' | 'Exhale' | 'Hold Out'>('Inhale');
+  const [secondsLeft, setSecondsLeft] = useState(4);
+  const [isActive, setIsActive] = useState(false);
+  const [cycleCount, setCycleCount] = useState(0);
+
+  useEffect(() => {
+    let timer: number | null = null;
+    if (isActive) {
+      timer = window.setInterval(() => {
+        setSecondsLeft(sec => {
+          if (sec <= 1) {
+            sounds.playTone(440, 0.1);
+            setPhase(p => {
+              if (p === 'Inhale') return 'Hold In';
+              if (p === 'Hold In') return 'Exhale';
+              if (p === 'Exhale') return 'Hold Out';
+              setCycleCount(c => c + 1);
+              return 'Inhale';
+            });
+            return 4;
+          }
+          return sec - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isActive]);
+
+  const toggle = () => {
+    sounds.playClick();
+    setIsActive(!isActive);
+  };
+
+  const circleScale =
+    phase === 'Inhale'
+      ? 'scale-110 duration-[4000ms]'
+      : phase === 'Hold In'
+      ? 'scale-110 duration-0'
+      : phase === 'Exhale'
+      ? 'scale-75 duration-[4000ms]'
+      : 'scale-75 duration-0';
+
+  return (
+    <div className="max-w-md mx-auto space-y-6 text-center">
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">4-4-4-4 Box Breathing Relaxer</h2>
+        <span className="text-xs text-zinc-400">Navy SEAL autonomic nervous system regulator</span>
+      </div>
+
+      {/* Visual Breathing Ring */}
+      <div className="h-64 flex items-center justify-center">
+        <div
+          className={`w-48 h-48 rounded-full border-4 border-indigo-500/80 bg-indigo-500/10 dark:bg-indigo-500/20 flex flex-col items-center justify-center transition-transform ease-linear shadow-xl ${
+            isActive ? circleScale : 'scale-90'
+          }`}
+        >
+          <span className="text-sm font-extrabold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+            {isActive ? phase : 'Ready'}
+          </span>
+          <span className="text-5xl font-mono font-bold text-zinc-900 dark:text-zinc-50 mt-1">
+            {isActive ? secondsLeft : '4'}
+          </span>
+          <span className="text-[10px] text-zinc-400 mt-1">{isActive ? 'seconds' : 'press start'}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-center gap-3">
+        <button
+          onClick={toggle}
+          className={`px-8 py-3 rounded-2xl font-bold text-sm cursor-pointer shadow-md transition-all active:scale-95 ${
+            isActive
+              ? 'bg-amber-500 text-white'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          }`}
+        >
+          {isActive ? 'Pause Session' : 'Start Box Breathing'}
+        </button>
+      </div>
+
+      <div className="text-xs text-zinc-400">
+        Cycles completed: <span className="font-bold text-zinc-700 dark:text-zinc-200">{cycleCount}</span> (Inhale 4s → Hold 4s → Exhale 4s → Hold 4s)
+      </div>
+    </div>
+  );
+};
+
+// 12. Biorhythm Biological Cycle Calculator (Item 8)
+const BiorhythmCalculatorView: React.FC = () => {
+  const [birthDateStr, setBirthDateStr] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 25);
+    return d.toISOString().split('T')[0];
+  });
+  const [targetDateStr, setTargetDateStr] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const birthDate = new Date(birthDateStr);
+  const targetDate = new Date(targetDateStr);
+  const diffDays = Math.max(0, Math.floor((targetDate.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // Biorhythm cycle lengths:
+  // Physical: 23 days (vitality, stamina, coordination)
+  // Emotional: 28 days (mood, sensitivity, creativity)
+  // Intellectual: 33 days (analytical logic, memory, alertness)
+  // Intuitive: 38 days (gut feeling, unconscious insight)
+  const calcCycle = (days: number, period: number) => {
+    return Math.round(Math.sin((2 * Math.PI * days) / period) * 100);
+  };
+
+  const physical = calcCycle(diffDays, 23);
+  const emotional = calcCycle(diffDays, 28);
+  const intellectual = calcCycle(diffDays, 33);
+  const intuitive = calcCycle(diffDays, 38);
+
+  const getStatus = (val: number) => {
+    if (Math.abs(val) <= 5) return { label: 'Critical / Crossover Day (Caution)', color: 'text-amber-500' };
+    if (val > 0) return { label: `Peak High (${val}%)`, color: 'text-emerald-500' };
+    return { label: `Recharge Low (${val}%)`, color: 'text-blue-500' };
+  };
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Date of Birth</label>
+          <input
+            type="date"
+            value={birthDateStr}
+            onChange={e => setBirthDateStr(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Target Analysis Date</label>
+          <input
+            type="date"
+            value={targetDateStr}
+            onChange={e => setTargetDateStr(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Biological Cycles for Day {diffDays.toLocaleString()} of Life
+        </h4>
+
+        <div className="space-y-3">
+          {[
+            { name: 'Physical (23-Day Cycle)', val: physical, desc: 'Coordination, stamina, strength' },
+            { name: 'Emotional (28-Day Cycle)', val: emotional, desc: 'Mood, sensitivity, creativity' },
+            { name: 'Intellectual (33-Day Cycle)', val: intellectual, desc: 'Memory, logic, alertness' },
+            { name: 'Intuitive (38-Day Cycle)', val: intuitive, desc: 'Gut feeling & perception' },
+          ].map(c => {
+            const status = getStatus(c.val);
+            return (
+              <div key={c.name} className="p-3.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/60 space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span className="text-zinc-900 dark:text-zinc-100">{c.name}</span>
+                  <span className={`font-mono ${status.color}`}>{status.label}</span>
+                </div>
+                {/* Sine gauge */}
+                <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${c.val >= 0 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.abs(c.val)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-zinc-400 block">{c.desc}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 13. Emergency ICE Health Card (Item 20 - With Download Printable PNG Card)
+const EmergencyIceCardView: React.FC = () => {
+  const [name, setName] = useState('Alex Morgan');
+  const [bloodType, setBloodType] = useState('O+');
+  const [allergies, setAllergies] = useState('Penicillin, Peanuts');
+  const [medicalConditions, setMedicalConditions] = useState('Asthma (Inhaler in backpack)');
+  const [contactName, setContactName] = useState('Sarah Morgan (Spouse)');
+  const [contactPhone, setContactPhone] = useState('+1 (555) 234-5678');
+  const [donor, setDonor] = useState(true);
+  const cardCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const downloadCardImage = () => {
+    sounds.playSuccess();
+    const canvas = cardCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Render high-res printable wallet card (600x360)
+    canvas.width = 600;
+    canvas.height = 360;
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, 600, 360);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, '#fef2f2');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 600, 360);
+
+    // Border
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#dc2626';
+    ctx.strokeRect(4, 4, 592, 352);
+
+    // Header Red Bar
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(8, 8, 584, 55);
+
+    // Header text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText('EMERGENCY MEDICAL IDENTIFICATION (I.C.E.)', 24, 44);
+
+    // Blood type badge
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(480, 16, 95, 38);
+    ctx.fillStyle = '#dc2626';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText(bloodType, 500, 42);
+
+    // Fields
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('FULL NAME', 24, 90);
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(name, 24, 115);
+
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('ALLERGIES & DRUG REACTIONS', 24, 150);
+    ctx.fillStyle = '#dc2626';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(allergies || 'No known drug allergies', 24, 172);
+
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('MEDICAL CONDITIONS', 24, 208);
+    ctx.fillStyle = '#111827';
+    ctx.font = '15px sans-serif';
+    ctx.fillText(medicalConditions || 'None', 24, 230);
+
+    // Contact Box
+    ctx.fillStyle = '#fee2e2';
+    ctx.fillRect(24, 255, 552, 75);
+    ctx.fillStyle = '#991b1b';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('PRIMARY EMERGENCY CONTACT', 36, 275);
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(`${contactName}: ${contactPhone}`, 36, 305);
+
+    // Download image
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `emergency-ice-card-${name.toLowerCase().replace(/\s+/g, '-')}.png`;
+    a.click();
+  };
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Full Legal Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Blood Type</label>
+          <select
+            value={bloodType}
+            onChange={e => setBloodType(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          >
+            {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'].map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Known Allergies</label>
+          <input
+            type="text"
+            value={allergies}
+            onChange={e => setAllergies(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Medical Conditions / Meds</label>
+          <input
+            type="text"
+            value={medicalConditions}
+            onChange={e => setMedicalConditions(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Emergency Contact Person</label>
+          <input
+            type="text"
+            value={contactName}
+            onChange={e => setContactName(e.target.value)}
+            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Contact Phone</label>
+          <input
+            type="text"
+            value={contactPhone}
+            onChange={e => setContactPhone(e.target.value)}
+            className="w-full border rounded-xl p-2.5 font-mono text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+      </div>
+
+      {/* Visual ICE Card Preview */}
+      <div className="rounded-3xl border-2 border-red-500 bg-red-50/20 dark:bg-red-950/20 p-6 space-y-4 shadow-lg">
+        <div className="flex justify-between items-center border-b border-red-200 dark:border-red-900 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-red-600 animate-pulse" />
+            <h3 className="font-bold text-red-600 dark:text-red-400 tracking-wider text-sm uppercase">
+              Emergency Medical I.D. (I.C.E.)
+            </h3>
+          </div>
+          <span className="px-3 py-1 bg-red-600 text-white font-mono font-extrabold text-sm rounded-xl">
+            {bloodType}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <span className="text-zinc-500 block text-[11px]">Patient Name:</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{name}</span>
+          </div>
+          <div>
+            <span className="text-zinc-500 block text-[11px]">Allergies:</span>
+            <span className="font-bold text-red-600 dark:text-red-400 text-sm">{allergies || 'None'}</span>
+          </div>
+          <div className="col-span-2 pt-2 border-t border-red-100 dark:border-red-900/50">
+            <span className="text-zinc-500 block text-[11px]">Medical Conditions:</span>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">{medicalConditions || 'None specified'}</span>
+          </div>
+          <div className="col-span-2 pt-2 border-t border-red-100 dark:border-red-900/50">
+            <span className="text-zinc-500 block text-[11px]">Primary Contact:</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{contactName} · {contactPhone}</span>
+          </div>
+        </div>
+
+        {/* Download Button (Item 20) */}
+        <button
+          onClick={downloadCardImage}
+          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
+        >
+          <Download className="w-4 h-4" />
+          <span>Download Emergency Wallet Card (PNG Image)</span>
+        </button>
+      </div>
+
+      {/* Hidden Canvas for crisp rendering */}
+      <canvas ref={cardCanvasRef} className="hidden" />
+    </div>
+  );
+};
+
+// 14. Medicine & Prescription Reminder (Item 1: Full Schedule, Refill Inventory, Sound Chime, Add/Delete Beside Each)
+interface MedicationItem {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  time: string;
+  instructions: 'with_food' | 'before_food' | 'after_food' | 'empty_stomach' | 'anytime';
+  category: 'Daily' | 'Supplement' | 'Prescription' | 'As Needed';
+  remainingPills: number;
+  totalPills: number;
+  takenToday: boolean;
+  lastTakenTime?: string;
+}
+
+const DEFAULT_MEDICATIONS: MedicationItem[] = [
+  {
+    id: '1',
+    name: 'Amoxicillin Antibiotic',
+    dosage: '500 mg (1 Capsule)',
+    frequency: 'Every 8 Hours',
+    time: '08:00 AM',
+    instructions: 'with_food',
+    category: 'Prescription',
+    remainingPills: 14,
+    totalPills: 30,
+    takenToday: true,
+    lastTakenTime: '08:05 AM',
+  },
+  {
+    id: '2',
+    name: 'Vitamin D3 + K2',
+    dosage: '5,000 IU (1 Softgel)',
+    frequency: 'Once Daily (Morning)',
+    time: '09:00 AM',
+    instructions: 'with_food',
+    category: 'Supplement',
+    remainingPills: 45,
+    totalPills: 60,
+    takenToday: false,
+  },
+  {
+    id: '3',
+    name: 'Blood Pressure / Lisinopril',
+    dosage: '10 mg (1 Tablet)',
+    frequency: 'Once Daily (Evening)',
+    time: '07:00 PM',
+    instructions: 'before_food',
+    category: 'Prescription',
+    remainingPills: 4, // Trigger low stock refill alert!
+    totalPills: 30,
+    takenToday: false,
+  },
+  {
+    id: '4',
+    name: 'Magnesium L-Threonate',
+    dosage: '400 mg (2 Capsules)',
+    frequency: 'Nightly (Bedtime)',
+    time: '10:00 PM',
+    instructions: 'after_food',
+    category: 'Daily',
+    remainingPills: 28,
+    totalPills: 60,
+    takenToday: false,
+  },
+];
+
+const MedicineReminderView: React.FC = () => {
+  const [meds, setMeds] = useState<MedicationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_medicine_reminders');
+      return saved ? JSON.parse(saved) : DEFAULT_MEDICATIONS;
+    } catch {
+      return DEFAULT_MEDICATIONS;
+    }
+  });
+
+  const [filter, setFilter] = useState<'all' | 'pending' | 'taken'>('all');
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Form states
+  const [name, setName] = useState('');
+  const [dosage, setDosage] = useState('');
+  const [time, setTime] = useState('08:00 AM');
+  const [frequency, setFrequency] = useState('Once Daily');
+  const [instructions, setInstructions] = useState<'with_food' | 'before_food' | 'after_food' | 'empty_stomach' | 'anytime'>('with_food');
+  const [category, setCategory] = useState<'Daily' | 'Supplement' | 'Prescription' | 'As Needed'>('Prescription');
+  const [totalPills, setTotalPills] = useState('30');
+
+  const saveMeds = (updated: MedicationItem[]) => {
+    setMeds(updated);
+    localStorage.setItem('omni_medicine_reminders', JSON.stringify(updated));
+  };
+
+  const handleToggleTaken = (id: string) => {
+    sounds.playSuccess();
+    const updated = meds.map(m => {
+      if (m.id === id) {
+        const nextTaken = !m.takenToday;
+        const nextRemaining = nextTaken ? Math.max(0, m.remainingPills - 1) : m.remainingPills + 1;
+        return {
+          ...m,
+          takenToday: nextTaken,
+          remainingPills: nextRemaining,
+          lastTakenTime: nextTaken ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+        };
+      }
+      return m;
+    });
+    saveMeds(updated);
+  };
+
+  const handleDelete = (id: string) => {
+    sounds.playClick();
+    const updated = meds.filter(m => m.id !== id);
+    saveMeds(updated);
+  };
+
+  const handleAddMed = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    sounds.playSuccess();
+    const parsedTotal = parseInt(totalPills, 10) || 30;
+    const newMed: MedicationItem = {
+      id: String(Date.now()),
+      name: name.trim(),
+      dosage: dosage.trim() || '1 Dose',
+      time,
+      frequency,
+      instructions,
+      category,
+      remainingPills: parsedTotal,
+      totalPills: parsedTotal,
+      takenToday: false,
+    };
+
+    saveMeds([newMed, ...meds]);
+    setName('');
+    setDosage('');
+    setShowAddForm(false);
+  };
+
+  const handleRefill = (id: string, count: number = 30) => {
+    sounds.playSuccess();
+    const updated = meds.map(m => {
+      if (m.id === id) {
+        return {
+          ...m,
+          remainingPills: m.remainingPills + count,
+          totalPills: Math.max(m.totalPills, m.remainingPills + count),
+        };
+      }
+      return m;
+    });
+    saveMeds(updated);
+  };
+
+  const playChimeAlert = () => {
+    sounds.playClick();
+    sounds.playTone(880, 0.25);
+    setTimeout(() => sounds.playTone(1100, 0.35), 250);
+  };
+
+  const takenCount = meds.filter(m => m.takenToday).length;
+  const adherencePct = meds.length > 0 ? Math.round((takenCount / meds.length) * 100) : 0;
+  const lowSupplyCount = meds.filter(m => m.remainingPills <= 5).length;
+
+  const filteredMeds = meds.filter(m => {
+    if (filter === 'pending') return !m.takenToday;
+    if (filter === 'taken') return m.takenToday;
+    return true;
+  });
+
+  const getInstructionBadge = (inst: string) => {
+    switch (inst) {
+      case 'with_food': return '🍽️ Take with Meals';
+      case 'before_food': return '⏰ 30m Before Food';
+      case 'after_food': return '🥣 Take After Food';
+      case 'empty_stomach': return '💧 On Empty Stomach';
+      default: return '💊 Anytime';
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto select-none">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Medicine & Pill Reminder
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Scheduled doses, adherence tracking, refill alerts & audio chime notifications
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={playChimeAlert}
+            className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-xs font-bold flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 cursor-pointer shadow-2xs"
+            title="Test reminder alarm chime"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-500" />
+            <span>Test Chime</span>
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setShowAddForm(v => !v); }}
+            className="px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{showAddForm ? 'Close Form' : 'Add Medication'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Low Stock Warning Banner */}
+      {lowSupplyCount > 0 && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Refill Alert:</strong> {lowSupplyCount} prescription{lowSupplyCount > 1 ? 's have' : ' has'} 5 or fewer doses left in your cabinet!
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Adherence Overview Banner */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3.5 shadow-xs">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              Today's Medication Compliance
+            </span>
+            <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50 font-mono mt-0.5">
+              {adherencePct}% Complete
+            </div>
+          </div>
+          <span className="text-xs font-bold px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
+            {takenCount} of {meds.length} doses taken
+          </span>
+        </div>
+
+        <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-3 rounded-full overflow-hidden p-0.5">
+          <div
+            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+            style={{ width: `${adherencePct}%` }}
+          />
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 pt-1">
+          {(['all', 'pending', 'taken'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => { sounds.playClick(); setFilter(tab); }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
+                filter === tab
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+              }`}
+            >
+              {tab === 'all' ? `All (${meds.length})` : tab === 'pending' ? `Pending (${meds.length - takenCount})` : `Taken (${takenCount})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Add Medication Form */}
+      {showAddForm && (
+        <form onSubmit={handleAddMed} className="rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 p-5 space-y-3.5 shadow-xs animate-in fade-in">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            <span>Add New Prescription or Daily Supplement</span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Medication Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Lisinopril, Metformin, Vitamin C"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold focus:outline-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Dosage & Form</label>
+              <input
+                type="text"
+                placeholder="e.g. 500mg, 1 Capsule, 2 Drops"
+                value={dosage}
+                onChange={e => setDosage(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Scheduled Time</label>
+              <input
+                type="text"
+                placeholder="e.g. 08:00 AM"
+                value={time}
+                onChange={e => setTime(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-bold focus:outline-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Frequency</label>
+              <select
+                value={frequency}
+                onChange={e => setFrequency(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              >
+                <option value="Once Daily">Once Daily</option>
+                <option value="Twice Daily">Twice Daily (Morning & Night)</option>
+                <option value="Every 8 Hours">Every 8 Hours</option>
+                <option value="Every Other Day">Every Other Day</option>
+                <option value="As Needed (PRN)">As Needed (PRN)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Meal Instructions</label>
+              <select
+                value={instructions}
+                onChange={e => setInstructions(e.target.value as any)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              >
+                <option value="with_food">With Meals</option>
+                <option value="before_food">Before Food</option>
+                <option value="after_food">After Food</option>
+                <option value="empty_stomach">Empty Stomach</option>
+                <option value="anytime">Anytime</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Category</label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value as any)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium focus:outline-indigo-500"
+              >
+                <option value="Prescription">Prescription</option>
+                <option value="Daily">Daily Medication</option>
+                <option value="Supplement">Vitamin / Supplement</option>
+                <option value="As Needed">As Needed</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Pill Bottle Supply Count</label>
+              <input
+                type="number"
+                value={totalPills}
+                onChange={e => setTotalPills(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-bold focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+            >
+              Save Medication
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Medication List */}
+      <div className="space-y-3">
+        {filteredMeds.map(med => {
+          const isLow = med.remainingPills <= 5;
+
+          return (
+            <div
+              key={med.id}
+              className={`p-4.5 rounded-3xl border transition-all ${
+                med.takenToday
+                  ? 'border-emerald-200/90 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+                  : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-xs'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-start gap-3.5">
+                  {/* Mark Taken Button */}
+                  <button
+                    onClick={() => handleToggleTaken(med.id)}
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center border transition-all cursor-pointer mt-0.5 ${
+                      med.takenToday
+                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-2xs'
+                        : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:border-emerald-400 text-transparent hover:text-zinc-300'
+                    }`}
+                    title={med.takenToday ? 'Mark as not taken' : 'Mark as taken'}
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  </button>
+
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-bold ${med.takenToday ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        {med.name}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                        {med.category}
+                      </span>
+                      {isLow && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                          Low: {med.remainingPills} left
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{med.dosage}</span>
+                      <span>·</span>
+                      <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {med.time}
+                      </span>
+                      <span>·</span>
+                      <span className="text-[11px] text-zinc-400">{getInstructionBadge(med.instructions)}</span>
+                    </div>
+
+                    {med.takenToday && med.lastTakenTime && (
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mt-1">
+                        ✓ Taken today at {med.lastTakenTime}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add / Delete / Refill Buttons Beside Every Item */}
+                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                  <button
+                    onClick={() => handleRefill(med.id, 30)}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-300 flex items-center gap-1 cursor-pointer"
+                    title="Add 30 doses to pill inventory"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span className="text-[11px]">Refill (+30)</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowAddForm(true);
+                      setName(med.name);
+                      setDosage(med.dosage);
+                    }}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                    title="Add another dose / duplicate"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(med.id)}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 cursor-pointer transition-colors"
+                    title="Delete medication"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredMeds.length === 0 && (
+          <div className="p-8 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-400">
+            No medications found for this view.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+

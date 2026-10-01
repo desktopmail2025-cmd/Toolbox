@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CATEGORIES, TOOLS } from '../../data/toolsRegistry';
 import { CategoryId, ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
+import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -215,7 +216,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 className="group flex items-center justify-between p-3 rounded-2xl border border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 cursor-pointer active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
                     <IconRenderer name={tool.iconName} size={16} />
                   </div>
                   <div className="min-w-0">
@@ -257,10 +258,10 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 border ${getCategoryTheme(category.id).border} ${
                       isExpanded
-                        ? 'bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 shadow-sm'
-                        : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                        ? `${getCategoryTheme(category.id).iconBg} ring-2 ring-indigo-500/20 shadow-md scale-105`
+                        : `${getCategoryTheme(category.id).iconBg} shadow-2xs`
                     }`}
                   >
                     <IconRenderer name={category.iconName} size={20} />
@@ -312,7 +313,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 group-hover:scale-105 transition-transform">
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} group-hover:scale-110 transition-transform shadow-2xs`}>
                                 <IconRenderer name={tool.iconName} size={18} />
                               </div>
 
