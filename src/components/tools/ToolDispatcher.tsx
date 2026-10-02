@@ -25,6 +25,12 @@ import { HotPicksView } from './HotPicksTools';
 import { ProfessionalTools } from './ProfessionalTools';
 import { MedicineReminderView } from './MedicineReminderTool';
 import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
+import { SportsLiveScoresTool } from './SportsLiveScoresTool';
+import { TeamFormationBuilder } from './TeamFormationBuilder';
+import { ScorecardMakerTool } from './ScorecardMakerTool';
+import { CodeIdePlayground } from './CodeIdePlayground';
+import { LoveManagementTools } from './LoveManagementTools';
+import { DateReminderTools } from './DateReminderTools';
 
 interface ToolDispatcherProps {
   tool: ToolItem;
@@ -49,8 +55,28 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
     if (tool.id === 'prime-checker' || tool.id === 'prime-calculator') {
       return <PerfectPrimeCalculatorView key={`${tool.id}-${resetKey}`} />;
     }
+    if (tool.id === 'code-ide-playground') {
+      return <CodeIdePlayground key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'sports-live-scores') {
+      return <SportsLiveScoresTool key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'team-formation-builder') {
+      return <TeamFormationBuilder key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'scorecard-maker') {
+      return <ScorecardMakerTool key={`${tool.id}-${resetKey}`} />;
+    }
 
     switch (tool.categoryId) {
+      case 'live-score':
+        if (tool.id === 'team-formation-builder') {
+          return <TeamFormationBuilder key={`${tool.id}-${resetKey}`} />;
+        }
+        if (tool.id === 'scorecard-maker') {
+          return <ScorecardMakerTool key={`${tool.id}-${resetKey}`} />;
+        }
+        return <SportsLiveScoresTool key={`${tool.id}-${resetKey}`} />;
       case 'general':
         return <GeneralCalculators key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
       case 'finance':
@@ -93,6 +119,10 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
         return <HotPicksView key={`${tool.id}-${resetKey}`} />;
       case 'professional':
         return <ProfessionalTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'love-management':
+        return <LoveManagementTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'date-reminder':
+        return <DateReminderTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
       default: {
         if (tool.id === 'medicine-reminder') {
           return <MedicineReminderView key={`${tool.id}-${resetKey}`} />;

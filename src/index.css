@@ -12,11 +12,18 @@
     color-scheme: dark;
   }
 
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /* Ultra-Visible Text Selection & Highlighting (Item 4: User requested high visibility) */

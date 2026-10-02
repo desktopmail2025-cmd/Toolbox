@@ -5,7 +5,6 @@ import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme } from '../../utils/themeColors';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -127,8 +126,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Zone 2: Navigation Links (All Tools, Starred, Games) - hidden when search is heavily expanded on mobile */}
-        <nav className={`hidden md:flex items-center gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-400 transition-opacity ${isExpanded ? 'lg:flex' : ''}`}>
+        {/* Zone 2: Navigation Links (All Tools, Live Scores, Starred, Notes) */}
+        <nav className={`hidden md:flex items-center gap-5 text-sm font-medium text-zinc-600 dark:text-zinc-400 transition-opacity ${isExpanded ? 'lg:flex' : ''}`}>
           <button
             onClick={() => {
               sounds.playClick();
@@ -287,14 +286,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* In-App Native PWA Install Button */}
-          <PWAInstallButton variant="navbar" />
-
           {/* Sound Toggle */}
           <button
             onClick={onToggleSound}
             aria-label="Toggle sound effects"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
+            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
             title={soundEnabled ? 'Mute sound effects' : 'Enable tactile audio'}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
@@ -304,7 +300,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onToggleDarkMode}
             aria-label="Toggle color theme"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
+            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
             title="Switch Dark/Light Mode"
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -318,7 +314,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenOnboarding();
               }}
               aria-label="Quick Tour"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
+              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
               title="Quick App Tour & Guide"
             >
               <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />

@@ -154,6 +154,63 @@ function renderOmniIcon(isMaskable) {
   };
 }
 
+// Screenshot mock renderer for App Store & Play Store compliance
+function renderScreenshot(isNarrow) {
+  return (x, y, w, h) => {
+    // Header bar (y < h * 0.08)
+    if (y < h * 0.08) {
+      if (y > h * 0.075) return [39, 39, 42, 255]; // border-zinc-800
+      return [9, 9, 11, 255]; // zinc-950 header
+    }
+
+    // Bottom mobile bar (if narrow and y > h * 0.92)
+    if (isNarrow && y > h * 0.92) {
+      if (y < h * 0.925) return [39, 39, 42, 255];
+      return [9, 9, 11, 255];
+    }
+
+    // Subtle dark gradient background
+    const bg = Math.floor(12 + (y / h) * 12);
+    let r = bg, g = bg, b = bg + 3;
+
+    // Center dashboard accent glow
+    const cx = w * 0.5;
+    const cy = h * 0.4;
+    const dist = Math.hypot(x - cx, y - cy);
+    if (dist < w * 0.4) {
+      const glow = Math.floor((1 - dist / (w * 0.4)) * 25);
+      r += Math.floor(glow * 0.4);
+      g += Math.floor(glow * 0.4);
+      b += glow;
+    }
+
+    // Card outlines mockup
+    const cardW = isNarrow ? w * 0.88 : w * 0.28;
+    const cardH = isNarrow ? h * 0.12 : h * 0.22;
+    const startY = h * 0.22;
+
+    const relY = (y - startY);
+    if (relY > 0) {
+      const cardRow = Math.floor(relY / (cardH + 20));
+      const cardOffset = relY % (cardH + 20);
+      if (cardOffset < cardH && cardRow < (isNarrow ? 4 : 2)) {
+        const col = isNarrow ? 0 : Math.floor((x - w * 0.05) / (cardW + 20));
+        const colOffset = isNarrow ? (x - w * 0.06) : ((x - w * 0.05) % (cardW + 20));
+        if (col >= 0 && col < (isNarrow ? 1 : 3) && colOffset > 0 && colOffset < cardW) {
+          // Inside card
+          r = 24; g = 24; b = 27; // zinc-900 card
+          // Top edge accent highlight
+          if (cardOffset < 3) {
+            r = 99; g = 102; b = 241;
+          }
+        }
+      }
+    }
+
+    return [Math.min(255, r), Math.min(255, g), Math.min(255, b), 255];
+  };
+}
+
 const publicDir = path.resolve('public');
 if (!fs.existsSync(publicDir)) {
   fs.mkdirSync(publicDir, { recursive: true });
@@ -179,9 +236,19 @@ const favicon32 = createPNG(32, 32, renderOmniIcon(false));
 fs.writeFileSync(path.join(publicDir, 'favicon.ico'), favicon32);
 fs.writeFileSync(path.join(publicDir, 'favicon.png'), favicon32);
 
-console.log('Successfully generated all compliant PWA icons in /public:');
+// Generate App Store screenshots
+console.log('Generating App Store compliance screenshots...');
+const screenWide = createPNG(1280, 720, renderScreenshot(false));
+fs.writeFileSync(path.join(publicDir, 'screenshot-wide.png'), screenWide);
+
+const screenNarrow = createPNG(750, 1334, renderScreenshot(true));
+fs.writeFileSync(path.join(publicDir, 'screenshot-narrow.png'), screenNarrow);
+
+console.log('Successfully generated all compliant PWA icons & app store screenshots in /public:');
 console.log('- pwa-192x192.png');
 console.log('- pwa-512x512.png');
 console.log('- pwa-maskable-512x512.png');
 console.log('- apple-touch-icon.png');
 console.log('- favicon.ico');
+console.log('- screenshot-wide.png');
+console.log('- screenshot-narrow.png');

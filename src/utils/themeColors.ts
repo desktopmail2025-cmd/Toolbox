@@ -221,6 +221,33 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
     iconBg: 'bg-violet-100/90 text-violet-700 dark:bg-violet-950/80 dark:text-violet-300',
     highlightColor: '#8b5cf6',
   },
+  'live-score': {
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+    text: 'text-emerald-700 dark:text-emerald-300',
+    border: 'border-emerald-200 dark:border-emerald-800/60',
+    badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+    accent: '#10b981',
+    iconBg: 'bg-emerald-100/90 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300',
+    highlightColor: '#34d399',
+  },
+  'love-management': {
+    bg: 'bg-rose-50 dark:bg-rose-950/40',
+    text: 'text-rose-600 dark:text-rose-400',
+    border: 'border-rose-200 dark:border-rose-800/60',
+    badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+    accent: '#f43f5e',
+    iconBg: 'bg-rose-100/90 text-rose-600 dark:bg-rose-950/80 dark:text-rose-300',
+    highlightColor: '#fb7185',
+  },
+  'date-reminder': {
+    bg: 'bg-violet-50 dark:bg-violet-950/40',
+    text: 'text-violet-600 dark:text-violet-400',
+    border: 'border-violet-200 dark:border-violet-800/60',
+    badge: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
+    accent: '#8b5cf6',
+    iconBg: 'bg-violet-100/90 text-violet-600 dark:bg-violet-950/80 dark:text-violet-300',
+    highlightColor: '#a78bfa',
+  },
 };
 
 export const getCategoryTheme = (categoryId?: string): CategoryTheme => {

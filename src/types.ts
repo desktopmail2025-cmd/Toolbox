@@ -19,7 +19,10 @@ export type CategoryId =
   | 'live-data'
   | 'audio-music'
   | 'hot-picks'
-  | 'professional';
+  | 'professional'
+  | 'live-score'
+  | 'love-management'
+  | 'date-reminder';
 
 export interface ToolItem {
   id: string;

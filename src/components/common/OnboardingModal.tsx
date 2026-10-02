@@ -3,7 +3,7 @@ import { sounds } from '../../utils/audio';
 import {
   Sparkles, Zap, ShieldCheck, BookOpen, Heart, Flame,
   Check, ArrowRight, ArrowLeft, X, Lock, Keyboard, Bookmark, Laptop,
-  Calculator, Binary, Bell
+  Calculator, Binary, Bell, Trophy, Terminal
 } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -67,6 +67,30 @@ const SLIDES: OnboardingSlide[] = [
       'Encrypted Private Notes Vault: forgot PIN permanently wipes previous notes to safeguard privacy',
       'Medicine & Pill Reminder: browser audio alarms so you never miss a dose',
       'Today\'s Hot Picks: direct curated journalism from BBC, Forbes, CNN & The Guardian',
+    ],
+  },
+  {
+    icon: Trophy,
+    badge: 'Live Sports Center',
+    badgeColor: 'text-emerald-600 dark:text-emerald-400',
+    title: 'World Sports Scores & Tactics',
+    subtitle: 'Track live scores across global football leagues, cricket, NBA, and design tactical lineups.',
+    features: [
+      'Live football scores with goal alerts, stats, and real-time standings across top leagues',
+      'Interactive Tactical Pitch: 4-3-3, 4-2-3-1 formations, substitute swaps and squad exporter',
+      'Universal Match Scorecard Maker with timer, foul log, and printable official match report',
+    ],
+  },
+  {
+    icon: Terminal,
+    badge: 'Code Anywhere (No PC Needed)',
+    badgeColor: 'text-cyan-600 dark:text-cyan-400',
+    title: 'Mobile & PC Code Playground',
+    subtitle: 'Practice programming in HTML/CSS/JS, Python & algorithms right from your smartphone or desktop.',
+    features: [
+      'Mobile-optimized soft-key toolbar: 1-tap insert for (), {}, [], <>, ;, quotes and operators',
+      'Live sandboxed web preview with iframe DOM rendering and console message interception',
+      'Interactive Python runner with preloaded algorithm presets and local project storage',
     ],
   },
   {

@@ -127,6 +127,24 @@ export const CATEGORIES: CategoryMeta[] = [
     iconName: 'Wand2',
     description: 'Image background remover, studio audio extractor & creator workflows',
   },
+  {
+    id: 'live-score',
+    name: 'Live Score & Sports Hub',
+    iconName: 'Trophy',
+    description: 'World football leagues, real-time sports center, tactical formation builder & match scorecard maker',
+  },
+  {
+    id: 'love-management',
+    name: 'Love Management',
+    iconName: 'Heart',
+    description: 'Couples hub: relationship goals, special anniversaries, meet-ups, memories & love tracker',
+  },
+  {
+    id: 'date-reminder',
+    name: 'Date Reminder',
+    iconName: 'CalendarDays',
+    description: 'Universal date organizer: customizable date reminders, event countdowns, recurring alerts & milestones',
+  },
 ];
 
 export const TOOLS: ToolItem[] = [
@@ -1088,6 +1106,15 @@ export const TOOLS: ToolItem[] = [
     keywords: ['csv to json', 'convert csv', 'data parser', 'json array', 'spreadsheet to json'],
     isOnline: false,
   },
+  {
+    id: 'code-ide-playground',
+    name: 'Mobile & PC Code Playground (IDE)',
+    categoryId: 'developer',
+    description: 'Full-featured in-browser code editor & runner for HTML/CSS/JS, Python & JavaScript with live sandbox, mobile quick-keys, console & presets',
+    iconName: 'Terminal',
+    keywords: ['code editor', 'ide', 'write code', 'html preview', 'python runner', 'javascript ide', 'practice coding', 'no pc coding', 'web ide', 'developer playground'],
+    isOnline: false,
+  },
 
   // 17. Real-Time & Public APIs (Requires Internet)
   {
@@ -1578,6 +1605,111 @@ export const TOOLS: ToolItem[] = [
     description: 'Extract pristine studio audio tracks directly from uploaded MP4, WebM, and MOV video files into downloadable WAV/MP3',
     iconName: 'Video',
     keywords: ['video to audio', 'extract audio', 'mp4 to mp3', 'video audio', 'soundtrack', 'wav converter'],
+    isOnline: false,
+  },
+
+  // 22. Live Score & Sports Hub
+  {
+    id: 'sports-live-scores',
+    name: 'Live Sports & Match Center',
+    categoryId: 'live-score',
+    description: 'Real-time scoreboards for Football top leagues (EPL, UCL, La Liga, Serie A), Cricket, NBA & Tennis with live match events, stats & tables',
+    iconName: 'Activity',
+    keywords: ['live score', 'football', 'soccer', 'premier league', 'cricket', 'nba', 'basketball', 'tennis', 'sports', 'match center', 'standings'],
+    isOnline: true,
+  },
+  {
+    id: 'team-formation-builder',
+    name: 'Team & Formation Builder',
+    categoryId: 'live-score',
+    description: 'Interactive tactical pitch board: build custom lineups, formations (4-3-3, 4-2-3-1, 4-4-2), player roles, substitutes & export lineup',
+    iconName: 'Users',
+    keywords: ['formation builder', 'team builder', 'tactics', 'lineup', 'football pitch', 'squad maker', 'starting 11', 'fantasy team', 'bench'],
+    isOnline: false,
+  },
+  {
+    id: 'scorecard-maker',
+    name: 'Universal Scorecard Maker',
+    categoryId: 'live-score',
+    description: 'Create, referee and log live matches for Football, Cricket, Basketball & Badminton with live timers, event logs and exportable reports',
+    iconName: 'ClipboardList',
+    keywords: ['scorecard maker', 'score tracker', 'referee score', 'sports referee', 'cricket scorecard', 'football scorecard', 'match report'],
+    isOnline: false,
+  },
+
+  // 23. Love Management
+  {
+    id: 'love-relationship-goals',
+    name: 'Relationship Goals & Bucket List',
+    categoryId: 'love-management',
+    description: 'Interactive goals tracker for couples: romance, travel, future milestones, habits with add/delete & progress tracking',
+    iconName: 'HeartHandshake',
+    keywords: ['love', 'relationship goals', 'couples', 'bucket list', 'romance', 'couple habits', 'future plans', 'couple goals'],
+    isOnline: false,
+  },
+  {
+    id: 'love-important-days',
+    name: 'Important Days & Birthday Tracker',
+    categoryId: 'love-management',
+    description: 'Track partner birthdays, anniversaries, proposal date, first meetings, countdowns and gift ideas with add/delete',
+    iconName: 'CalendarHeart',
+    keywords: ['birthday', 'important day', 'anniversary', 'love calendar', 'special date', 'partner birthday', 'first date'],
+    isOnline: false,
+  },
+  {
+    id: 'love-meetup-tracker',
+    name: 'Meet-Up & Last Meeting Planner',
+    categoryId: 'love-management',
+    description: 'Plan upcoming dates with venues, countdowns, and log past meetings with days-since-last-met memories',
+    iconName: 'Compass',
+    keywords: ['meet up', 'last meeting', 'dates', 'last met', 'long distance', 'meeting log', 'memories'],
+    isOnline: false,
+  },
+  {
+    id: 'love-day-counter',
+    name: 'Love Day Counter & Anniversary Guide',
+    categoryId: 'love-management',
+    description: 'Live relationship days, weeks, months together counter with 100/500/1000 days milestones and gift guides',
+    iconName: 'Heart',
+    keywords: ['love counter', 'days together', 'anniversary milestone', 'relationship duration', 'love calculator'],
+    isOnline: false,
+  },
+
+  // 24. Date Reminder
+  {
+    id: 'date-reminder',
+    name: 'Date Reminder Hub',
+    categoryId: 'date-reminder',
+    description: 'Comprehensive customizable date reminder assistant: appointments, birthdays, recurring alerts with add/delete',
+    iconName: 'CalendarDays',
+    keywords: ['date reminder', 'reminder', 'schedule', 'event reminder', 'alert', 'calendar reminder', 'notification'],
+    isOnline: false,
+  },
+  {
+    id: 'date-countdown-milestones',
+    name: 'Live Event Countdown & Milestones',
+    categoryId: 'date-reminder',
+    description: 'Real-time multi-event countdown tickers down to the second for weddings, launches, holidays and exams',
+    iconName: 'Clock',
+    keywords: ['countdown', 'milestones', 'timer', 'event countdown', 'seconds counter', 'vacation countdown'],
+    isOnline: false,
+  },
+  {
+    id: 'date-subscription-bills',
+    name: 'Recurring Bills & Subscription Reminder',
+    categoryId: 'date-reminder',
+    description: 'Never miss a payment: track renewal dates for Netflix, rent, gym, cloud services with monthly summaries',
+    iconName: 'CreditCard',
+    keywords: ['subscription', 'bills', 'rent', 'renewal date', 'payment reminder', 'expenses', 'monthly bill'],
+    isOnline: false,
+  },
+  {
+    id: 'date-deadlines-planner',
+    name: 'Exam, Project & Task Deadline Tracker',
+    categoryId: 'date-reminder',
+    description: 'Keep track of academic exams, client work deliverables, and project deadlines with progress checklist',
+    iconName: 'BookOpen',
+    keywords: ['deadlines', 'exam reminder', 'project deadline', 'homework', 'deliverables', 'due date'],
     isOnline: false,
   },
 ];

@@ -182,8 +182,8 @@ export default function App() {
         onOpenOnboarding={() => setShowOnboarding(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+      {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
         {activeTool ? (
           <ToolDispatcher
             tool={activeTool}

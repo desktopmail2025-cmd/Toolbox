@@ -11,7 +11,14 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: [
+          'favicon.ico',
+          'favicon.png',
+          'apple-touch-icon.png',
+          'icon.svg',
+          'screenshot-wide.png',
+          'screenshot-narrow.png',
+        ],
         manifest: {
           id: '/',
           name: 'OmniToolbox — All-in-One Utility Hub',
@@ -20,11 +27,36 @@ export default defineConfig(() => {
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+          display_override: ['window-controls-overlay', 'standalone', 'minimal-ui', 'browser'],
           orientation: 'any',
           start_url: '/',
           scope: '/',
-          categories: ['utilities', 'productivity', 'education', 'finance', 'tools'],
+          lang: 'en-US',
+          dir: 'ltr',
+          categories: ['utilities', 'productivity', 'education', 'finance', 'lifestyle'],
+          prefer_related_applications: false,
+          launch_handler: {
+            client_mode: 'auto',
+          },
+          edge_side_panel: {
+            preferred_width: 420,
+          },
+          screenshots: [
+            {
+              src: '/screenshot-wide.png',
+              sizes: '1280x720',
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'OmniToolbox Dashboard for PC, Mac, Chromebook & Tablet',
+            },
+            {
+              src: '/screenshot-narrow.png',
+              sizes: '750x1334',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'OmniToolbox Mobile App View for Android & iOS',
+            },
+          ],
           icons: [
             {
               src: '/pwa-192x192.png',
@@ -124,6 +156,7 @@ export default defineConfig(() => {
     server: {
       host: '0.0.0.0',
       port: 3000,
+      allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

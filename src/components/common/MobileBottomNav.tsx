@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Star, Gamepad2, FileText } from 'lucide-react';
+import { LayoutGrid, Star, Trophy, FileText } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface MobileBottomNavProps {
@@ -29,7 +29,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }`}
         >
           <LayoutGrid className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight mt-1">Tools</span>
+          <span className="text-[10px] tracking-tight mt-1">All Tools</span>
           {activeTab === 'categories' && (
             <span className="w-1.5 h-1 rounded-full bg-zinc-900 dark:bg-zinc-100 mt-0.5" />
           )}

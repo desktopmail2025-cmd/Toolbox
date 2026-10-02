@@ -5,7 +5,6 @@ import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter } from 'lucide-react';
 import { sounds } from '../../utils/audio';
-import { PWAInstallButton } from '../common/PWAInstallButton';
 
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
@@ -206,7 +205,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
             <Clock className="w-3.5 h-3.5" />
             <span>Recently Opened</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
             {recentToolItems.map(tool => (
               <div
                 key={tool.id}
@@ -236,9 +235,6 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </section>
       )}
 
-      {/* Universal Native App Installation Banner (Android, iOS, PC, Mac, ChromeOS) */}
-      <PWAInstallButton variant="banner" />
-
       {/* Expandable Categories Accordion List */}
       <div className="space-y-3.5">
         {visibleCategories.map(category => {
@@ -254,15 +250,15 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               <button
                 type="button"
                 onClick={() => onToggleCategory(category.id)}
-                className={`w-full flex items-center justify-between p-4 sm:p-5 text-left transition-colors cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-800/50 ${
+                className={`w-full flex items-center justify-between p-3.5 sm:p-5 text-left transition-colors cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-800/50 ${
                   isExpanded
                     ? 'bg-zinc-50/70 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800'
                     : 'hover:bg-zinc-50/60 dark:hover:bg-zinc-800/20'
                 }`}
               >
-                <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
                   <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 border ${getCategoryTheme(category.id).border} ${
+                    className={`flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 border ${getCategoryTheme(category.id).border} ${
                       isExpanded
                         ? `${getCategoryTheme(category.id).iconBg} ring-2 ring-indigo-500/20 shadow-md scale-105`
                         : `${getCategoryTheme(category.id).iconBg} shadow-2xs`
@@ -285,7 +281,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                <div className="flex items-center gap-2.5 shrink-0 ml-2 sm:ml-3">
                   <span className="text-xs text-zinc-400 hidden sm:inline font-medium">
                     {isExpanded ? 'Collapse' : 'Expand'}
                   </span>
@@ -301,8 +297,8 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
 
               {/* Collapsible Content Area */}
               {isExpanded && (
-                <div className="p-4 sm:p-5 bg-zinc-50/40 dark:bg-zinc-950/30 animate-in fade-in duration-150">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div className="p-3.5 sm:p-5 bg-zinc-50/40 dark:bg-zinc-950/30 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);
                       const catTheme = getCategoryTheme(category.id);
