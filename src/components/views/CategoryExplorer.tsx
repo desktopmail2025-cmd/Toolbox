@@ -5,6 +5,7 @@ import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
@@ -235,6 +236,9 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </section>
       )}
 
+      {/* Universal Native App Installation Banner (Android, iOS, PC, Mac, ChromeOS) */}
+      <PWAInstallButton variant="banner" />
+
       {/* Expandable Categories Accordion List */}
       <div className="space-y-3.5">
         {visibleCategories.map(category => {
@@ -301,6 +305,8 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);
+                      const catTheme = getCategoryTheme(category.id);
+                      const iconTheme = getToolIconTheme(tool.id, tool.iconName);
 
                       return (
                         <div
@@ -309,16 +315,17 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             sounds.playClick();
                             onSelectTool(tool);
                           }}
-                          className="group relative flex flex-col justify-between rounded-2xl border border-zinc-200/90 bg-white p-4.5 hover:border-zinc-400 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 transition-all duration-200 cursor-pointer active:scale-[0.98] select-none"
+                          style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
+                          className="group relative flex flex-col justify-between rounded-2xl border border-zinc-200/90 bg-white p-4.5 hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)] transition-all duration-200 cursor-pointer active:scale-[0.98] select-none"
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} group-hover:scale-110 transition-transform shadow-2xs`}>
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} group-hover:scale-110 transition-transform shadow-2xs`}>
                                 <IconRenderer name={tool.iconName} size={18} />
                               </div>
 
                               <div className="flex items-center gap-1.5">
-                                {/* Figma-Crafted Online/Offline Badges */}
+                                {/* Online/Offline Badges */}
                                 {tool.isOnline ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
                                     <Globe className="w-2.5 h-2.5" />
@@ -350,7 +357,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                               </div>
                             </div>
 
-                            <h3 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+                            <h3 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)] transition-colors">
                               {tool.name}
                             </h3>
                             <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
@@ -358,7 +365,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             </p>
                           </div>
 
-                          <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-semibold text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+                          <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-semibold text-zinc-400 group-hover:text-[var(--cat-accent)] transition-colors">
                             <span className="font-mono">Launch Tool</span>
                             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                           </div>

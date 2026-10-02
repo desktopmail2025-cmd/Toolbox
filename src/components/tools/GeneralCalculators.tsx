@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
+import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
 import { Delete, Trash2, X } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -9,6 +10,9 @@ interface ToolComponentProps {
 
 export const GeneralCalculators: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
+    case 'prime-checker':
+    case 'prime-calculator':
+      return <PerfectPrimeCalculatorView />;
     case 'basic-calc':
       return <BasicCalcView />;
     case 'scientific-calc':

@@ -14,8 +14,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   favoriteCount,
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-950/95 shadow-lg">
-      <div className="grid grid-cols-4 h-16 items-center px-2 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-950/95 shadow-lg safe-area-bottom">
+      <div className="grid grid-cols-3 h-16 items-center px-4">
         {/* Tab 1: Tools */}
         <button
           onClick={() => {
@@ -58,7 +58,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           )}
         </button>
 
-        {/* Tab 3: Notes (Replaced search with notes) */}
+        {/* Tab 3: Notes */}
         <button
           onClick={() => {
             sounds.playClick();
@@ -73,25 +73,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <FileText className="w-5 h-5" />
           <span className="text-[10px] tracking-tight mt-1">Notes</span>
           {activeTab === 'notes' && (
-            <span className="w-1.5 h-1 rounded-full bg-zinc-900 dark:bg-zinc-100 mt-0.5" />
-          )}
-        </button>
-
-        {/* Tab 4: Games */}
-        <button
-          onClick={() => {
-            sounds.playClick();
-            onSelectTab('games');
-          }}
-          className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all touch-feedback cursor-pointer ${
-            activeTab === 'games'
-              ? 'text-zinc-950 dark:text-white font-semibold scale-105'
-              : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-          }`}
-        >
-          <Gamepad2 className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight mt-1">Games</span>
-          {activeTab === 'games' && (
             <span className="w-1.5 h-1 rounded-full bg-zinc-900 dark:bg-zinc-100 mt-0.5" />
           )}
         </button>

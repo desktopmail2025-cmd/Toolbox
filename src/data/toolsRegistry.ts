@@ -115,6 +115,18 @@ export const CATEGORIES: CategoryMeta[] = [
     iconName: 'Music',
     description: 'Metronome, piano keyboard, ambient focus noise, guitar pitch pipe & decibel meter',
   },
+  {
+    id: 'hot-picks',
+    name: "Today's Hot Picks",
+    iconName: 'Flame',
+    description: "Breaking headlines & trending picks from Forbes, The Guardian, CNN, BBC, Reuters & Bloomberg",
+  },
+  {
+    id: 'professional',
+    name: 'Professional Tools',
+    iconName: 'Wand2',
+    description: 'Image background remover, studio audio extractor & creator workflows',
+  },
 ];
 
 export const TOOLS: ToolItem[] = [
@@ -366,6 +378,14 @@ export const TOOLS: ToolItem[] = [
     iconName: 'Footprints',
     keywords: ['steps', 'walking', 'distance', 'calories', 'pedometer', 'km', 'miles'],
   },
+  {
+    id: 'medicine-reminder',
+    name: 'Medicine & Pill Reminder',
+    categoryId: 'health',
+    description: 'Scheduled medication and pill organizer with audio alerts, browser notifications, and dose tracking',
+    iconName: 'Pill',
+    keywords: ['medicine', 'pill', 'reminder', 'dose', 'medication', 'alarm', 'notification', 'health'],
+  },
 
   // 4. Study & Student
   {
@@ -431,6 +451,38 @@ export const TOOLS: ToolItem[] = [
     description: 'Digital sketchpad for problem solving, diagrams, math scratchpad & notes with brush, shapes, highlighter, eraser & image export',
     iconName: 'Edit3',
     keywords: ['whiteboard', 'canvas', 'sketch', 'draw', 'diagram', 'math scratchpad', 'notes', 'study board'],
+  },
+  {
+    id: 'study-formulas',
+    name: 'Subject Formulas & Solver',
+    categoryId: 'student',
+    description: 'Mathematics, Physics, Chemistry, Biology & Economics formulas divided subject-wise and grade-wise with live solvers',
+    iconName: 'BookOpen',
+    keywords: ['formula', 'math formula', 'physics formula', 'chemistry formula', 'biology formula', 'economics', 'equation', 'solver', 'grade'],
+  },
+  {
+    id: 'scheduler',
+    name: 'Scheduler (Tuition, Classes & Meetings)',
+    categoryId: 'student',
+    description: 'Manage weekly tuition, class lectures, study sessions, and meetings with add/delete buttons and notifications',
+    iconName: 'Calendar',
+    keywords: ['scheduler', 'tuition', 'class', 'meeting', 'timetable', 'schedule', 'routine', 'study planner', 'calendar'],
+  },
+  {
+    id: 'book-reading-list',
+    name: "Book Lovers' Reading Vault & Shelf",
+    categoryId: 'student',
+    description: 'Collect, track and manage books to read later with progress tracker, ratings, notes, and add/delete controls beside each item',
+    iconName: 'Bookmark',
+    keywords: ['book', 'reading list', 'books', 'book lovers', 'reading vault', 'shelf', 'novel', 'literature'],
+  },
+  {
+    id: 'pdf-converter-suite',
+    name: 'Document & PDF Interchange Suite',
+    categoryId: 'student',
+    description: 'Universal document interchange: PDF to PPT, PPT to Word, Word to PDF, Images to PDF, Excel to PDF with Add and Delete buttons beside each task',
+    iconName: 'FileSpreadsheet',
+    keywords: ['pdf', 'ppt', 'word', 'powerpoint', 'convert', 'interchange', 'document', 'pdf to ppt', 'ppt to word'],
   },
 
   // 5. Home & Daily Life
@@ -1287,11 +1339,11 @@ export const TOOLS: ToolItem[] = [
   },
   {
     id: 'prime-checker',
-    name: 'Prime Number Checker',
+    name: 'Perfect Prime Number Suite & Calculator',
     categoryId: 'general',
-    description: 'Test if any integer is prime or composite with divisors verification',
+    description: 'Advanced deterministic prime tester, canonical factor tree ladder, Sieve of Eratosthenes, Goldbach conjecture & divisor analytics',
     iconName: 'Hash',
-    keywords: ['prime', 'prime number', 'composite', 'is prime', 'prime factor'],
+    keywords: ['prime', 'prime number', 'composite', 'is prime', 'prime factor', 'prime calculator', 'perfect prime', 'sieve of eratosthenes', 'goldbach', 'divisors', 'factor tree'],
     isOnline: false,
   },
   {
@@ -1500,5 +1552,32 @@ export const TOOLS: ToolItem[] = [
     iconName: 'Sparkles',
     keywords: ['animals', 'cats', 'dogs', 'cute', 'pets', 'photos'],
     isOnline: true,
+  },
+  {
+    id: 'hot-picks-feed',
+    name: "Today's Best & Breaking News Picks",
+    categoryId: 'hot-picks',
+    description: "Curated world news from Forbes, The Guardian, CNN, BBC, Reuters & Bloomberg with direct original source links",
+    iconName: 'Flame',
+    keywords: ['news', 'hot picks', 'forbes', 'guardian', 'cnn', 'bbc', 'breaking news', 'world news', 'reuters', 'bloomberg'],
+    isOnline: true,
+  },
+  {
+    id: 'image-bg-remover',
+    name: 'Image Background Remover',
+    categoryId: 'professional',
+    description: 'Instant client-side background removal with feathering, transparent PNG export, and custom backdrop replacements',
+    iconName: 'Wand2',
+    keywords: ['background remover', 'bg remover', 'cutout', 'transparent png', 'photo editor', 'image tool'],
+    isOnline: false,
+  },
+  {
+    id: 'video-to-audio',
+    name: 'Video to Audio Extractor',
+    categoryId: 'professional',
+    description: 'Extract pristine studio audio tracks directly from uploaded MP4, WebM, and MOV video files into downloadable WAV/MP3',
+    iconName: 'Video',
+    keywords: ['video to audio', 'extract audio', 'mp4 to mp3', 'video audio', 'soundtrack', 'wav converter'],
+    isOnline: false,
   },
 ];

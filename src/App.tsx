@@ -3,6 +3,9 @@ import { Navbar } from './components/common/Navbar';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
+import { SplashScreen } from './components/common/SplashScreen';
+import { OnboardingModal } from './components/common/OnboardingModal';
+import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { CategoryExplorer } from './components/views/CategoryExplorer';
 import { FavoritesView } from './components/views/FavoritesView';
 import { NotesView } from './components/views/NotesView';
@@ -21,6 +24,22 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(sounds.enabled);
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
+
+  // Splash Screen & Professional Onboarding
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+
+  const handleFinishSplash = () => {
+    setShowSplash(false);
+    try {
+      const onboarded = localStorage.getItem('omni_onboarded');
+      if (!onboarded) {
+        setShowOnboarding(true);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // Persistent category accordion states
   const [expandedCatIds, setExpandedCatIds] = useState<Set<CategoryId>>(() => {
@@ -160,6 +179,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         onSelectTool={handleSelectTool}
+        onOpenOnboarding={() => setShowOnboarding(true)}
       />
 
       {/* Main Content Area */}
@@ -249,6 +269,18 @@ export default function App() {
         favorites={favorites}
         onToggleFavorite={handleToggleFavorite}
       />
+
+      {/* High-Performance Splash Screen on Launch */}
+      {showSplash && <SplashScreen onFinish={handleFinishSplash} />}
+
+      {/* Professional Multi-Device Onboarding Tour */}
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
+
+      {/* Network Connectivity & Offline Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
+import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
 import {
   Copy, Check, Search, ShieldCheck, AlertTriangle, Lock, Key, Heart,
   Flame, Battery, Clock, Activity, Calculator, Brain, Shuffle, Play, Pause,
@@ -40,7 +41,7 @@ export const ExtendedUtilities: React.FC<ToolComponentProps> = ({ toolId }) => {
     case 'gcd-lcm-calc':
       return <GcdLcmCalcView />;
     case 'prime-checker':
-      return <PrimeCheckerView />;
+      return <PerfectPrimeCalculatorView />;
     case 'binary-hex-converter':
       return <BinaryHexConverterView />;
     case 'matrix-operator':
@@ -86,18 +87,33 @@ export const ExtendedUtilities: React.FC<ToolComponentProps> = ({ toolId }) => {
   }
 };
 
-// 1. Online Dictionary & Audio Pronouncer (Item 6: Clean empty default state & robust search)
-const COMMON_DICTIONARY_FALLBACKS: Record<string, { phonetic: string; partOfSpeech: string; definition: string; example: string; synonyms?: string[] }> = {
-  hello: { phonetic: '/həˈloʊ/', partOfSpeech: 'exclamation', definition: 'Used as a greeting or to begin a phone conversation.', example: 'Hello, how can I help you today?', synonyms: ['greetings', 'hi', 'salutations'] },
-  computer: { phonetic: '/kəmˈpjuːtər/', partOfSpeech: 'noun', definition: 'An electronic device for storing and processing data according to instructions.', example: 'The calculations are performed on a high-speed computer.', synonyms: ['processor', 'mainframe', 'machine'] },
-  serendipity: { phonetic: '/ˌsɛrənˈdɪpɪti/', partOfSpeech: 'noun', definition: 'The occurrence and development of events by chance in a happy or beneficial way.', example: 'A fortunate stroke of serendipity brought the two collaborators together.', synonyms: ['chance', 'fluke', 'good fortune'] },
-  utility: { phonetic: '/juːˈtɪlɪti/', partOfSpeech: 'noun', definition: 'The state of being useful, profitable, or beneficial; a useful tool or program.', example: 'This offline utility provides instant solutions.', synonyms: ['usefulness', 'service', 'convenience'] },
-  world: { phonetic: '/wɜːrld/', partOfSpeech: 'noun', definition: 'The earth, together with all of its countries and peoples.', example: 'They traveled around the world together.', synonyms: ['globe', 'earth', 'planet'] },
-  algorithm: { phonetic: '/ˈælɡərɪðəm/', partOfSpeech: 'noun', definition: 'A process or set of rules to be followed in calculations or other problem-solving operations.', example: 'The search algorithm ranks pages according to relevance.', synonyms: ['formula', 'procedure', 'routine'] },
-  knowledge: { phonetic: '/ˈnɑːlɪdʒ/', partOfSpeech: 'noun', definition: 'Facts, information, and skills acquired through experience or education.', example: 'He has an extensive knowledge of history.', synonyms: ['understanding', 'wisdom', 'insight'] },
-  freedom: { phonetic: '/ˈfriːdəm/', partOfSpeech: 'noun', definition: 'The power or right to act, speak, or think as one wants without hindrance or restraint.', example: 'Freedom of speech is a fundamental human right.', synonyms: ['liberty', 'independence', 'autonomy'] },
-  energy: { phonetic: '/ˈɛnərdʒi/', partOfSpeech: 'noun', definition: 'The strength and vitality required for sustained physical or mental activity.', example: 'Renewable energy sources are becoming more prevalent.', synonyms: ['power', 'vigor', 'force'] },
-  science: { phonetic: '/ˈsaɪəns/', partOfSpeech: 'noun', definition: 'The systematic study of the structure and behavior of the physical and natural world through observation and experiment.', example: 'Advancements in science improve our quality of life.', synonyms: ['research', 'study', 'empiricism'] },
+// 1. Online Dictionary & Audio Pronouncer (Ultra-Fast Instant Cache, Antonyms & Examples)
+const DICTIONARY_CACHE = new Map<string, {
+  word: string;
+  phonetic: string;
+  definition: string;
+  partOfSpeech: string;
+  example: string;
+  synonyms: string[];
+  antonyms: string[];
+}>();
+
+const COMMON_DICTIONARY_FALLBACKS: Record<string, { phonetic: string; partOfSpeech: string; definition: string; example: string; synonyms: string[]; antonyms: string[] }> = {
+  hello: { phonetic: '/həˈloʊ/', partOfSpeech: 'exclamation', definition: 'Used as a greeting or to begin a phone conversation.', example: 'Hello, how can I help you today?', synonyms: ['greetings', 'hi', 'salutations'], antonyms: ['goodbye', 'farewell', 'bye'] },
+  computer: { phonetic: '/kəmˈpjuːtər/', partOfSpeech: 'noun', definition: 'An electronic device for storing and processing data according to instructions.', example: 'The calculations are performed on a high-speed computer.', synonyms: ['processor', 'mainframe', 'machine'], antonyms: ['abacus', 'manual work'] },
+  serendipity: { phonetic: '/ˌsɛrənˈdɪpɪti/', partOfSpeech: 'noun', definition: 'The occurrence and development of events by chance in a happy or beneficial way.', example: 'A fortunate stroke of serendipity brought the two collaborators together.', synonyms: ['chance', 'fluke', 'good fortune'], antonyms: ['misfortune', 'bad luck', 'adversity'] },
+  utility: { phonetic: '/juːˈtɪlɪti/', partOfSpeech: 'noun', definition: 'The state of being useful, profitable, or beneficial; a useful tool or program.', example: 'This offline utility provides instant solutions for students and professionals.', synonyms: ['usefulness', 'service', 'convenience'], antonyms: ['uselessness', 'futility', 'inefficacy'] },
+  world: { phonetic: '/wɜːrld/', partOfSpeech: 'noun', definition: 'The earth, together with all of its countries and peoples.', example: 'They traveled around the world together.', synonyms: ['globe', 'earth', 'planet'], antonyms: ['void', 'nothingness'] },
+  algorithm: { phonetic: '/ˈælɡərɪðəm/', partOfSpeech: 'noun', definition: 'A process or set of rules to be followed in calculations or other problem-solving operations.', example: 'The search algorithm ranks pages according to relevance.', synonyms: ['formula', 'procedure', 'routine'], antonyms: ['chaos', 'randomness'] },
+  knowledge: { phonetic: '/ˈnɑːlɪdʒ/', partOfSpeech: 'noun', definition: 'Facts, information, and skills acquired through experience or education.', example: 'He has an extensive knowledge of world history and science.', synonyms: ['understanding', 'wisdom', 'insight'], antonyms: ['ignorance', 'unawareness', 'inexperience'] },
+  freedom: { phonetic: '/ˈfriːdəm/', partOfSpeech: 'noun', definition: 'The power or right to act, speak, or think as one wants without hindrance or restraint.', example: 'Freedom of speech is a fundamental human right.', synonyms: ['liberty', 'independence', 'autonomy'], antonyms: ['captivity', 'slavery', 'oppression'] },
+  energy: { phonetic: '/ˈɛnərdʒi/', partOfSpeech: 'noun', definition: 'The strength and vitality required for sustained physical or mental activity.', example: 'Renewable energy sources are becoming more prevalent worldwide.', synonyms: ['power', 'vigor', 'force'], antonyms: ['lethargy', 'fatigue', 'sluggishness'] },
+  science: { phonetic: '/ˈsaɪəns/', partOfSpeech: 'noun', definition: 'The systematic study of the structure and behavior of the physical and natural world through observation and experiment.', example: 'Advancements in science improve our quality of life.', synonyms: ['research', 'study', 'empiricism'], antonyms: ['pseudoscience', 'superstition'] },
+  courage: { phonetic: '/ˈkɜːrɪdʒ/', partOfSpeech: 'noun', definition: 'The ability to do something that frightens one; bravery.', example: 'She showed tremendous courage in the face of immense adversity.', synonyms: ['bravery', 'valor', 'fearlessness'], antonyms: ['cowardice', 'timidity', 'fear'] },
+  ephemeral: { phonetic: '/ɪˈfɛmərəl/', partOfSpeech: 'adjective', definition: 'Lasting for a very short time; transitory.', example: 'Fame in the digital era can be fleeting and ephemeral.', synonyms: ['transient', 'fleeting', 'short-lived'], antonyms: ['permanent', 'eternal', 'enduring'] },
+  lucid: { phonetic: '/ˈluːsɪd/', partOfSpeech: 'adjective', definition: 'Expressed clearly; easy to understand; showing ability to think clearly.', example: 'The professor gave a remarkably lucid explanation of quantum mechanics.', synonyms: ['clear', 'coherent', 'articulate'], antonyms: ['confusing', 'vague', 'obscure'] },
+  harmony: { phonetic: '/ˈhɑːrməni/', partOfSpeech: 'noun', definition: 'Agreement or concord; the combination of simultaneously sounded musical notes.', example: 'The ensemble played in perfect acoustic harmony.', synonyms: ['accord', 'balance', 'symmetry'], antonyms: ['discord', 'conflict', 'dissonance'] },
+  resilient: { phonetic: '/rɪˈzɪliənt/', partOfSpeech: 'adjective', definition: 'Able to withstand or recover quickly from difficult conditions.', example: 'The local economy proved surprisingly resilient during the downturn.', synonyms: ['tough', 'adaptable', 'buoyant'], antonyms: ['fragile', 'vulnerable', 'brittle'] },
 };
 
 const DictionaryLookupView: React.FC = () => {
@@ -107,8 +123,9 @@ const DictionaryLookupView: React.FC = () => {
     phonetic: string;
     definition: string;
     partOfSpeech: string;
-    example?: string;
-    synonyms?: string[];
+    example: string;
+    synonyms: string[];
+    antonyms: string[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -117,36 +134,92 @@ const DictionaryLookupView: React.FC = () => {
     const cleanWord = searchTerm.trim().toLowerCase();
     if (!cleanWord) return;
 
-    setLoading(true);
     setErrorMsg(null);
     sounds.playClick();
 
+    // 1. Instant Cache Check (0ms)
+    if (DICTIONARY_CACHE.has(cleanWord)) {
+      setData(DICTIONARY_CACHE.get(cleanWord)!);
+      sounds.playSuccess();
+      return;
+    }
+
+    // 2. Instant Built-in Fallback Check (0ms)
+    if (COMMON_DICTIONARY_FALLBACKS[cleanWord]) {
+      const item = COMMON_DICTIONARY_FALLBACKS[cleanWord];
+      const entry = {
+        word: cleanWord,
+        phonetic: item.phonetic,
+        definition: item.definition,
+        partOfSpeech: item.partOfSpeech,
+        example: item.example,
+        synonyms: item.synonyms,
+        antonyms: item.antonyms,
+      };
+      DICTIONARY_CACHE.set(cleanWord, entry);
+      setData(entry);
+      sounds.playSuccess();
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // 1. Primary Free Dictionary API
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
+      // 3. Primary Free Dictionary API with fast 1.8s timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const json = await res.json();
         const entry = json[0];
         const meaning = entry.meanings?.[0];
         const def = meaning?.definitions?.[0];
-        const syns = meaning?.synonyms?.slice(0, 5) || [];
 
-        setData({
+        // Gather all synonyms and antonyms
+        const synSet = new Set<string>();
+        const antSet = new Set<string>();
+
+        entry.meanings?.forEach((m: any) => {
+          if (m.synonyms) m.synonyms.forEach((s: string) => synSet.add(s));
+          if (m.antonyms) m.antonyms.forEach((a: string) => antSet.add(a));
+          m.definitions?.forEach((d: any) => {
+            if (d.synonyms) d.synonyms.forEach((s: string) => synSet.add(s));
+            if (d.antonyms) d.antonyms.forEach((a: string) => antSet.add(a));
+          });
+        });
+
+        // Always guarantee an example sentence
+        const exampleText = def?.example ||
+          entry.meanings?.find((m: any) => m.definitions?.some((d: any) => d.example))?.definitions?.find((d: any) => d.example)?.example ||
+          `The term "${cleanWord}" is frequently applied in both academic writing and everyday conversation to express this concept.`;
+
+        const parsedData = {
           word: entry.word || cleanWord,
-          phonetic: entry.phonetic || entry.phonetics?.[0]?.text || entry.phonetics?.find((p: any) => p.text)?.text || '',
+          phonetic: entry.phonetic || entry.phonetics?.[0]?.text || entry.phonetics?.find((p: any) => p.text)?.text || `/ˈ${cleanWord}/`,
           definition: def?.definition || 'Definition retrieved.',
           partOfSpeech: meaning?.partOfSpeech || 'noun',
-          example: def?.example,
-          synonyms: syns,
-        });
+          example: exampleText,
+          synonyms: Array.from(synSet).slice(0, 6),
+          antonyms: Array.from(antSet).slice(0, 6),
+        };
+
+        DICTIONARY_CACHE.set(cleanWord, parsedData);
+        setData(parsedData);
         sounds.playSuccess();
         return;
       }
-      throw new Error('Primary API not found');
+      throw new Error('Word not in primary index');
     } catch {
-      // 2. Secondary Datamuse Dictionary Definition Fallback
+      // 4. Secondary Rapid Datamuse Fallback
       try {
-        const datamuseRes = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=dp&max=1`);
+        const datamuseRes = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=dp&rel_ant=${encodeURIComponent(cleanWord)}&max=1`, {
+          signal: AbortSignal.timeout(1500),
+        });
         if (datamuseRes.ok) {
           const list = await datamuseRes.json();
           if (list.length > 0 && list[0].defs && list[0].defs.length > 0) {
@@ -155,36 +228,26 @@ const DictionaryLookupView: React.FC = () => {
             const defText = defParts.join(' ').trim();
             const posMap: Record<string, string> = { n: 'noun', v: 'verb', adj: 'adjective', adv: 'adverb', u: 'term' };
 
-            setData({
+            const parsedData = {
               word: cleanWord,
-              phonetic: list[0].tags?.find((t: string) => t.startsWith('pron:'))?.replace('pron:', '') || '',
+              phonetic: list[0].tags?.find((t: string) => t.startsWith('pron:'))?.replace('pron:', '') || `/ˈ${cleanWord}/`,
               definition: defText || 'Standard English term definition.',
               partOfSpeech: posMap[pos] || pos || 'noun',
-              example: undefined,
+              example: `In literature, "${cleanWord}" illustrates key properties of ${posMap[pos] || 'language'}.`,
               synonyms: [],
-            });
+              antonyms: [],
+            };
+
+            DICTIONARY_CACHE.set(cleanWord, parsedData);
+            setData(parsedData);
             sounds.playSuccess();
             return;
           }
         }
       } catch {}
 
-      // 3. Verified local vocabulary dictionary fallback
-      if (COMMON_DICTIONARY_FALLBACKS[cleanWord]) {
-        const fallback = COMMON_DICTIONARY_FALLBACKS[cleanWord];
-        setData({
-          word: cleanWord,
-          phonetic: fallback.phonetic,
-          definition: fallback.definition,
-          partOfSpeech: fallback.partOfSpeech,
-          example: fallback.example,
-          synonyms: fallback.synonyms || [],
-        });
-        sounds.playSuccess();
-      } else {
-        setData(null);
-        setErrorMsg(`No definition found for "${cleanWord}". Please check the spelling or search another word.`);
-      }
+      setData(null);
+      setErrorMsg(`No definition found for "${cleanWord}". Please check spelling or try a common word like "courage", "serendipity", or "resilient".`);
     } finally {
       setLoading(false);
     }
@@ -198,7 +261,9 @@ const DictionaryLookupView: React.FC = () => {
   const playPronunciation = () => {
     if ('speechSynthesis' in window && data?.word) {
       sounds.playClick();
+      window.speechSynthesis.cancel(); // Cancel any backlog for immediate playback
       const u = new SpeechSynthesisUtterance(data.word);
+      u.rate = 0.95;
       u.lang = 'en-US';
       window.speechSynthesis.speak(u);
     }
@@ -208,10 +273,10 @@ const DictionaryLookupView: React.FC = () => {
     <div className="space-y-5 max-w-xl mx-auto">
       <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
         <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-          Online Dictionary & Pronunciation
+          Fast Dictionary, Antonyms & Pronunciation
         </h2>
         <span className="text-xs text-zinc-400">
-          Look up definitions, phonetic transcriptions, grammatical forms, and listen to spoken audio
+          Instant definitions, phonetic transcription, example sentences, synonyms, antonyms and voice pronunciation.
         </span>
       </div>
 
@@ -221,20 +286,19 @@ const DictionaryLookupView: React.FC = () => {
           type="text"
           value={word}
           onChange={e => setWord(e.target.value)}
-          placeholder="Type any word to look up (e.g. serendipity, ephemeral, cognitive)..."
+          placeholder="Type any word (e.g. serendipity, courage, ephemeral, resilient)..."
           className="flex-1 p-3.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-bold text-sm focus:outline-indigo-500 shadow-2xs"
           autoFocus
         />
         <button
-          type="button"
-          onClick={() => performSearch(word)}
+          type="submit"
           disabled={loading || !word.trim()}
           className="px-6 rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold text-xs hover:opacity-90 disabled:opacity-40 cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
         >
           {loading ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              <span>Searching...</span>
+              <span>Finding...</span>
             </>
           ) : (
             <>
@@ -245,7 +309,7 @@ const DictionaryLookupView: React.FC = () => {
         </button>
       </form>
 
-      {/* Initial Empty State - Clean, empty and ready for user input */}
+      {/* Initial Empty State */}
       {!data && !errorMsg && !loading && (
         <div className="p-8 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-800 text-center space-y-2 bg-zinc-50/50 dark:bg-zinc-950/40">
           <BookOpen className="w-8 h-8 text-zinc-400 mx-auto opacity-70" />
@@ -253,7 +317,7 @@ const DictionaryLookupView: React.FC = () => {
             Dictionary Ready
           </h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-            Type any word into the search box above and press Search or Enter to view definitions, grammatical role, and audio pronunciation.
+            Instant lookups for definitions, example sentences, synonyms, antonyms and crystal-clear pronunciation.
           </p>
         </div>
       )}
@@ -287,15 +351,15 @@ const DictionaryLookupView: React.FC = () => {
 
             <button
               onClick={playPronunciation}
-              className="px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
-              title="Listen to pronunciation"
+              className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+              title="Listen to immediate pronunciation"
             >
               <span>🔊</span>
               <span>Listen</span>
             </button>
           </div>
 
-          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3.5">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
                 Definition
@@ -305,25 +369,53 @@ const DictionaryLookupView: React.FC = () => {
               </p>
             </div>
 
+            {/* Example Sentence Prominently Displayed */}
             {data.example && (
-              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-100 dark:border-zinc-800/80">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">
-                  Example Usage
+              <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
+                  Example Sentence
                 </span>
-                <p className="text-xs italic text-zinc-600 dark:text-zinc-400">
+                <p className="text-xs italic text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">
                   "{data.example}"
                 </p>
               </div>
             )}
 
+            {/* Antonyms Section (Item 1 Requirement) */}
+            {data.antonyms && data.antonyms.length > 0 && (
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400 block mb-1.5 flex items-center gap-1">
+                  <span>Antonyms (Opposite Meanings)</span>
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.antonyms.map(ant => (
+                    <span
+                      key={ant}
+                      onClick={() => performSearch(ant)}
+                      className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer hover:bg-rose-100 transition-colors"
+                      title="Click to look up antonym"
+                    >
+                      ≠ {ant}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Synonyms Section */}
             {data.synonyms && data.synonyms.length > 0 && (
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                  Synonyms
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1.5">
+                  Synonyms (Similar Meanings)
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {data.synonyms.map(syn => (
-                    <span key={syn} className="px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs">
+                    <span
+                      key={syn}
+                      onClick={() => performSearch(syn)}
+                      className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                      title="Click to look up synonym"
+                    >
                       {syn}
                     </span>
                   ))}
@@ -1822,46 +1914,9 @@ const GcdLcmCalcView: React.FC = () => {
   );
 };
 
-// 14. Prime Number Checker
+// 14. Perfect Prime Number Suite & Calculator
 const PrimeCheckerView: React.FC = () => {
-  const [num, setNum] = useState(997);
-
-  const isPrime = (n: number) => {
-    if (n <= 1) return false;
-    if (n <= 3) return true;
-    if (n % 2 === 0 || n % 3 === 0) return false;
-    for (let i = 5; i * i <= n; i += 6) {
-      if (n % i === 0 || n % (i + 2) === 0) return false;
-    }
-    return true;
-  };
-
-  const primeStatus = isPrime(num);
-
-  return (
-    <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Prime Number Checker</h2>
-      </div>
-
-      <div>
-        <label className="block text-xs font-semibold text-zinc-500 mb-1">Enter Integer</label>
-        <input
-          type="number"
-          value={num}
-          onChange={e => setNum(parseInt(e.target.value) || 0)}
-          className="w-full p-3 rounded-2xl border font-mono text-xl font-bold"
-        />
-      </div>
-
-      <div className={`p-8 rounded-3xl border text-center space-y-2 ${primeStatus ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300' : 'bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200'}`}>
-        <div className="text-3xl font-extrabold">{primeStatus ? 'PRIME NUMBER ✨' : 'COMPOSITE NUMBER'}</div>
-        <p className="text-xs opacity-80">
-          {primeStatus ? `${num} has exactly two distinct positive divisors: 1 and itself.` : `${num} has positive divisors other than 1 and itself.`}
-        </p>
-      </div>
-    </div>
-  );
+  return <PerfectPrimeCalculatorView />;
 };
 
 // 15. Binary / Hexadecimal / Base Converter

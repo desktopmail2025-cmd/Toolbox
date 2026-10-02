@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
+import { triggerAppNotification } from '../../utils/notifications';
+import { SubjectFormulasView } from './SubjectFormulasTool';
+import { PdfDocumentTools } from './PdfDocumentTools';
 import {
   Plus, Trash2, Play, Pause, RotateCcw, Shuffle, Copy, Check,
   Download, Undo2, Redo2, Square, Circle, Minus, ArrowRight,
   Eraser, Highlighter, Pen, Grid, Type, Paintbrush,
-  BookOpen, Bookmark, Star, Calendar, Clock, MapPin, CheckCircle2, Heart, Sparkles, Bell, ExternalLink, Filter
+  BookOpen, Bookmark, Star, Calendar, Clock, MapPin, CheckCircle2, Heart, Sparkles, Bell, ExternalLink, Filter,
+  Image as ImageIcon, Upload, Camera, Eye
 } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -14,6 +18,13 @@ interface ToolComponentProps {
 
 export const StudentTools: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
+    case 'study-formulas':
+    case 'subject-formulas':
+      return <SubjectFormulasView />;
+    case 'pdf-converter-suite':
+    case 'pdf-interchange-studio':
+    case 'pdf-doc-converter':
+      return <PdfDocumentTools toolId={toolId} />;
     case 'gpa-calc':
       return <GpaCalcView />;
     case 'target-grade-calc':
@@ -1225,7 +1236,7 @@ const StudyWhiteboardView: React.FC = () => {
   );
 };
 
-// 9. Book Lover Reading List & Library Tracker (Item 3: Collect Books to Read Later, Reading Progress & Add/Delete Beside Each)
+// 9. Book Lover Reading List & Library Tracker (Item 3: Collect Books to Read Later, Reading Progress & Add/Delete Beside Each + Cover Image System)
 export interface BookItem {
   id: string;
   title: string;
@@ -1238,6 +1249,8 @@ export interface BookItem {
   notes?: string;
   isFavorite: boolean;
   addedAt: string;
+  coverImage?: string; // base64 data URL or external URL
+  coverTheme?: 'indigo' | 'emerald' | 'amber' | 'ruby' | 'violet' | 'slate';
 }
 
 const DEFAULT_BOOK_PICKS: BookItem[] = [
@@ -1253,6 +1266,7 @@ const DEFAULT_BOOK_PICKS: BookItem[] = [
     isFavorite: true,
     notes: 'You do not rise to the level of your goals. You fall to the level of your systems.',
     addedAt: '2026-09-15',
+    coverTheme: 'amber',
   },
   {
     id: '2',
@@ -1264,8 +1278,9 @@ const DEFAULT_BOOK_PICKS: BookItem[] = [
     status: 'want-to-read',
     rating: 0,
     isFavorite: false,
-    notes: 'Epic science fiction classic to read before the next film adaptation.',
+    notes: 'Epic science fiction classic exploring ecology, politics, and power.',
     addedAt: '2026-09-20',
+    coverTheme: 'indigo',
   },
   {
     id: '3',
@@ -1279,6 +1294,7 @@ const DEFAULT_BOOK_PICKS: BookItem[] = [
     isFavorite: true,
     notes: 'The ability to perform deep work is becoming increasingly rare and valuable in our economy.',
     addedAt: '2026-08-10',
+    coverTheme: 'emerald',
   },
   {
     id: '4',
@@ -1291,15 +1307,25 @@ const DEFAULT_BOOK_PICKS: BookItem[] = [
     rating: 0,
     isFavorite: false,
     addedAt: '2026-09-28',
+    coverTheme: 'ruby',
   },
 ];
 
 const POPULAR_RECOMMENDATIONS = [
-  { title: '1984', author: 'George Orwell', genre: 'Dystopian', pages: 328 },
-  { title: 'The Psychology of Money', author: 'Morgan Housel', genre: 'Finance', pages: 256 },
-  { title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', genre: 'History', pages: 464 },
-  { title: 'The Midnight Library', author: 'Matt Haig', genre: 'Fiction', pages: 304 },
+  { title: '1984', author: 'George Orwell', genre: 'Dystopian', pages: 328, coverTheme: 'slate' as const },
+  { title: 'The Psychology of Money', author: 'Morgan Housel', genre: 'Finance', pages: 256, coverTheme: 'emerald' as const },
+  { title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', genre: 'History', pages: 464, coverTheme: 'amber' as const },
+  { title: 'The Midnight Library', author: 'Matt Haig', genre: 'Fiction', pages: 304, coverTheme: 'violet' as const },
 ];
+
+const THEME_STYLES: Record<string, { bg: string; text: string; spine: string }> = {
+  indigo: { bg: 'from-indigo-600 via-indigo-700 to-indigo-900', text: 'text-indigo-100', spine: 'bg-indigo-950' },
+  emerald: { bg: 'from-emerald-600 via-emerald-700 to-emerald-900', text: 'text-emerald-100', spine: 'bg-emerald-950' },
+  amber: { bg: 'from-amber-600 via-amber-700 to-amber-900', text: 'text-amber-100', spine: 'bg-amber-950' },
+  ruby: { bg: 'from-rose-600 via-rose-700 to-rose-950', text: 'text-rose-100', spine: 'bg-rose-950' },
+  violet: { bg: 'from-purple-600 via-purple-700 to-purple-950', text: 'text-purple-100', spine: 'bg-purple-950' },
+  slate: { bg: 'from-zinc-700 via-zinc-800 to-zinc-950', text: 'text-zinc-200', spine: 'bg-black' },
+};
 
 const BookReadingListView: React.FC = () => {
   const [books, setBooks] = useState<BookItem[]>(() => {
@@ -1315,16 +1341,48 @@ const BookReadingListView: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Editing cover modal state
+  const [editingCoverBookId, setEditingCoverBookId] = useState<string | null>(null);
+  const [editCoverUrl, setEditCoverUrl] = useState('');
+  const [zoomCoverUrl, setZoomCoverUrl] = useState<string | null>(null);
+
   // Form states
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [genre, setGenre] = useState('Fiction');
   const [totalPages, setTotalPages] = useState('300');
   const [notes, setNotes] = useState('');
+  const [coverImage, setCoverImage] = useState<string>('');
+  const [coverTheme, setCoverTheme] = useState<'indigo' | 'emerald' | 'amber' | 'ruby' | 'violet' | 'slate'>('indigo');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const saveBooks = (updated: BookItem[]) => {
     setBooks(updated);
     localStorage.setItem('omni_book_reading_list', JSON.stringify(updated));
+  };
+
+  // Handle local image file upload (converts to base64 for persistent localStorage)
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (isEditing && editingCoverBookId) {
+        handleSaveCover(editingCoverBookId, base64);
+      } else {
+        setCoverImage(base64);
+      }
+      sounds.playSuccess();
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddBook = (e: React.FormEvent) => {
@@ -1344,12 +1402,15 @@ const BookReadingListView: React.FC = () => {
       isFavorite: false,
       notes: notes.trim() || undefined,
       addedAt: new Date().toISOString().slice(0, 10),
+      coverImage: coverImage.trim() || undefined,
+      coverTheme,
     };
 
     saveBooks([newBook, ...books]);
     setTitle('');
     setAuthor('');
     setNotes('');
+    setCoverImage('');
     setShowAddModal(false);
   };
 
@@ -1359,7 +1420,7 @@ const BookReadingListView: React.FC = () => {
     saveBooks(updated);
   };
 
-  const handleQuickAdd = (rec: { title: string; author: string; genre: string; pages: number }) => {
+  const handleQuickAdd = (rec: { title: string; author: string; genre: string; pages: number; coverTheme: 'indigo' | 'emerald' | 'amber' | 'ruby' | 'violet' | 'slate' }) => {
     sounds.playSuccess();
     const newBook: BookItem = {
       id: String(Date.now()),
@@ -1372,6 +1433,7 @@ const BookReadingListView: React.FC = () => {
       rating: 0,
       isFavorite: false,
       addedAt: new Date().toISOString().slice(0, 10),
+      coverTheme: rec.coverTheme,
     };
     saveBooks([newBook, ...books]);
   };
@@ -1404,6 +1466,19 @@ const BookReadingListView: React.FC = () => {
     saveBooks(updated);
   };
 
+  const handleSaveCover = (bookId: string, newCoverUrl: string) => {
+    sounds.playSuccess();
+    const updated = books.map(b => {
+      if (b.id === bookId) {
+        return { ...b, coverImage: newCoverUrl || undefined };
+      }
+      return b;
+    });
+    saveBooks(updated);
+    setEditingCoverBookId(null);
+    setEditCoverUrl('');
+  };
+
   const filteredBooks = books.filter(b => {
     const matchesTab = activeTab === 'all' || b.status === activeTab;
     const matchesQuery =
@@ -1418,19 +1493,25 @@ const BookReadingListView: React.FC = () => {
   const finishedCount = books.filter(b => b.status === 'finished').length;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto select-none">
+    <div className="space-y-6 max-w-5xl mx-auto select-none">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Book Lover Reading List & Library Tracker
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-0.5">
+            <span>Reading Tracker</span>
+            <span aria-hidden="true">·</span>
+            <span>Custom Book Covers & Shelf</span>
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Book Lovers' Reading Vault & Shelf
           </h2>
-          <span className="text-xs text-zinc-400">
-            Collect books to read later, log reading progress, write quotes & organize your personal library
-          </span>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Collect books to read later, upload custom cover art, track page progress, and log quotes.
+          </p>
         </div>
         <button
           onClick={() => { sounds.playClick(); setShowAddModal(true); }}
-          className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-90"
+          className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-90 active:scale-95 transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add New Book</span>
@@ -1461,14 +1542,14 @@ const BookReadingListView: React.FC = () => {
       </div>
 
       {/* Library Shelves Overview & Search */}
-      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3.5 shadow-xs">
+      <div className="rounded-3xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3.5 shadow-xs">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           {/* Shelf Tabs */}
           <div className="flex flex-wrap gap-2">
             {[
               { id: 'all', label: `All Books (${books.length})` },
               { id: 'want-to-read', label: `To Read Later (${wantToReadCount})` },
-              { id: 'reading', label: `Currently Reading (${readingCount})` },
+              { id: 'reading', label: `Reading Now (${readingCount})` },
               { id: 'finished', label: `Finished (${finishedCount})` },
             ].map(tab => (
               <button
@@ -1499,22 +1580,112 @@ const BookReadingListView: React.FC = () => {
       {/* Add Book Modal Form */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <form onSubmit={handleAddBook} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-xl">
+          <form onSubmit={handleAddBook} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Add Book to Reading List</span>
+                <span>Add Book to Reading Shelf</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-zinc-400 hover:text-zinc-700 text-xs font-bold cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-xs font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
+              {/* Cover Image Upload / Selection System */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Book Cover Image (Upload or URL)</span>
+                  </span>
+                  {coverImage && (
+                    <button
+                      type="button"
+                      onClick={() => setCoverImage('')}
+                      className="text-[10px] text-rose-500 hover:underline font-semibold cursor-pointer"
+                    >
+                      Remove Image
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Thumbnail Preview */}
+                  <div className="w-16 h-22 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0 flex items-center justify-center relative shadow-xs">
+                    {coverImage ? (
+                      <img
+                        src={coverImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${THEME_STYLES[coverTheme].bg} p-1 flex flex-col justify-between text-center`}>
+                        <div className="text-[7px] font-bold text-white uppercase tracking-tighter truncate">
+                          {title || 'Cover'}
+                        </div>
+                        <ImageIcon className="w-4 h-4 text-white/50 mx-auto" />
+                        <div className="text-[6px] text-white/70 truncate">
+                          {author || 'Author'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="space-y-2 flex-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFileUpload(e, false)}
+                      className="hidden"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:border-indigo-500 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Upload className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                        <span>Upload Photo</span>
+                      </button>
+                    </div>
+
+                    <input
+                      type="url"
+                      placeholder="Or paste image URL (https://...)"
+                      value={coverImage}
+                      onChange={e => setCoverImage(e.target.value)}
+                      className="w-full p-2 text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Theme Palette Picker (for stylized cover if no photo uploaded) */}
+                <div className="pt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Default Spine Theme:</span>
+                  <div className="flex items-center gap-1.5">
+                    {(['indigo', 'emerald', 'amber', 'ruby', 'violet', 'slate'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setCoverTheme(t)}
+                        className={`w-5 h-5 rounded-full bg-gradient-to-tr ${THEME_STYLES[t].bg} cursor-pointer transition-transform ${
+                          coverTheme === t ? 'ring-2 ring-indigo-500 scale-110' : 'opacity-70 hover:opacity-100'
+                        }`}
+                        title={t}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-bold text-zinc-500 mb-1">Book Title *</label>
                 <input
@@ -1580,7 +1751,7 @@ const BookReadingListView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
@@ -1590,7 +1761,7 @@ const BookReadingListView: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs active:scale-95 transition-all"
               >
                 Save to Shelf
               </button>
@@ -1599,71 +1770,202 @@ const BookReadingListView: React.FC = () => {
         </div>
       )}
 
-      {/* Book Cards Grid with Add & Delete Buttons Beside Each Item */}
+      {/* Edit Book Cover Modal */}
+      {editingCoverBookId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Update Book Cover</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingCoverBookId(null)}
+                className="text-zinc-400 hover:text-zinc-700 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageFileUpload(e, true)}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => editFileInputRef.current?.click()}
+                className="w-full py-2.5 rounded-xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 hover:border-indigo-500 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-2 cursor-pointer bg-indigo-50/50 dark:bg-indigo-950/30 transition-all"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload Image from Device</span>
+              </button>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-zinc-500">Or Paste Image URL</label>
+                <input
+                  type="url"
+                  placeholder="https://images.example.com/cover.jpg"
+                  value={editCoverUrl}
+                  onChange={e => setEditCoverUrl(e.target.value)}
+                  className="w-full p-2.5 text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 font-mono focus:outline-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => handleSaveCover(editingCoverBookId, '')}
+                className="text-xs font-semibold text-rose-500 hover:underline cursor-pointer"
+              >
+                Clear Cover
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCoverBookId(null)}
+                  className="px-3.5 py-1.5 rounded-xl border text-xs font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveCover(editingCoverBookId, editCoverUrl)}
+                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
+                >
+                  Save Cover
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Cover Zoom Modal */}
+      {zoomCoverUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-pointer"
+          onClick={() => setZoomCoverUrl(null)}
+        >
+          <div className="relative max-w-sm max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl border border-white/20">
+            <img src={zoomCoverUrl} alt="Cover preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+          </div>
+        </div>
+      )}
+
+      {/* Book Cards Grid with Cover Image & Add/Delete Beside Each Item */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredBooks.map(book => {
           const progressPct = book.totalPages > 0 ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
+          const theme = THEME_STYLES[book.coverTheme || 'indigo'] || THEME_STYLES.indigo;
 
           return (
             <div
               key={book.id}
-              className="p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between space-y-4"
+              className="p-4 sm:p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between space-y-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
             >
-              <div className="space-y-2">
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                      {book.title}
-                    </h3>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                      by <span className="font-semibold text-zinc-700 dark:text-zinc-300">{book.author}</span> · {book.genre}
+              {/* Top Section: Cover Image + Book Metadata */}
+              <div className="flex gap-4 items-start">
+                {/* Book Cover Thumbnail with Spine and Hover Action */}
+                <div
+                  className="w-20 sm:w-24 h-28 sm:h-32 shrink-0 rounded-2xl overflow-hidden relative shadow-md border border-zinc-200/80 dark:border-zinc-800/80 group cursor-pointer bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"
+                  onClick={() => {
+                    if (book.coverImage) {
+                      setZoomCoverUrl(book.coverImage);
+                    } else {
+                      setEditingCoverBookId(book.id);
+                    }
+                  }}
+                  title="Click to view or edit cover"
+                >
+                  {book.coverImage ? (
+                    <img
+                      src={book.coverImage}
+                      alt={book.title}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className={`w-full h-full bg-gradient-to-tr ${theme.bg} p-2 flex flex-col justify-between text-white text-center shadow-inner`}>
+                      <div className="text-[8px] font-black uppercase tracking-tight line-clamp-2">
+                        {book.title}
+                      </div>
+                      <BookOpen className="w-5 h-5 mx-auto opacity-70" />
+                      <div className="text-[7px] opacity-80 truncate">
+                        {book.author}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hover Camera Overlay to Change Image */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Cover</span>
+                  </div>
+                </div>
+
+                {/* Metadata & Progress */}
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex justify-between items-start gap-1">
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50 truncate" title={book.title}>
+                        {book.title}
+                      </h3>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate">
+                        by <span className="font-semibold text-zinc-700 dark:text-zinc-300">{book.author}</span> · {book.genre}
+                      </div>
+                    </div>
+
+                    {/* Shelf Status Dropdown */}
+                    <select
+                      value={book.status}
+                      onChange={e => handleStatusChange(book.id, e.target.value as any)}
+                      className="text-[10px] font-bold px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 cursor-pointer focus:outline-indigo-500 shrink-0"
+                    >
+                      <option value="want-to-read">To Read</option>
+                      <option value="reading">Reading</option>
+                      <option value="finished">Finished</option>
+                    </select>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[11px] font-mono">
+                      <span className="text-zinc-400">
+                        Page <strong className="text-zinc-800 dark:text-zinc-200">{book.currentPage}</strong> of {book.totalPages}
+                      </span>
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                        {progressPct}% read
+                      </span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${progressPct}%` }}
+                      />
                     </div>
                   </div>
 
-                  {/* Shelf Status Dropdown */}
-                  <select
-                    value={book.status}
-                    onChange={e => handleStatusChange(book.id, e.target.value as any)}
-                    className="text-[11px] font-bold px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 cursor-pointer focus:outline-indigo-500"
-                  >
-                    <option value="want-to-read">To Read Later</option>
-                    <option value="reading">Reading Now</option>
-                    <option value="finished">Finished</option>
-                  </select>
+                  {book.notes && (
+                    <p className="text-xs italic text-zinc-600 dark:text-zinc-400 line-clamp-1">
+                      "{book.notes}"
+                    </p>
+                  )}
                 </div>
-
-                {/* Progress Bar for currently reading / finished */}
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex justify-between text-[11px] font-mono">
-                    <span className="text-zinc-400">
-                      Page <strong className="text-zinc-800 dark:text-zinc-200">{book.currentPage}</strong> of {book.totalPages}
-                    </span>
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                      {progressPct}% read
-                    </span>
-                  </div>
-                  <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-indigo-600 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {book.notes && (
-                  <p className="text-xs italic text-zinc-600 dark:text-zinc-400 pt-1 line-clamp-2">
-                    "{book.notes}"
-                  </p>
-                )}
               </div>
 
-              {/* Action Buttons: Add Another / Progress Stepper / Delete Beside Each Item */}
-              <div className="flex justify-between items-center pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+              {/* Bottom Action Bar: Page Steppers + Image Cover Button + Add/Delete Beside Each Item */}
+              <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleProgressStep(book.id, 10)}
                     disabled={book.currentPage >= book.totalPages}
-                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer active:scale-95"
                     title="Read 10 more pages"
                   >
                     +10p
@@ -1671,10 +1973,24 @@ const BookReadingListView: React.FC = () => {
                   <button
                     onClick={() => handleProgressStep(book.id, 50)}
                     disabled={book.currentPage >= book.totalPages}
-                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 disabled:opacity-30 cursor-pointer active:scale-95"
                     title="Read 50 more pages"
                   >
                     +50p
+                  </button>
+
+                  {/* Add / Edit Cover Button */}
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setEditingCoverBookId(book.id);
+                      setEditCoverUrl(book.coverImage || '');
+                    }}
+                    className="px-2 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-semibold text-zinc-500 hover:text-indigo-600 hover:border-indigo-400 flex items-center gap-1 cursor-pointer"
+                    title="Upload or change book cover image"
+                  >
+                    <Camera className="w-3 h-3 text-indigo-500" />
+                    <span>{book.coverImage ? 'Cover' : '+Cover'}</span>
                   </button>
                 </div>
 
@@ -1686,7 +2002,7 @@ const BookReadingListView: React.FC = () => {
                       setShowAddModal(true);
                       setGenre(book.genre);
                     }}
-                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    className="px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
                     title="Add another book to shelf"
                   >
                     <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -1695,7 +2011,7 @@ const BookReadingListView: React.FC = () => {
 
                   <button
                     onClick={() => handleDeleteBook(book.id)}
-                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    className="px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                     title="Delete book from list"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-500" />
@@ -1711,7 +2027,7 @@ const BookReadingListView: React.FC = () => {
           <div className="col-span-full p-10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-400 space-y-2">
             <BookOpen className="w-8 h-8 text-zinc-400 mx-auto opacity-60" />
             <p className="font-bold text-zinc-700 dark:text-zinc-300">Your reading shelf is empty here.</p>
-            <p>Click "Add New Book" or select from the popular picks above to build your reading list.</p>
+            <p>Click "Add New Book" or select from the popular picks above to build your reading list with custom covers.</p>
           </div>
         )}
       </div>
@@ -2071,8 +2387,23 @@ const WorkStudySchedulerView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ADD and DELETE Buttons Beside Each Event (Item 7 Requirement) */}
+                {/* NOTIFY, ADD and DELETE Buttons Beside Each Event */}
                 <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      triggerAppNotification({
+                        title: `🔔 Schedule Reminder: ${evt.title}`,
+                        body: `${evt.day} at ${evt.startTime} - ${evt.location || CATEGORY_STYLES[evt.category]?.label || 'Scheduled'}`,
+                      });
+                    }}
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="Send test alert notification for this schedule"
+                  >
+                    <Bell className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Alert</span>
+                  </button>
+
                   <button
                     onClick={() => {
                       sounds.playClick();

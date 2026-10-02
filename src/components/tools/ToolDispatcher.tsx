@@ -21,6 +21,10 @@ import { DeveloperTools } from './DeveloperTools';
 import { LiveDataTools } from './LiveDataTools';
 import { AudioMusicTools } from './AudioMusicTools';
 import { ExtendedUtilities } from './ExtendedUtilities';
+import { HotPicksView } from './HotPicksTools';
+import { ProfessionalTools } from './ProfessionalTools';
+import { MedicineReminderView } from './MedicineReminderTool';
+import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
 
 interface ToolDispatcherProps {
   tool: ToolItem;
@@ -42,6 +46,10 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
   };
 
   const renderToolBody = () => {
+    if (tool.id === 'prime-checker' || tool.id === 'prime-calculator') {
+      return <PerfectPrimeCalculatorView key={`${tool.id}-${resetKey}`} />;
+    }
+
     switch (tool.categoryId) {
       case 'general':
         return <GeneralCalculators key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
@@ -81,7 +89,20 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
         return <LiveDataTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
       case 'audio-music':
         return <AudioMusicTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+      case 'hot-picks':
+        return <HotPicksView key={`${tool.id}-${resetKey}`} />;
+      case 'professional':
+        return <ProfessionalTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
       default: {
+        if (tool.id === 'medicine-reminder') {
+          return <MedicineReminderView key={`${tool.id}-${resetKey}`} />;
+        }
+        if (tool.id === 'hot-picks-feed') {
+          return <HotPicksView key={`${tool.id}-${resetKey}`} />;
+        }
+        if (tool.id === 'image-bg-remover' || tool.id === 'video-to-audio') {
+          return <ProfessionalTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
+        }
         // Check if handled by extended utilities
         return <ExtendedUtilities key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
       }

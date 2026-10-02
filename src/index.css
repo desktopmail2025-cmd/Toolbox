@@ -19,21 +19,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Distinct High-Visibility Highlighter for Light and Dark Modes (Item 18) */
-  /* LIGHT MODE: Classic Fluorescent Stabilo Lime-Lemon Highlighter */
+  /* Ultra-Visible Text Selection & Highlighting (Item 4: User requested high visibility) */
+  /* LIGHT MODE: Vibrant Golden Amber Highlighter with strong contrast */
   ::selection, *::selection, input::selection, textarea::selection {
-    background-color: #bef264 !important;
-    color: #0f172a !important;
+    background-color: #fde047 !important;
+    color: #09090b !important;
     text-shadow: none !important;
   }
 
   ::-moz-selection, *::-moz-selection, input::-moz-selection, textarea::-moz-selection {
-    background-color: #bef264 !important;
-    color: #0f172a !important;
+    background-color: #fde047 !important;
+    color: #09090b !important;
     text-shadow: none !important;
   }
 
-  /* DARK MODE: Vibrant Electric Neon Cyan Highlighter */
+  /* DARK MODE: Vibrant Electric Sky/Cyan Highlighter with deep slate contrast */
   html.dark ::selection, html.dark *::selection, .dark ::selection, .dark *::selection,
   html.dark input::selection, html.dark textarea::selection, .dark input::selection, .dark textarea::selection {
     background-color: #38bdf8 !important;
@@ -52,6 +52,27 @@
   html {
     scroll-behavior: smooth;
   }
+}
+
+/* Highly visible card hover transitions */
+.hover-card-highlight {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-card-highlight:hover {
+  border-color: #6366f1 !important;
+  box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.15);
+  transform: translateY(-1px);
+}
+html.dark .hover-card-highlight:hover {
+  border-color: #818cf8 !important;
+  box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.25);
+}
+
+/* Highly visible copy button animation & feedback */
+.copy-badge-active {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Tactile press feedback on touch devices */
@@ -74,14 +95,37 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(150, 150, 150, 0.25);
+  background: rgba(150, 150, 150, 0.3);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(150, 150, 150, 0.4);
+  background: rgba(150, 150, 150, 0.5);
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
+/* Universal Native Safe Area Insets (iOS Dynamic Island/Home Bar & Android Navigation) */
+.safe-area-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+.safe-area-left {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+}
+.safe-area-right {
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+/* Standalone PWA titlebar & native feel */
+@media (display-mode: standalone) {
+  body {
+    -webkit-user-select: none;
+  }
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+  }
+}

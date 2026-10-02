@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, Github } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, HelpCircle } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme } from '../../utils/themeColors';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -17,6 +18,7 @@ interface NavbarProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onSelectTool?: (tool: ToolItem) => void;
+  onOpenOnboarding?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onSelectTab,
   onSelectTool,
+  onOpenOnboarding,
 }) => {
   // Expandable search state: collapsed by default
   const [isExpanded, setIsExpanded] = useState(false);
@@ -284,6 +287,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* In-App Native PWA Install Button */}
+          <PWAInstallButton variant="navbar" />
+
           {/* Sound Toggle */}
           <button
             onClick={onToggleSound}
@@ -304,17 +310,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* GitHub Repository Link */}
-          <a
-            href="https://github.com/desktopmail2025-cmd/Toolbox"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub Repository"
-            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 active:scale-95 transition-all"
-            title="View desktopmail2025-cmd/Toolbox on GitHub"
-          >
-            <Github className="w-4 h-4" />
-          </a>
+          {/* Quick Tour / Help Button */}
+          {onOpenOnboarding && (
+            <button
+              onClick={() => {
+                sounds.playClick();
+                onOpenOnboarding();
+              }}
+              aria-label="Quick Tour"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"
+              title="Quick App Tour & Guide"
+            >
+              <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </button>
+          )}
         </div>
       </div>
     </header>

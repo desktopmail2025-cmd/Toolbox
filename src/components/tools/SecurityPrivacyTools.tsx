@@ -416,13 +416,15 @@ const PrivateNotesView: React.FC = () => {
   const handleResetVault = () => {
     sounds.playClick();
     localStorage.removeItem('omni_private_vault_pin');
-    localStorage.setItem('omni_private_vault_notes', JSON.stringify(DEFAULT_VAULT_NOTES));
+    localStorage.removeItem('omni_private_vault_notes');
     setStoredPin(null);
     setPasscode('');
     setConfirmPin('');
     setPinError(null);
-    setNotes(DEFAULT_VAULT_NOTES);
-    setActiveNoteId(DEFAULT_VAULT_NOTES[0].id);
+    setNotes([]);
+    setActiveNoteId(null);
+    setEditTitle('');
+    setEditContent('');
     setIsUnlocked(false);
     setShowForgotModal(false);
   };
@@ -536,7 +538,7 @@ const PrivateNotesView: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">Forgot PIN? Reset Vault</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                Resetting your PIN will erase the current master passcode and reset the vault so you can start from the beginning again with a brand new master PIN.
+                If you forgot your PIN, resetting will permanently remove all previous encrypted notes to ensure strict privacy and allow you to set a new PIN and start completely from the beginning.
               </p>
             </div>
             <div className="flex gap-2 pt-2">

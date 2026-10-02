@@ -17,7 +17,9 @@ export type CategoryId =
   | 'pdf'
   | 'developer'
   | 'live-data'
-  | 'audio-music';
+  | 'audio-music'
+  | 'hot-picks'
+  | 'professional';
 
 export interface ToolItem {
   id: string;
