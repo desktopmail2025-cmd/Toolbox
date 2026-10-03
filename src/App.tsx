@@ -111,13 +111,17 @@ export default function App() {
         setIsSearchOpen(prev => !prev);
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
         e.preventDefault();
-        setActiveTab('notes');
-        setActiveTool(null);
+        sounds.playClick();
+        if (activeTab === 'notes') {
+          setActiveTab('categories');
+        } else {
+          setActiveTab('notes');
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeTab]);
 
   const handleSelectTool = (tool: ToolItem) => {
     // Preserve current scroll position
@@ -129,6 +133,7 @@ export default function App() {
       return next;
     });
     setActiveTool(tool);
+    setActiveTab('categories');
     addStoredRecent(tool.id);
     setRecents(getStoredRecents());
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -136,6 +141,7 @@ export default function App() {
 
   const handleBackToOverview = () => {
     setActiveTool(null);
+    setActiveTab('categories');
     // Restore the scroll position so it stays exactly where it was
     requestAnimationFrame(() => {
       window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
@@ -161,8 +167,28 @@ export default function App() {
   };
 
   const handleSelectTab = (tab: string) => {
-    setActiveTab(tab);
-    setActiveTool(null);
+    sounds.playClick();
+    if (tab === 'categories') {
+      if (activeTab === 'categories' && activeTool) {
+        // User was already in this tool and clicked "All Tools" tab again -> return to home overview
+        handleBackToOverview();
+        return;
+      }
+      // If user came from notes/favorites/games -> return to active tool where they left off
+      setActiveTab('categories');
+    } else {
+      setActiveTab(tab);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleToggleFloatingNotes = () => {
+    sounds.playClick();
+    if (activeTab === 'notes') {
+      setActiveTab('categories');
+    } else {
+      setActiveTab('notes');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -184,24 +210,72 @@ export default function App() {
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
-        {activeTool ? (
-          <ToolDispatcher
-            tool={activeTool}
-            onBack={handleBackToOverview}
-            isFavorite={favorites.includes(activeTool.id)}
-            onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
-          />
+        {activeTab === 'notes' ? (
+          <div className="space-y-4">
+            {activeTool && (
+              <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-900/60 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="text-xs text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  <span>You were working in <strong>{activeTool.name}</strong></span>
+                </div>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setActiveTab('categories');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
+                >
+                  Return to {activeTool.name} →
+                </button>
+              </div>
+            )}
+            <NotesView />
+          </div>
         ) : activeTab === 'favorites' ? (
-          <FavoritesView
-            favorites={favorites}
-            onSelectTool={handleSelectTool}
-            onToggleFavorite={handleToggleFavorite}
-            onBrowseAll={() => handleSelectTab('categories')}
-          />
-        ) : activeTab === 'notes' ? (
-          <NotesView />
+          <div className="space-y-4">
+            {activeTool && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-900/60 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                  <span>You were working in <strong>{activeTool.name}</strong></span>
+                </div>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setActiveTab('categories');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
+                >
+                  Return to {activeTool.name} →
+                </button>
+              </div>
+            )}
+            <FavoritesView
+              favorites={favorites}
+              onSelectTool={handleSelectTool}
+              onToggleFavorite={handleToggleFavorite}
+              onBrowseAll={() => handleBackToOverview()}
+            />
+          </div>
         ) : activeTab === 'games' ? (
           <div className="space-y-6 max-w-4xl mx-auto pb-24">
+            {activeTool && (
+              <div className="p-3.5 rounded-2xl bg-violet-50/90 dark:bg-violet-950/40 border border-violet-200/90 dark:border-violet-900/60 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="text-xs text-violet-950 dark:text-violet-200 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
+                  <span>You were working in <strong>{activeTool.name}</strong></span>
+                </div>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setActiveTab('categories');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
+                >
+                  Return to {activeTool.name} →
+                </button>
+              </div>
+            )}
             <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
                 <span>Offline Arcade</span>
@@ -231,6 +305,13 @@ export default function App() {
               ))}
             </div>
           </div>
+        ) : activeTool ? (
+          <ToolDispatcher
+            tool={activeTool}
+            onBack={handleBackToOverview}
+            isFavorite={favorites.includes(activeTool.id)}
+            onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
+          />
         ) : (
           <CategoryExplorer
             onSelectTool={handleSelectTool}
@@ -247,11 +328,9 @@ export default function App() {
 
       {/* Floating Action Button (FAB) to take notes directly */}
       <FloatingNotesButton
-        onClick={() => {
-          setActiveTab('notes');
-          setActiveTool(null);
-        }}
+        onClick={handleToggleFloatingNotes}
         isOpen={activeTab === 'notes'}
+        activeToolName={activeTool?.name}
       />
 
       {/* Mobile Bottom Navigation (Tools, Starred, Notes, Games) */}

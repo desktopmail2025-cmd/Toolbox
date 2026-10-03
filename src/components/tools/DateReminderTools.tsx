@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   CalendarDays, Clock, Plus, Trash2, Check, Bell, BellRing,
-  AlertCircle, Search, Filter, Sparkles, ChevronRight, Calendar,
-  CreditCard, DollarSign, BookOpen, Briefcase, Heart, ShieldAlert,
-  RotateCcw, Copy
+  Search, Filter, Sparkles, Calendar, Edit2,
+  CreditCard, DollarSign, BookOpen, AlertCircle, CheckCircle2,
+  Tag, ShieldAlert, Award
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { triggerAppNotification, requestNotificationPermission, getNotificationPermissionStatus } from '../../utils/notifications';
@@ -12,23 +12,90 @@ interface ToolComponentProps {
   toolId: string;
 }
 
-export const DateReminderTools: React.FC<ToolComponentProps> = ({ toolId }) => {
-  switch (toolId) {
-    case 'date-reminder':
-      return <DateReminderMasterView />;
-    case 'date-countdown-milestones':
-      return <CountdownMilestonesView />;
-    case 'date-subscription-bills':
-      return <SubscriptionBillsView />;
-    case 'date-deadlines-planner':
-      return <DeadlinesPlannerView />;
-    default:
-      return <DateReminderMasterView />;
+// Local date helpers to avoid UTC day-shift
+export const parseLocalDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    return new Date(y, m, d);
+  }
+  return new Date(dateStr);
+};
+
+export const getTodayStr = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+export const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions): string => {
+  try {
+    const d = parseLocalDate(dateStr);
+    return d.toLocaleDateString([], options || { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
   }
 };
 
+export const DateReminderTools: React.FC<ToolComponentProps> = ({ toolId }) => {
+  const [selectedTool, setSelectedTool] = useState<string>(toolId);
+
+  useEffect(() => {
+    setSelectedTool(toolId);
+  }, [toolId]);
+
+  const dateSubTools = [
+    { id: 'date-reminder', name: 'Date Reminder Hub', icon: CalendarDays },
+    { id: 'date-countdown-milestones', name: 'Event Countdowns', icon: Clock },
+    { id: 'date-subscription-bills', name: 'Bills & Subscriptions', icon: CreditCard },
+    { id: 'date-deadlines-planner', name: 'Deadlines & Tasks', icon: BookOpen },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Category Sub-Navigation */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-200/80 dark:border-zinc-800/80 scrollbar-none">
+        {dateSubTools.map(sub => {
+          const Icon = sub.icon;
+          const isActive = selectedTool === sub.id;
+          return (
+            <button
+              key={sub.id}
+              onClick={() => {
+                sounds.playClick();
+                setSelectedTool(sub.id);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                isActive
+                  ? 'bg-violet-600 text-white shadow-sm shadow-violet-600/20'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/90 dark:border-zinc-800 hover:border-violet-300 dark:hover:border-violet-900/60'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-violet-500'}`} />
+              <span>{sub.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedTool === 'date-reminder' && <DateReminderMasterView />}
+      {selectedTool === 'date-countdown-milestones' && <CountdownMilestonesView />}
+      {selectedTool === 'date-subscription-bills' && <SubscriptionBillsView />}
+      {selectedTool === 'date-deadlines-planner' && <DeadlinesPlannerView />}
+      {!['date-reminder', 'date-countdown-milestones', 'date-subscription-bills', 'date-deadlines-planner'].includes(selectedTool) && (
+        <DateReminderMasterView />
+      )}
+    </div>
+  );
+};
+
 /* =========================================================================
-   1. DATE REMINDER (MASTER TOOL)
+   1. DATE REMINDER HUB (MASTER TOOL)
    ========================================================================= */
 
 interface DateReminderItem {
@@ -106,10 +173,11 @@ const DateReminderMasterView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<'All' | 'Upcoming' | 'Today' | 'Completed'>('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | 'Upcoming' | 'Today' | 'Completed' | 'Overdue'>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<DateReminderItem | null>(null);
 
-  // Add form fields
+  // Form fields
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
@@ -120,6 +188,7 @@ const DateReminderMasterView: React.FC = () => {
 
   // Notification state
   const [notifPermission, setNotifPermission] = useState<string>('default');
+  const [alertFeedback, setAlertFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -137,9 +206,14 @@ const DateReminderMasterView: React.FC = () => {
     setNotifPermission(granted ? 'granted' : 'denied');
     if (granted) {
       triggerAppNotification({
-        title: 'OmniToolbox Date Reminder',
+        title: 'OmniToolbox Date Reminder Hub',
         body: 'Alerts enabled! You will receive timely date reminders.',
       });
+      setAlertFeedback('Alerts enabled! Chime & notification ready.');
+      setTimeout(() => setAlertFeedback(null), 3000);
+    } else {
+      setAlertFeedback('Notifications were not granted by browser.');
+      setTimeout(() => setAlertFeedback(null), 3000);
     }
   };
 
@@ -152,52 +226,102 @@ const DateReminderMasterView: React.FC = () => {
 
   const handleDeleteReminder = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this date reminder?')) {
-      setReminders(prev => prev.filter(r => r.id !== id));
-    }
+    setReminders(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleAddReminder = (e: React.FormEvent) => {
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingItem(null);
+    setTitle('');
+    setDate(getTodayStr());
+    setTime('09:00');
+    setCategory('Personal');
+    setPriority('High');
+    setRecurrence('None');
+    setNotes('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: DateReminderItem) => {
+    sounds.playClick();
+    setEditingItem(item);
+    setTitle(item.title);
+    setDate(item.date);
+    setTime(item.time || '09:00');
+    setCategory(item.category);
+    setPriority(item.priority);
+    setRecurrence(item.recurrence);
+    setNotes(item.notes || '');
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveReminder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) return;
     sounds.playSuccess();
 
-    const newReminder: DateReminderItem = {
-      id: `rem-${Date.now()}`,
-      title: title.trim(),
-      date,
-      time: time || undefined,
-      category,
-      priority,
-      recurrence,
-      completed: false,
-      notes: notes.trim() || undefined,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    setReminders(prev => [newReminder, ...prev]);
-    setTitle('');
-    setDate('');
-    setNotes('');
+    if (editingItem) {
+      setReminders(prev =>
+        prev.map(r =>
+          r.id === editingItem.id
+            ? {
+                ...r,
+                title: title.trim(),
+                date,
+                time: time || undefined,
+                category,
+                priority,
+                recurrence,
+                notes: notes.trim() || undefined,
+              }
+            : r
+        )
+      );
+    } else {
+      const newReminder: DateReminderItem = {
+        id: `rem-${Date.now()}`,
+        title: title.trim(),
+        date,
+        time: time || undefined,
+        category,
+        priority,
+        recurrence,
+        completed: false,
+        notes: notes.trim() || undefined,
+        createdAt: getTodayStr(),
+      };
+      setReminders(prev => [newReminder, ...prev]);
+    }
     setIsAddModalOpen(false);
   };
 
-  // Helper to compute countdown
+  // Helper to compute countdown in local time
   const getCountdownString = (dateStr: string, timeStr?: string) => {
-    const target = new Date(`${dateStr}T${timeStr || '00:00'}`);
+    const targetDate = parseLocalDate(dateStr);
+    if (timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      targetDate.setHours(h || 0, m || 0, 0, 0);
+    } else {
+      targetDate.setHours(23, 59, 59, 999);
+    }
+
     const now = new Date();
-    const diffMs = target.getTime() - now.getTime();
-    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const todayStr = getTodayStr();
+
+    if (dateStr === todayStr) {
+      return { text: 'Today!', isToday: true, isOverdue: false };
+    }
+
+    const diffMs = targetDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffMs < 0) {
-      return { text: `${Math.abs(diffDays)}d ago`, isOverdue: true };
+      return { text: `${Math.abs(diffDays)}d overdue`, isOverdue: true, isToday: false };
     }
-    if (diffDays === 0) {
-      return { text: diffHours > 0 ? `In ${diffHours}h` : 'Today!', isOverdue: false, isToday: true };
-    }
-    return { text: `In ${diffDays} day${diffDays === 1 ? '' : 's'}`, isOverdue: false };
+    return { text: `In ${diffDays} day${diffDays === 1 ? '' : 's'}`, isOverdue: false, isToday: false };
   };
+
+  const todayDateStr = getTodayStr();
 
   const filteredReminders = reminders.filter(r => {
     const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -207,11 +331,9 @@ const DateReminderMasterView: React.FC = () => {
     if (filterCategory !== 'All' && r.category !== filterCategory) return false;
 
     if (filterStatus === 'Completed') return r.completed;
-    if (filterStatus === 'Upcoming') return !r.completed;
-    if (filterStatus === 'Today') {
-      const todayStr = new Date().toISOString().split('T')[0];
-      return r.date === todayStr;
-    }
+    if (filterStatus === 'Upcoming') return !r.completed && r.date >= todayDateStr;
+    if (filterStatus === 'Today') return r.date === todayDateStr;
+    if (filterStatus === 'Overdue') return !r.completed && r.date < todayDateStr;
     return true;
   });
 
@@ -222,41 +344,46 @@ const DateReminderMasterView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-violet-600 dark:text-violet-400">
             <CalendarDays className="w-4 h-4 text-violet-500" />
-            <span>Date & Event Assistant</span>
+            <span>Universal Date Reminders</span>
             <span aria-hidden="true">·</span>
-            <span>Accurate Timing</span>
+            <span>Always on Schedule</span>
           </div>
           <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight mt-0.5">
             Universal Date Reminder Hub
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Create customizable date alerts, recurring schedules, appointments, and countdowns with add & delete controls.
+            Create customizable date alerts, recurring schedules, appointments, and countdowns with add, edit & delete controls.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-end md:self-center shrink-0">
-          {notifPermission !== 'granted' && (
-            <button
-              onClick={handleRequestNotif}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 text-xs font-bold hover:bg-violet-100 cursor-pointer shadow-2xs"
-            >
-              <Bell className="w-3.5 h-3.5" />
-              <span>Enable Alerts</span>
-            </button>
-          )}
+        <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+          <button
+            onClick={handleRequestNotif}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+              notifPermission === 'granted'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100'
+            }`}
+          >
+            {notifPermission === 'granted' ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+            <span>{notifPermission === 'granted' ? 'Alerts Enabled ✓' : 'Enable Alerts'}</span>
+          </button>
 
           <button
-            onClick={() => {
-              sounds.playClick();
-              setIsAddModalOpen(true);
-            }}
+            onClick={handleOpenAdd}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-md shadow-violet-600/20 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Date Reminder</span>
+            <span>Add Reminder</span>
           </button>
         </div>
       </div>
+
+      {alertFeedback && (
+        <div className="p-3 bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-900/60 rounded-2xl text-xs font-semibold text-violet-700 dark:text-violet-300 animate-in fade-in">
+          {alertFeedback}
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/90 dark:border-zinc-800 p-3.5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -271,18 +398,18 @@ const DateReminderMasterView: React.FC = () => {
           />
         </div>
 
-        {/* Filter Pills */}
+        {/* Status Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto scrollbar-none">
-          {(['All', 'Upcoming', 'Today', 'Completed'] as const).map(s => (
+          {(['All', 'Upcoming', 'Today', 'Overdue', 'Completed'] as const).map(s => (
             <button
               key={s}
               onClick={() => {
                 sounds.playClick();
                 setFilterStatus(s);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
                 filterStatus === s
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
+                  ? 'bg-violet-600 text-white shadow-xs'
                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
@@ -292,13 +419,33 @@ const DateReminderMasterView: React.FC = () => {
         </div>
       </div>
 
+      {/* Category Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {['All', 'Personal', 'Work', 'Bill', 'Medical', 'Exam', 'Birthday', 'Travel'].map(cat => (
+          <button
+            key={cat}
+            onClick={() => {
+              sounds.playClick();
+              setFilterCategory(cat);
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+              filterCategory === cat
+                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold'
+                : 'bg-white dark:bg-zinc-900 text-zinc-500 border border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       {/* Reminders List */}
       <div className="space-y-3">
         {filteredReminders.length === 0 ? (
           <div className="py-16 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-2">
             <CalendarDays className="w-8 h-8 text-zinc-300 mx-auto" />
-            <p className="font-bold text-zinc-700 dark:text-zinc-300">No date reminders found.</p>
-            <p className="text-[11px] text-zinc-400">Tap "Add Date Reminder" to schedule your alerts.</p>
+            <p className="font-bold text-zinc-700 dark:text-zinc-300">No date reminders match this view.</p>
+            <p className="text-[11px] text-zinc-400">Tap "Add Reminder" to schedule your alerts.</p>
           </div>
         ) : (
           filteredReminders.map(item => {
@@ -310,6 +457,8 @@ const DateReminderMasterView: React.FC = () => {
                 className={`p-4 sm:p-5 rounded-3xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                   item.completed
                     ? 'bg-zinc-50/70 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800/80 opacity-75'
+                    : countdown.isOverdue
+                    ? 'bg-white dark:bg-zinc-900 border-rose-300 dark:border-rose-900/60 shadow-xs'
                     : 'bg-white dark:bg-zinc-900 border-zinc-200/90 dark:border-zinc-800 shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
@@ -321,7 +470,7 @@ const DateReminderMasterView: React.FC = () => {
                         ? 'bg-violet-600 border-violet-600 text-white'
                         : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-500'
                     }`}
-                    title={item.completed ? 'Mark incomplete' : 'Mark completed'}
+                    title={item.completed ? 'Mark pending' : 'Mark completed'}
                   >
                     {item.completed && <Check className="w-4 h-4 stroke-[3]" />}
                   </button>
@@ -358,18 +507,18 @@ const DateReminderMasterView: React.FC = () => {
                     )}
 
                     <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono">
-                      <span>Date: {item.date}{item.time ? ` at ${item.time}` : ''}</span>
+                      <span>Date: {formatLocalDate(item.date)}{item.time ? ` at ${item.time}` : ''}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                   <span
                     className={`font-mono text-xs font-bold px-3 py-1 rounded-xl ${
                       item.completed
                         ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
                         : countdown.isOverdue
-                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 font-black'
                         : countdown.isToday
                         ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 font-black'
                         : 'bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300'
@@ -379,11 +528,19 @@ const DateReminderMasterView: React.FC = () => {
                   </span>
 
                   <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer active:scale-95 transition-all shadow-2xs"
+                    title="Edit Reminder"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
                     onClick={() => handleDeleteReminder(item.id)}
                     className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all shadow-2xs"
                     title="Delete Reminder"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -392,7 +549,7 @@ const DateReminderMasterView: React.FC = () => {
         )}
       </div>
 
-      {/* Add Reminder Modal */}
+      {/* Add / Edit Reminder Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
@@ -400,7 +557,7 @@ const DateReminderMasterView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-violet-600" />
                 <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                  New Date Reminder
+                  {editingItem ? 'Edit Date Reminder' : 'New Date Reminder'}
                 </h3>
               </div>
               <button
@@ -411,13 +568,13 @@ const DateReminderMasterView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddReminder} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSaveReminder} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Reminder Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g., Dentist appointment, Renew passport, Pay car insurance"
+                  placeholder="e.g. Dentist appointment, Renew passport, Pay car insurance"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs"
@@ -528,7 +685,7 @@ const DateReminderMasterView: React.FC = () => {
 };
 
 /* =========================================================================
-   2. LIVE EVENT COUNTDOWN & MILESTONES
+   2. LIVE EVENT COUNTDOWNS & MILESTONES
    ========================================================================= */
 
 interface CountdownEvent {
@@ -539,9 +696,9 @@ interface CountdownEvent {
 }
 
 const DEFAULT_COUNTDOWNS: CountdownEvent[] = [
-  { id: 'cd-1', name: 'New Year Countdown', targetDateTime: '2027-01-01T00:00', category: 'Holiday' },
-  { id: 'cd-2', name: 'Summer Holiday Trip', targetDateTime: '2026-12-15T08:00', category: 'Vacation' },
-  { id: 'cd-3', name: 'Next Tech Keynote Release', targetDateTime: '2026-11-05T10:00', category: 'Event' },
+  { id: 'cd-1', name: 'New Year Celebrations 🎆', targetDateTime: '2027-01-01T00:00', category: 'Holiday' },
+  { id: 'cd-2', name: 'Tropical Island Holiday Trip 🌴', targetDateTime: '2026-12-15T08:00', category: 'Vacation' },
+  { id: 'cd-3', name: 'Next Tech Keynote Launch 🚀', targetDateTime: '2026-11-05T10:00', category: 'Event' },
 ];
 
 const CountdownMilestonesView: React.FC = () => {
@@ -554,6 +711,7 @@ const CountdownMilestonesView: React.FC = () => {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CountdownEvent | null>(null);
   const [name, setName] = useState('');
   const [targetDateTime, setTargetDateTime] = useState('');
   const [category, setCategory] = useState('Personal');
@@ -573,31 +731,75 @@ const CountdownMilestonesView: React.FC = () => {
 
   const handleDelete = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this event countdown?')) {
-      setEvents(prev => prev.filter(e => e.id !== id));
-    }
+    setEvents(prev => prev.filter(e => e.id !== id));
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingEvent(null);
+    setName('');
+    // Default to tomorrow 09:00
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    setTargetDateTime(`${d.toISOString().slice(0, 10)}T09:00`);
+    setCategory('Personal');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (ev: CountdownEvent) => {
+    sounds.playClick();
+    setEditingEvent(ev);
+    setName(ev.name);
+    setTargetDateTime(ev.targetDateTime);
+    setCategory(ev.category);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !targetDateTime) return;
     sounds.playSuccess();
 
-    const newEvent: CountdownEvent = {
-      id: `cd-${Date.now()}`,
-      name: name.trim(),
-      targetDateTime,
-      category,
-    };
-
-    setEvents(prev => [...prev, newEvent]);
-    setName('');
-    setTargetDateTime('');
+    if (editingEvent) {
+      setEvents(prev =>
+        prev.map(e =>
+          e.id === editingEvent.id
+            ? { ...e, name: name.trim(), targetDateTime, category }
+            : e
+        )
+      );
+    } else {
+      const newEvent: CountdownEvent = {
+        id: `cd-${Date.now()}`,
+        name: name.trim(),
+        targetDateTime,
+        category,
+      };
+      setEvents(prev => [...prev, newEvent]);
+    }
     setIsModalOpen(false);
+  };
+
+  const handleAddPreset = (presetName: string, daysAhead: number, presetCat: string) => {
+    sounds.playClick();
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    d.setHours(9, 0, 0, 0);
+    const dateStr = d.toISOString().slice(0, 16);
+    const ev: CountdownEvent = {
+      id: `cd-${Date.now()}`,
+      name: presetName,
+      targetDateTime: dateStr,
+      category: presetCat,
+    };
+    setEvents(prev => [...prev, ev]);
   };
 
   const calculateRemaining = (targetStr: string) => {
     const targetMs = new Date(targetStr).getTime();
+    if (isNaN(targetMs)) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isPassed: true };
+    }
     const diff = targetMs - currentTime;
 
     if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isPassed: true };
@@ -617,7 +819,7 @@ const CountdownMilestonesView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-violet-600 dark:text-violet-400">
             <Clock className="w-4 h-4 text-violet-500" />
-            <span>Precise Timing</span>
+            <span>Precise Real-Time Clock</span>
             <span aria-hidden="true">·</span>
             <span>Live Seconds Ticker</span>
           </div>
@@ -630,15 +832,36 @@ const CountdownMilestonesView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => {
-            sounds.playClick();
-            setIsModalOpen(true);
-          }}
+          onClick={handleOpenAdd}
           className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-md shadow-violet-600/20 active:scale-95 transition-all cursor-pointer self-end md:self-center shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Add Countdown</span>
         </button>
+      </div>
+
+      {/* Quick Add Presets Carousel */}
+      <div className="space-y-2">
+        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block px-1">
+          Quick Countdown Presets (Tap to Add)
+        </span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
+          {[
+            { n: 'Weekend Chill Getaway 🏕️', d: 3, c: 'Weekend' },
+            { n: 'Upcoming Project Deadline 📑', d: 14, c: 'Work' },
+            { n: 'Spring Marathon / Fitness Goal 🏃', d: 30, c: 'Health' },
+            { n: 'Birthday Celebration Party 🎂', d: 45, c: 'Celebration' },
+          ].map(p => (
+            <button
+              key={p.n}
+              onClick={() => handleAddPreset(p.n, p.d, p.c)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-violet-400 hover:text-violet-600 whitespace-nowrap cursor-pointer transition-all active:scale-95 shadow-2xs shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 text-violet-500" />
+              <span>{p.n}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Countdown Cards Grid */}
@@ -656,13 +879,22 @@ const CountdownMilestonesView: React.FC = () => {
                   <span className="font-bold text-zinc-400 text-[10px] uppercase tracking-wider">
                     {ev.category}
                   </span>
-                  <button
-                    onClick={() => handleDelete(ev.id)}
-                    className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 cursor-pointer"
-                    title="Delete countdown"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEdit(ev)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                      title="Edit countdown"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(ev.id)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 cursor-pointer"
+                      title="Delete countdown"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
@@ -674,7 +906,7 @@ const CountdownMilestonesView: React.FC = () => {
               </div>
 
               {rem.isPassed ? (
-                <div className="py-4 text-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-700 font-bold text-xs">
+                <div className="py-4 text-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
                   Event completed! 🎉
                 </div>
               ) : (
@@ -710,13 +942,13 @@ const CountdownMilestonesView: React.FC = () => {
         })}
       </div>
 
-      {/* Add Modal */}
+      {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                Create Event Countdown
+                {editingEvent ? 'Edit Event Countdown' : 'Create Event Countdown'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -726,7 +958,7 @@ const CountdownMilestonesView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAdd} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSave} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Event Name *</label>
                 <input
@@ -785,7 +1017,7 @@ const CountdownMilestonesView: React.FC = () => {
 };
 
 /* =========================================================================
-   3. RECURRING SUBSCRIPTION & BILL REMINDER
+   3. RECURRING SUBSCRIPTIONS & BILL REMINDER
    ========================================================================= */
 
 interface SubscriptionItem {
@@ -796,13 +1028,14 @@ interface SubscriptionItem {
   renewalDay: number; // 1-31
   billingCycle: 'Monthly' | 'Yearly';
   category: string;
+  isPaidCurrentMonth?: boolean;
 }
 
 const DEFAULT_SUBS: SubscriptionItem[] = [
-  { id: 'sub-1', name: 'Netflix Premium 4K', amount: 22.99, currency: '$', renewalDay: 12, billingCycle: 'Monthly', category: 'Entertainment' },
-  { id: 'sub-2', name: 'Spotify Duo Plan', amount: 14.99, currency: '$', renewalDay: 28, billingCycle: 'Monthly', category: 'Music' },
-  { id: 'sub-3', name: 'Cloud Storage & Backups', amount: 9.99, currency: '$', renewalDay: 5, billingCycle: 'Monthly', category: 'Productivity' },
-  { id: 'sub-4', name: 'Gym & Fitness Membership', amount: 49.00, currency: '$', renewalDay: 1, billingCycle: 'Monthly', category: 'Health' },
+  { id: 'sub-1', name: 'Netflix Premium 4K', amount: 22.99, currency: '$', renewalDay: 12, billingCycle: 'Monthly', category: 'Entertainment', isPaidCurrentMonth: true },
+  { id: 'sub-2', name: 'Spotify Duo Plan', amount: 14.99, currency: '$', renewalDay: 28, billingCycle: 'Monthly', category: 'Music', isPaidCurrentMonth: false },
+  { id: 'sub-3', name: 'Cloud Storage & Backups', amount: 9.99, currency: '$', renewalDay: 5, billingCycle: 'Monthly', category: 'Productivity', isPaidCurrentMonth: false },
+  { id: 'sub-4', name: 'Gym & Fitness Membership', amount: 49.00, currency: '$', renewalDay: 1, billingCycle: 'Monthly', category: 'Health', isPaidCurrentMonth: true },
 ];
 
 const SubscriptionBillsView: React.FC = () => {
@@ -815,8 +1048,11 @@ const SubscriptionBillsView: React.FC = () => {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<SubscriptionItem | null>(null);
+
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(9.99);
+  const [currency, setCurrency] = useState('$');
   const [renewalDay, setRenewalDay] = useState(1);
   const [billingCycle, setBillingCycle] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [category, setCategory] = useState('Entertainment');
@@ -829,28 +1065,74 @@ const SubscriptionBillsView: React.FC = () => {
 
   const handleDelete = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this subscription reminder?')) {
-      setSubs(prev => prev.filter(s => s.id !== id));
-    }
+    setSubs(prev => prev.filter(s => s.id !== id));
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleTogglePaid = (id: string) => {
+    sounds.playClick();
+    setSubs(prev =>
+      prev.map(s => (s.id === id ? { ...s, isPaidCurrentMonth: !s.isPaidCurrentMonth } : s))
+    );
+  };
+
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingSub(null);
+    setName('');
+    setAmount(9.99);
+    setCurrency('$');
+    setRenewalDay(1);
+    setBillingCycle('Monthly');
+    setCategory('Entertainment');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (sub: SubscriptionItem) => {
+    sounds.playClick();
+    setEditingSub(sub);
+    setName(sub.name);
+    setAmount(sub.amount);
+    setCurrency(sub.currency || '$');
+    setRenewalDay(sub.renewalDay);
+    setBillingCycle(sub.billingCycle);
+    setCategory(sub.category);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     sounds.playSuccess();
 
-    const newSub: SubscriptionItem = {
-      id: `sub-${Date.now()}`,
-      name: name.trim(),
-      amount: Number(amount) || 0,
-      currency: '$',
-      renewalDay: Number(renewalDay) || 1,
-      billingCycle,
-      category,
-    };
-
-    setSubs(prev => [...prev, newSub]);
-    setName('');
+    if (editingSub) {
+      setSubs(prev =>
+        prev.map(s =>
+          s.id === editingSub.id
+            ? {
+                ...s,
+                name: name.trim(),
+                amount: Number(amount) || 0,
+                currency,
+                renewalDay: Number(renewalDay) || 1,
+                billingCycle,
+                category,
+              }
+            : s
+        )
+      );
+    } else {
+      const newSub: SubscriptionItem = {
+        id: `sub-${Date.now()}`,
+        name: name.trim(),
+        amount: Number(amount) || 0,
+        currency,
+        renewalDay: Number(renewalDay) || 1,
+        billingCycle,
+        category,
+        isPaidCurrentMonth: false,
+      };
+      setSubs(prev => [...prev, newSub]);
+    }
     setIsModalOpen(false);
   };
 
@@ -858,14 +1140,13 @@ const SubscriptionBillsView: React.FC = () => {
     return acc + (curr.billingCycle === 'Monthly' ? curr.amount : curr.amount / 12);
   }, 0);
 
-  // Compute days until next renewal day
+  // Compute days until renewal
   const getDaysUntilRenewal = (day: number) => {
     const now = new Date();
     const currentDay = now.getDate();
     if (day >= currentDay) {
       return day - currentDay;
     }
-    // next month
     const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     return daysInCurrentMonth - currentDay + day;
   };
@@ -877,7 +1158,7 @@ const SubscriptionBillsView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-violet-600 dark:text-violet-400">
             <CreditCard className="w-4 h-4 text-violet-500" />
-            <span>Recurring Expenses</span>
+            <span>Recurring Expenses & Bills</span>
             <span aria-hidden="true">·</span>
             <span>Prevent Surprise Charges</span>
           </div>
@@ -898,10 +1179,7 @@ const SubscriptionBillsView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => {
-              sounds.playClick();
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenAdd}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-md shadow-violet-600/20 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -918,27 +1196,36 @@ const SubscriptionBillsView: React.FC = () => {
           return (
             <div
               key={sub.id}
-              className="p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs flex items-center justify-between gap-4"
+              className={`p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 ${
+                sub.isPaidCurrentMonth
+                  ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-zinc-200/90 dark:border-zinc-800'
+                  : 'bg-white dark:bg-zinc-900 border-zinc-200/90 dark:border-zinc-800 shadow-2xs'
+              }`}
             >
               <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">
                     {sub.name}
                   </h3>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
                     {sub.category}
                   </span>
+                  {sub.isPaidCurrentMonth && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                      Paid This Month ✓
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-zinc-500">
                   <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                    ${sub.amount.toFixed(2)} / {sub.billingCycle.toLowerCase()}
+                    {sub.currency || '$'}{sub.amount.toFixed(2)} / {sub.billingCycle.toLowerCase()}
                   </span>
                   <span>· Renews day {sub.renewalDay}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <span
                   className={`font-mono text-xs font-bold px-2.5 py-1 rounded-xl ${
                     daysLeft <= 3
@@ -950,11 +1237,31 @@ const SubscriptionBillsView: React.FC = () => {
                 </span>
 
                 <button
+                  onClick={() => handleTogglePaid(sub.id)}
+                  className={`p-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${
+                    sub.isPaidCurrentMonth
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-emerald-600'
+                  }`}
+                  title={sub.isPaidCurrentMonth ? 'Mark as Unpaid' : 'Mark as Paid this month'}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={() => handleOpenEdit(sub)}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+                  title="Edit subscription"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+
+                <button
                   onClick={() => handleDelete(sub.id)}
                   className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                   title="Delete subscription"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -962,13 +1269,13 @@ const SubscriptionBillsView: React.FC = () => {
         })}
       </div>
 
-      {/* Add Subscription Modal */}
+      {/* Add / Edit Subscription Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                Add Subscription / Bill
+                {editingSub ? 'Edit Subscription / Bill' : 'Add Subscription / Bill'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -978,7 +1285,7 @@ const SubscriptionBillsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAdd} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSave} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Service / Bill Name *</label>
                 <input
@@ -991,20 +1298,37 @@ const SubscriptionBillsView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Cost Amount ($)</label>
+                  <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={e => setCurrency(e.target.value)}
+                    className="w-full px-2.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer text-xs font-mono"
+                  >
+                    <option value="$">$ (USD)</option>
+                    <option value="€">€ (EUR)</option>
+                    <option value="£">£ (GBP)</option>
+                    <option value="¥">¥ (JPY)</option>
+                    <option value="₹">₹ (INR)</option>
+                    <option value="৳">৳ (BDT)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Cost Amount</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={amount}
                     onChange={e => setAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs"
+                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs font-mono"
                   />
                 </div>
+
                 <div>
-                  <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Day of Month (1-31)</label>
+                  <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Day of Month</label>
                   <input
                     type="number"
                     min="1"
@@ -1012,7 +1336,7 @@ const SubscriptionBillsView: React.FC = () => {
                     required
                     value={renewalDay}
                     onChange={e => setRenewalDay(parseInt(e.target.value, 10) || 1)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs"
+                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs font-mono"
                   />
                 </div>
               </div>
@@ -1093,6 +1417,8 @@ const DeadlinesPlannerView: React.FC = () => {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<DeadlineItem | null>(null);
+
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [courseOrProject, setCourseOrProject] = useState('');
@@ -1106,9 +1432,7 @@ const DeadlinesPlannerView: React.FC = () => {
 
   const handleDelete = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this deadline?')) {
-      setDeadlines(prev => prev.filter(d => d.id !== id));
-    }
+    setDeadlines(prev => prev.filter(d => d.id !== id));
   };
 
   const handleProgressChange = (id: string, delta: number) => {
@@ -1118,30 +1442,69 @@ const DeadlinesPlannerView: React.FC = () => {
     );
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleToggleDone = (id: string) => {
+    sounds.playClick();
+    setDeadlines(prev =>
+      prev.map(d => (d.id === id ? { ...d, progress: d.progress === 100 ? 0 : 100 } : d))
+    );
+  };
+
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingItem(null);
+    setTitle('');
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    setDueDate(d.toISOString().slice(0, 10));
+    setCourseOrProject('Work/Study');
+    setPriority('High');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: DeadlineItem) => {
+    sounds.playClick();
+    setEditingItem(item);
+    setTitle(item.title);
+    setDueDate(item.dueDate);
+    setCourseOrProject(item.courseOrProject);
+    setPriority(item.priority);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !dueDate) return;
     sounds.playSuccess();
 
-    const newDl: DeadlineItem = {
-      id: `dl-${Date.now()}`,
-      title: title.trim(),
-      dueDate,
-      courseOrProject: courseOrProject.trim() || 'General',
-      progress: 0,
-      priority,
-    };
-
-    setDeadlines(prev => [...prev, newDl]);
-    setTitle('');
-    setDueDate('');
-    setCourseOrProject('');
+    if (editingItem) {
+      setDeadlines(prev =>
+        prev.map(d =>
+          d.id === editingItem.id
+            ? { ...d, title: title.trim(), dueDate, courseOrProject: courseOrProject.trim() || 'General', priority }
+            : d
+        )
+      );
+    } else {
+      const newDl: DeadlineItem = {
+        id: `dl-${Date.now()}`,
+        title: title.trim(),
+        dueDate,
+        courseOrProject: courseOrProject.trim() || 'General',
+        progress: 0,
+        priority,
+      };
+      setDeadlines(prev => [...prev, newDl]);
+    }
     setIsModalOpen(false);
   };
 
   const getDaysLeft = (dateStr: string) => {
-    const diffMs = new Date(dateStr).getTime() - new Date().getTime();
-    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = parseLocalDate(dateStr);
+    target.setHours(0, 0, 0, 0);
+    const diffMs = target.getTime() - today.getTime();
+    return Math.round(diffMs / (1000 * 60 * 60 * 24));
   };
 
   return (
@@ -1159,15 +1522,12 @@ const DeadlinesPlannerView: React.FC = () => {
             Exam, Project & Task Deadline Tracker
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Keep track of strict academic exams, client work deadlines, and project submissions with progress sliders.
+            Keep track of strict academic exams, client work deliverables, and project milestones with progress sliders.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            sounds.playClick();
-            setIsModalOpen(true);
-          }}
+          onClick={handleOpenAdd}
           className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-md shadow-violet-600/20 active:scale-95 transition-all cursor-pointer self-end md:self-center shrink-0"
         >
           <Plus className="w-4 h-4" />
@@ -1179,49 +1539,82 @@ const DeadlinesPlannerView: React.FC = () => {
       <div className="space-y-3">
         {deadlines.map(item => {
           const daysLeft = getDaysLeft(item.dueDate);
+          const isFinished = item.progress >= 100;
 
           return (
             <div
               key={item.id}
-              className="p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs space-y-3"
+              className={`p-5 rounded-3xl border transition-all space-y-3 ${
+                isFinished
+                  ? 'bg-zinc-50/70 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800/80 opacity-80'
+                  : daysLeft < 0
+                  ? 'border-rose-300 dark:border-rose-900/60 bg-white dark:bg-zinc-900 shadow-2xs'
+                  : 'border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs'
+              }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">
-                      {item.title}
-                    </h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                      {item.courseOrProject}
-                    </span>
-                    {item.priority === 'High' && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
-                        Urgent
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => handleToggleDone(item.id)}
+                    className={`mt-0.5 w-6 h-6 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer shrink-0 active:scale-90 ${
+                      isFinished
+                        ? 'bg-violet-600 border-violet-600 text-white'
+                        : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-500'
+                    }`}
+                    title={isFinished ? 'Reopen deadline' : 'Mark 100% complete'}
+                  >
+                    {isFinished && <Check className="w-4 h-4 stroke-[3]" />}
+                  </button>
+
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className={`font-extrabold text-sm text-zinc-900 dark:text-zinc-100 ${isFinished ? 'line-through text-zinc-400' : ''}`}>
+                        {item.title}
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                        {item.courseOrProject}
                       </span>
-                    )}
+                      {item.priority === 'High' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+                          Urgent
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-400 font-mono">
+                      Due: {formatLocalDate(item.dueDate)}
+                    </span>
                   </div>
-                  <span className="text-xs text-zinc-400 font-mono">
-                    Due: {item.dueDate}
-                  </span>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 self-end sm:self-center">
                   <span
                     className={`font-mono text-xs font-bold px-3 py-1 rounded-xl ${
-                      daysLeft <= 2
-                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 font-black animate-pulse'
+                      isFinished
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : daysLeft < 0
+                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 font-black'
+                        : daysLeft === 0
+                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-black'
                         : 'bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300'
                     }`}
                   >
-                    {daysLeft < 0 ? 'Overdue!' : daysLeft === 0 ? 'Due Today!' : `${daysLeft} days remaining`}
+                    {isFinished ? 'Completed ✓' : daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due Today!' : `${daysLeft}d left`}
                   </span>
+
+                  <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+                    title="Edit deadline"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
 
                   <button
                     onClick={() => handleDelete(item.id)}
                     className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                     title="Delete deadline"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -1229,26 +1622,26 @@ const DeadlinesPlannerView: React.FC = () => {
               {/* Progress Slider */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
-                  <span>Preparation / Completion: {item.progress}%</span>
+                  <span>Preparation / Progress: {item.progress}%</span>
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleProgressChange(item.id, -10)}
-                      className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer"
+                      className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer hover:bg-zinc-200"
                     >
                       -10%
                     </button>
                     <button
                       onClick={() => handleProgressChange(item.id, 10)}
-                      className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer"
+                      className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer hover:bg-zinc-200"
                     >
                       +10%
                     </button>
                   </div>
                 </div>
 
-                <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                <div className="w-full h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-violet-600 transition-all duration-300"
+                    className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-300"
                     style={{ width: `${item.progress}%` }}
                   />
                 </div>
@@ -1258,13 +1651,13 @@ const DeadlinesPlannerView: React.FC = () => {
         })}
       </div>
 
-      {/* Add Modal */}
+      {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                Add Exam or Project Deadline
+                {editingItem ? 'Edit Deadline' : 'Add Exam or Project Deadline'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -1274,7 +1667,7 @@ const DeadlinesPlannerView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAdd} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSave} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Deadline Name *</label>
                 <input
@@ -1318,7 +1711,7 @@ const DeadlinesPlannerView: React.FC = () => {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer text-xs"
                 >
                   <option value="High">Urgent & Important</option>
-                  <option value="Medium">Medium</option>
+                  <option value="Medium">Medium Priority</option>
                   <option value="Normal">Normal</option>
                 </select>
               </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Heart, HeartHandshake, Calendar, Clock, MapPin, Sparkles, Plus,
-  Trash2, Edit2, Check, Copy, Share2, AlertCircle, Flag, Gift,
-  CalendarHeart, Star, ChevronRight, Award, Compass, RefreshCw
+  Trash2, Edit2, Check, Copy, Share2, Gift,
+  CalendarHeart, Star, Award, Compass, RefreshCw, User, CheckCircle2
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -10,23 +10,491 @@ interface ToolComponentProps {
   toolId: string;
 }
 
-export const LoveManagementTools: React.FC<ToolComponentProps> = ({ toolId }) => {
-  switch (toolId) {
-    case 'love-relationship-goals':
-      return <RelationshipGoalsView />;
-    case 'love-important-days':
-      return <ImportantDaysView />;
-    case 'love-meetup-tracker':
-      return <MeetupTrackerView />;
-    case 'love-day-counter':
-      return <LoveDayCounterView />;
-    default:
-      return <RelationshipGoalsView />;
+// Helper: Parse YYYY-MM-DD reliably in user's local timezone (prevents UTC day shift bug)
+export const parseLocalDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    return new Date(y, m, d);
+  }
+  return new Date(dateStr);
+};
+
+export const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions): string => {
+  try {
+    const d = parseLocalDate(dateStr);
+    return d.toLocaleDateString([], options || { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
   }
 };
 
+export const LoveManagementTools: React.FC<ToolComponentProps> = ({ toolId }) => {
+  const [selectedTool, setSelectedTool] = useState<string>(toolId);
+
+  useEffect(() => {
+    setSelectedTool(toolId);
+  }, [toolId]);
+
+  const loveSubTools = [
+    { id: 'love-day-counter', name: 'Love Day Counter', icon: Heart },
+    { id: 'love-relationship-goals', name: 'Goals & Bucket List', icon: HeartHandshake },
+    { id: 'love-important-days', name: 'Important Days & Dates', icon: CalendarHeart },
+    { id: 'love-meetup-tracker', name: 'Meet-Up & Dates Planner', icon: Compass },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Category Companion Sub-Navigation */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-200/80 dark:border-zinc-800/80 scrollbar-none">
+        {loveSubTools.map(sub => {
+          const Icon = sub.icon;
+          const isActive = selectedTool === sub.id;
+          return (
+            <button
+              key={sub.id}
+              onClick={() => {
+                sounds.playClick();
+                setSelectedTool(sub.id);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                isActive
+                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/20'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/90 dark:border-zinc-800 hover:border-rose-300 dark:hover:border-rose-900/60'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-rose-500'}`} />
+              <span>{sub.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedTool === 'love-day-counter' && <LoveDayCounterView />}
+      {selectedTool === 'love-relationship-goals' && <RelationshipGoalsView />}
+      {selectedTool === 'love-important-days' && <ImportantDaysView />}
+      {selectedTool === 'love-meetup-tracker' && <MeetupTrackerView />}
+      {!['love-day-counter', 'love-relationship-goals', 'love-important-days', 'love-meetup-tracker'].includes(selectedTool) && (
+        <LoveDayCounterView />
+      )}
+    </div>
+  );
+};
+
 /* =========================================================================
-   1. RELATIONSHIP GOALS & MILESTONES TOOL
+   1. LOVE DAY COUNTER & ANNIVERSARY GUIDE
+   ========================================================================= */
+
+interface CustomMilestone {
+  id: string;
+  targetDays: number;
+  label: string;
+}
+
+const DEFAULT_MILESTONES: CustomMilestone[] = [
+  { id: 'm-100', targetDays: 100, label: '100 Days of Love' },
+  { id: 'm-365', targetDays: 365, label: '1 Year Anniversary (365 Days)' },
+  { id: 'm-500', targetDays: 500, label: '500 Days Milestone' },
+  { id: 'm-730', targetDays: 730, label: '2 Years Anniversary' },
+  { id: 'm-1000', targetDays: 1000, label: '1,000 Days Milestone' },
+  { id: 'm-1825', targetDays: 1825, label: '5 Years of Love' },
+];
+
+const LoveDayCounterView: React.FC = () => {
+  const [startDate, setStartDate] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('omni_love_start_date');
+      if (saved) return saved;
+    } catch {}
+    return '2024-02-14';
+  });
+
+  const [partnerNames, setPartnerNames] = useState<{ user: string; partner: string }>(() => {
+    try {
+      const saved = localStorage.getItem('omni_love_partner_names');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { user: 'You', partner: 'Partner' };
+  });
+
+  const [milestones, setMilestones] = useState<CustomMilestone[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_love_milestones');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_MILESTONES;
+  });
+
+  const [isEditNamesOpen, setIsEditNamesOpen] = useState(false);
+  const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
+  const [userNameInput, setUserNameInput] = useState(partnerNames.user);
+  const [partnerNameInput, setPartnerNameInput] = useState(partnerNames.partner);
+  const [newMilestoneDays, setNewMilestoneDays] = useState<number>(200);
+  const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('omni_love_start_date', startDate);
+      localStorage.setItem('omni_love_partner_names', JSON.stringify(partnerNames));
+      localStorage.setItem('omni_love_milestones', JSON.stringify(milestones));
+    } catch {}
+  }, [startDate, partnerNames, milestones]);
+
+  // Compute stats in local time
+  const now = new Date();
+  const start = parseLocalDate(startDate);
+  const diffMs = Math.max(0, now.getTime() - start.getTime());
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const totalWeeks = Math.floor(totalDays / 7);
+  const totalMonths = Math.floor(totalDays / 30.4375);
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+  // Compute days until next yearly anniversary
+  const currentYear = now.getFullYear();
+  let nextAnniversary = new Date(currentYear, start.getMonth(), start.getDate());
+  if (nextAnniversary.getTime() < now.getTime()) {
+    nextAnniversary = new Date(currentYear + 1, start.getMonth(), start.getDate());
+  }
+  const daysUntilNextAnniversary = Math.ceil((nextAnniversary.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const yearsTogether = Math.floor(totalDays / 365.25);
+
+  const handleSaveNames = (e: React.FormEvent) => {
+    e.preventDefault();
+    sounds.playSuccess();
+    setPartnerNames({
+      user: userNameInput.trim() || 'You',
+      partner: partnerNameInput.trim() || 'Partner',
+    });
+    setIsEditNamesOpen(false);
+  };
+
+  const handleAddMilestone = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMilestoneLabel.trim() || !newMilestoneDays) return;
+    sounds.playSuccess();
+    const item: CustomMilestone = {
+      id: `ms-${Date.now()}`,
+      targetDays: Number(newMilestoneDays),
+      label: newMilestoneLabel.trim(),
+    };
+    setMilestones(prev => [...prev, item].sort((a, b) => a.targetDays - b.targetDays));
+    setNewMilestoneLabel('');
+    setIsAddMilestoneOpen(false);
+  };
+
+  const handleDeleteMilestone = (id: string) => {
+    sounds.playClick();
+    setMilestones(prev => prev.filter(m => m.id !== id));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header Card */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
+            <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+            <span>Relationship Counter</span>
+            <span aria-hidden="true">·</span>
+            <span>Cherish Every Single Day</span>
+          </div>
+          <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight mt-0.5">
+            Love Day Counter & Anniversary Milestones
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Track days, weeks, months together, countdown to your next anniversary, and celebrate milestones.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setUserNameInput(partnerNames.user);
+              setPartnerNameInput(partnerNames.partner);
+              setIsEditNamesOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 cursor-pointer shadow-2xs"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Edit Names</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+            <span className="text-[11px] font-bold text-zinc-400">Since:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-zinc-800 dark:text-zinc-200 cursor-pointer focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Love Display Banner */}
+      <div className="bg-gradient-to-br from-rose-500 via-pink-600 to-rose-700 text-white rounded-3xl p-6 sm:p-10 shadow-xl text-center relative overflow-hidden space-y-4">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-extrabold tracking-wide uppercase">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{partnerNames.user} & {partnerNames.partner}</span>
+        </div>
+
+        <div>
+          <div className="font-mono font-black text-6xl sm:text-8xl tabular-nums drop-shadow-md">
+            {totalDays.toLocaleString()}
+          </div>
+          <div className="text-sm sm:text-base font-extrabold tracking-wider uppercase opacity-95 mt-1">
+            Days of Love & Togetherness
+          </div>
+        </div>
+
+        {/* Detailed Times Breakdown */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl mx-auto pt-4 border-t border-white/20 text-xs font-bold">
+          <div className="bg-white/10 rounded-2xl p-2.5 backdrop-blur-xs">
+            <div className="text-xl font-mono font-black">{totalMonths}</div>
+            <div className="opacity-80 text-[11px]">Months</div>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-2.5 backdrop-blur-xs">
+            <div className="text-xl font-mono font-black">{totalWeeks}</div>
+            <div className="opacity-80 text-[11px]">Weeks</div>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-2.5 backdrop-blur-xs">
+            <div className="text-xl font-mono font-black">{totalHours.toLocaleString()}</div>
+            <div className="opacity-80 text-[11px]">Hours</div>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-2.5 backdrop-blur-xs">
+            <div className="text-xl font-mono font-black">{daysUntilNextAnniversary}</div>
+            <div className="opacity-80 text-[11px]">Days to Next Anniv</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Next Anniversary Countdown Card */}
+      <div className="bg-rose-50/70 dark:bg-rose-950/30 rounded-3xl border border-rose-200/80 dark:border-rose-900/60 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <CalendarHeart className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100">
+              Next Anniversary: Year {yearsTogether + 1}
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Celebrating on {nextAnniversary.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-right self-end sm:self-center">
+          <span className="text-2xl font-mono font-black text-rose-600 dark:text-rose-400">
+            {daysUntilNextAnniversary === 0 ? 'TODAY! 🎉' : `${daysUntilNextAnniversary} days away`}
+          </span>
+        </div>
+      </div>
+
+      {/* Upcoming Milestones */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+            <Award className="w-4 h-4 text-amber-500" />
+            <span>Relationship Milestones ({milestones.length})</span>
+          </h3>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsAddMilestoneOpen(true);
+            }}
+            className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Custom Milestone</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {milestones.map(m => {
+            const isPassed = totalDays >= m.targetDays;
+            const remaining = m.targetDays - totalDays;
+
+            return (
+              <div
+                key={m.id}
+                className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${
+                  isPassed
+                    ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{m.label}</span>
+                    {isPassed ? (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-500 text-white">
+                        REACHED ✓
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] font-bold text-rose-500">
+                        In {remaining}d
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">
+                    {isPassed ? 'Accomplished milestone!' : `Target: ${m.targetDays.toLocaleString()} days`}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDeleteMilestone(m.id)}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 cursor-pointer"
+                  title="Delete milestone"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Traditional & Modern Anniversary Gift Guide */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs space-y-3">
+        <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <Gift className="w-4 h-4 text-rose-500" />
+          <span>Anniversary Gift Inspirations</span>
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
+            <span className="font-bold text-rose-600 dark:text-rose-400 block text-xs">1st Year</span>
+            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Paper / Clocks</div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Love letter, travel tickets, framed photo album</p>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
+            <span className="font-bold text-rose-600 dark:text-rose-400 block text-xs">2nd Year</span>
+            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Cotton / China</div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Cozy matching loungewear, custom mugs, ceramic decor</p>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
+            <span className="font-bold text-rose-600 dark:text-rose-400 block text-xs">3rd Year</span>
+            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Leather / Crystal</div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Embossed wallet, passport covers, perfume, glassware</p>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
+            <span className="font-bold text-rose-600 dark:text-rose-400 block text-xs">5th Year</span>
+            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Wood / Silverware</div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Engraved wooden board, watch, timeless silverware</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Names Modal */}
+      {isEditNamesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
+              Personalize Couple Names
+            </h3>
+            <form onSubmit={handleSaveNames} className="space-y-3 text-xs font-semibold">
+              <div>
+                <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Your Name</label>
+                <input
+                  type="text"
+                  required
+                  value={userNameInput}
+                  onChange={e => setUserNameInput(e.target.value)}
+                  placeholder="e.g. Alex"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Partner's Name</label>
+                <input
+                  type="text"
+                  required
+                  value={partnerNameInput}
+                  onChange={e => setPartnerNameInput(e.target.value)}
+                  placeholder="e.g. Jordan"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditNamesOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                >
+                  Save Names
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Custom Milestone Modal */}
+      {isAddMilestoneOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
+              Add Custom Milestone
+            </h3>
+            <form onSubmit={handleAddMilestone} className="space-y-3 text-xs font-semibold">
+              <div>
+                <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Milestone Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Moving in together, 200 Days of Love"
+                  value={newMilestoneLabel}
+                  onChange={e => setNewMilestoneLabel(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Target Days from Start *</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={newMilestoneDays}
+                  onChange={e => setNewMilestoneDays(parseInt(e.target.value, 10) || 1)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMilestoneOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                >
+                  Save Milestone
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================================================================
+   2. RELATIONSHIP GOALS & BUCKET LIST
    ========================================================================= */
 
 interface RelationshipGoal {
@@ -43,7 +511,7 @@ interface RelationshipGoal {
 const DEFAULT_GOALS: RelationshipGoal[] = [
   {
     id: 'g-1',
-    title: 'Weekend cabin getaway with no work devices',
+    title: 'Weekend cozy cabin getaway with no work devices',
     category: 'Romantic',
     targetDate: '2026-11-15',
     completed: false,
@@ -80,16 +548,6 @@ const DEFAULT_GOALS: RelationshipGoal[] = [
     notes: 'Visit local farmers market and bakeries every weekend.',
     createdAt: '2026-08-10',
   },
-  {
-    id: 'g-5',
-    title: 'Save joint deposit for dream apartment',
-    category: 'Future',
-    targetDate: '2027-12-31',
-    completed: false,
-    priority: 'High',
-    notes: 'Target savings milestones together.',
-    createdAt: '2026-09-01',
-  },
 ];
 
 const RelationshipGoalsView: React.FC = () => {
@@ -103,12 +561,13 @@ const RelationshipGoalsView: React.FC = () => {
 
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<RelationshipGoal | null>(null);
 
-  // New goal form state
+  // Form states
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<'Romantic' | 'Travel' | 'Habits' | 'Future' | 'Home'>('Romantic');
+  const [category, setCategory] = useState<RelationshipGoal['category']>('Romantic');
   const [targetDate, setTargetDate] = useState('');
-  const [priority, setPriority] = useState<'High' | 'Medium' | 'Normal'>('High');
+  const [priority, setPriority] = useState<RelationshipGoal['priority']>('High');
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -126,35 +585,68 @@ const RelationshipGoalsView: React.FC = () => {
 
   const handleDeleteGoal = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this relationship goal?')) {
-      setGoals(prev => prev.filter(g => g.id !== id));
-    }
+    setGoals(prev => prev.filter(g => g.id !== id));
   };
 
-  const handleAddGoal = (e: React.FormEvent) => {
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingGoal(null);
+    setTitle('');
+    setCategory('Romantic');
+    setTargetDate('');
+    setPriority('High');
+    setNotes('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (goal: RelationshipGoal) => {
+    sounds.playClick();
+    setEditingGoal(goal);
+    setTitle(goal.title);
+    setCategory(goal.category);
+    setTargetDate(goal.targetDate || '');
+    setPriority(goal.priority);
+    setNotes(goal.notes || '');
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveGoal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     sounds.playSuccess();
 
-    const newGoal: RelationshipGoal = {
-      id: `goal-${Date.now()}`,
-      title: title.trim(),
-      category,
-      targetDate: targetDate || undefined,
-      priority,
-      notes: notes.trim() || undefined,
-      completed: false,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    setGoals(prev => [newGoal, ...prev]);
-    setTitle('');
-    setTargetDate('');
-    setNotes('');
+    if (editingGoal) {
+      setGoals(prev =>
+        prev.map(g =>
+          g.id === editingGoal.id
+            ? {
+                ...g,
+                title: title.trim(),
+                category,
+                targetDate: targetDate || undefined,
+                priority,
+                notes: notes.trim() || undefined,
+              }
+            : g
+        )
+      );
+    } else {
+      const newGoal: RelationshipGoal = {
+        id: `goal-${Date.now()}`,
+        title: title.trim(),
+        category,
+        targetDate: targetDate || undefined,
+        priority,
+        notes: notes.trim() || undefined,
+        completed: false,
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      setGoals(prev => [newGoal, ...prev]);
+    }
     setIsAddModalOpen(false);
   };
 
-  const handleAddPreset = (presetTitle: string, presetCat: 'Romantic' | 'Travel' | 'Habits' | 'Future' | 'Home') => {
+  const handleAddPreset = (presetTitle: string, presetCat: RelationshipGoal['category']) => {
     sounds.playClick();
     const newGoal: RelationshipGoal = {
       id: `goal-${Date.now()}`,
@@ -179,20 +671,20 @@ const RelationshipGoalsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Progress Summary */}
+      {/* Top Banner & Progress */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
-            <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+            <HeartHandshake className="w-4 h-4 text-rose-500" />
             <span>Couple Aspirations</span>
             <span aria-hidden="true">·</span>
-            <span>Shared Dreams</span>
+            <span>Shared Bucket List</span>
           </div>
           <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
             Relationship Goals & Couple Bucket List
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xl">
-            Set memorable experiences, romantic milestones, healthy habits, and future plans together with full progress tracking.
+            Set and track romantic trips, cozy habits, and joint life milestones with complete add, edit, and delete support.
           </p>
         </div>
 
@@ -205,10 +697,7 @@ const RelationshipGoalsView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => {
-              sounds.playClick();
-              setIsAddModalOpen(true);
-            }}
+            onClick={handleOpenAdd}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -234,16 +723,16 @@ const RelationshipGoalsView: React.FC = () => {
       {/* Quick Add Presets Carousel */}
       <div className="space-y-2">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block px-1">
-          Quick Inspiration Presets (Tap to Add)
+          Inspiration Presets (Tap to Add Instantly)
         </span>
         <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
           {[
             { t: 'Watch both sunrise & sunset together', c: 'Romantic' as const },
             { t: 'Read the same book and discuss weekly', c: 'Habits' as const },
-            { t: 'Road trip with no predetermined map', c: 'Travel' as const },
+            { t: 'Spontaneous road trip with no map', c: 'Travel' as const },
             { t: 'Cook a 5-star dinner from YouTube tutorial', c: 'Habits' as const },
-            { t: 'Create a scrapbook of all our flight & ticket stubs', c: 'Romantic' as const },
-            { t: 'Surprise picnic at an aesthetic park', c: 'Romantic' as const },
+            { t: 'Create a scrapbook of our flight & ticket stubs', c: 'Romantic' as const },
+            { t: 'Surprise sunset picnic in the park', c: 'Romantic' as const },
           ].map(p => (
             <button
               key={p.t}
@@ -282,7 +771,7 @@ const RelationshipGoalsView: React.FC = () => {
         {filteredGoals.length === 0 ? (
           <div className="py-16 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-2">
             <HeartHandshake className="w-8 h-8 text-zinc-300 mx-auto" />
-            <p className="font-bold text-zinc-700 dark:text-zinc-300">No goals found under this category filter.</p>
+            <p className="font-bold text-zinc-700 dark:text-zinc-300">No goals found under this filter.</p>
             <p className="text-[11px] text-zinc-400">Tap "Add Goal" above to create your couple dream.</p>
           </div>
         ) : (
@@ -303,7 +792,7 @@ const RelationshipGoalsView: React.FC = () => {
                       ? 'bg-rose-500 border-rose-500 text-white'
                       : 'border-zinc-300 dark:border-zinc-700 hover:border-rose-400'
                   }`}
-                  title={goal.completed ? 'Mark incomplete' : 'Mark completed'}
+                  title={goal.completed ? 'Mark pending' : 'Mark completed'}
                 >
                   {goal.completed && <Check className="w-4 h-4 stroke-[3]" />}
                 </button>
@@ -333,21 +822,27 @@ const RelationshipGoalsView: React.FC = () => {
 
                   <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-mono">
                     {goal.targetDate && (
-                      <span>Target: {new Date(goal.targetDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span>Target: {formatLocalDate(goal.targetDate)}</span>
                     )}
-                    <span>· Created: {goal.createdAt}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons: Delete Button */}
-              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              {/* Action Buttons: Edit and Delete */}
+              <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                <button
+                  onClick={() => handleOpenEdit(goal)}
+                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer active:scale-95 transition-all shadow-2xs"
+                  title="Edit Goal"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
                 <button
                   onClick={() => handleDeleteGoal(goal.id)}
                   className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all shadow-2xs"
                   title="Delete Goal"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -355,17 +850,14 @@ const RelationshipGoalsView: React.FC = () => {
         )}
       </div>
 
-      {/* Add Goal Modal */}
+      {/* Add / Edit Goal Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
-                <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                  New Relationship Goal
-                </h3>
-              </div>
+              <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
+                {editingGoal ? 'Edit Relationship Goal' : 'New Relationship Goal'}
+              </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-center font-bold text-sm cursor-pointer"
@@ -374,13 +866,13 @@ const RelationshipGoalsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddGoal} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSaveGoal} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Goal Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g., Stargazing road trip, Save for joint vacation"
+                  placeholder="e.g. Stargazing road trip, Save for joint vacation"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -431,7 +923,7 @@ const RelationshipGoalsView: React.FC = () => {
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Special Notes / Details</label>
                 <textarea
                   rows={2}
-                  placeholder="Notes, ideas, budget, or romantic surprises..."
+                  placeholder="Notes, ideas, budget, or surprises..."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -462,7 +954,7 @@ const RelationshipGoalsView: React.FC = () => {
 };
 
 /* =========================================================================
-   2. IMPORTANT DAYS & BIRTHDAY TRACKER TOOL
+   3. IMPORTANT DAYS & ANNIVERSARIES TRACKER
    ========================================================================= */
 
 interface ImportantDayItem {
@@ -502,14 +994,6 @@ const DEFAULT_DAYS: ImportantDayItem[] = [
     isYearly: true,
     notes: 'The day we sat at the corner cafe for 4 hours nonstop.',
   },
-  {
-    id: 'day-4',
-    title: "Valentine's Day 🌹",
-    type: 'Holiday',
-    date: '2027-02-14',
-    isYearly: true,
-    notes: 'Flowers delivery and rooftop sunset dinner.',
-  },
 ];
 
 const ImportantDaysView: React.FC = () => {
@@ -522,6 +1006,8 @@ const ImportantDaysView: React.FC = () => {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDay, setEditingDay] = useState<ImportantDayItem | null>(null);
+
   const [title, setTitle] = useState('');
   const [type, setType] = useState<ImportantDayItem['type']>('Birthday');
   const [date, setDate] = useState('');
@@ -537,44 +1023,78 @@ const ImportantDaysView: React.FC = () => {
 
   const handleDeleteDay = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this important day?')) {
-      setDays(prev => prev.filter(d => d.id !== id));
-    }
+    setDays(prev => prev.filter(d => d.id !== id));
   };
 
-  const handleAddDay = (e: React.FormEvent) => {
+  const handleOpenAdd = () => {
+    sounds.playClick();
+    setEditingDay(null);
+    setTitle('');
+    setType('Birthday');
+    setDate('');
+    setIsYearly(true);
+    setNotes('');
+    setGiftIdeas('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: ImportantDayItem) => {
+    sounds.playClick();
+    setEditingDay(item);
+    setTitle(item.title);
+    setType(item.type);
+    setDate(item.date);
+    setIsYearly(item.isYearly);
+    setNotes(item.notes || '');
+    setGiftIdeas(item.giftIdeas || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveDay = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) return;
     sounds.playSuccess();
 
-    const newDay: ImportantDayItem = {
-      id: `day-${Date.now()}`,
-      title: title.trim(),
-      type,
-      date,
-      isYearly,
-      notes: notes.trim() || undefined,
-      giftIdeas: giftIdeas.trim() || undefined,
-    };
-
-    setDays(prev => [...prev, newDay]);
-    setTitle('');
-    setDate('');
-    setNotes('');
-    setGiftIdeas('');
+    if (editingDay) {
+      setDays(prev =>
+        prev.map(d =>
+          d.id === editingDay.id
+            ? {
+                ...d,
+                title: title.trim(),
+                type,
+                date,
+                isYearly,
+                notes: notes.trim() || undefined,
+                giftIdeas: giftIdeas.trim() || undefined,
+              }
+            : d
+        )
+      );
+    } else {
+      const newDay: ImportantDayItem = {
+        id: `day-${Date.now()}`,
+        title: title.trim(),
+        type,
+        date,
+        isYearly,
+        notes: notes.trim() || undefined,
+        giftIdeas: giftIdeas.trim() || undefined,
+      };
+      setDays(prev => [...prev, newDay]);
+    }
     setIsModalOpen(false);
   };
 
-  // Compute countdown or elapsed days
+  // Accurate countdown in local time
   const getDaysDiff = (dateStr: string, isYearly: boolean) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const target = new Date(dateStr);
+    const target = parseLocalDate(dateStr);
     target.setHours(0, 0, 0, 0);
 
     if (isYearly) {
-      // Find next occurrence this year or next
       const currentYear = today.getFullYear();
       let nextDate = new Date(currentYear, target.getMonth(), target.getDate());
       if (nextDate.getTime() < today.getTime()) {
@@ -595,23 +1115,20 @@ const ImportantDaysView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
             <CalendarHeart className="w-4 h-4 text-rose-500" />
-            <span>Love Calendar</span>
+            <span>Anniversary & Birthday Hub</span>
             <span aria-hidden="true">·</span>
-            <span>Never Miss an Anniversary</span>
+            <span>Never Miss an Important Date</span>
           </div>
           <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight mt-0.5">
             Important Days & Birthday Tracker
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Log birthdays, first meetings, anniversaries, proposals, and special dates with live countdowns & gift reminders.
+            Log partner birthdays, first meetings, anniversaries, proposals, and gift ideas with live countdowns.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            sounds.playClick();
-            setIsModalOpen(true);
-          }}
+          onClick={handleOpenAdd}
           className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer self-end md:self-center shrink-0"
         >
           <Plus className="w-4 h-4" />
@@ -656,7 +1173,7 @@ const ImportantDaysView: React.FC = () => {
                 </h3>
 
                 <p className="text-xs text-zinc-400 font-mono mt-0.5">
-                  Date: {new Date(item.date).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}
+                  Date: {formatLocalDate(item.date, { month: 'long', day: 'numeric', year: 'numeric' })}
                   {item.isYearly && ' · Recur yearly'}
                 </p>
 
@@ -674,33 +1191,39 @@ const ImportantDaysView: React.FC = () => {
                 )}
               </div>
 
-              {/* Delete Button */}
+              {/* Action Buttons: Edit and Delete */}
               <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                <span className="text-[11px] text-zinc-400">OmniLove Special Event</span>
-                <button
-                  onClick={() => handleDeleteDay(item.id)}
-                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all"
-                  title="Delete important day"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <span className="text-[11px] text-zinc-400">Special Event</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+                    title="Edit important day"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteDay(item.id)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all"
+                    title="Delete important day"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add Day Modal */}
+      {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <CalendarHeart className="w-5 h-5 text-rose-500" />
-                <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                  Add Important Day / Birthday
-                </h3>
-              </div>
+              <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
+                {editingDay ? 'Edit Important Day' : 'Add Important Day / Birthday'}
+              </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-center font-bold text-sm cursor-pointer"
@@ -709,13 +1232,13 @@ const ImportantDaysView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddDay} className="space-y-4 text-xs font-semibold">
+            <form onSubmit={handleSaveDay} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Event Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Partner's 25th Birthday, Proposal Day"
+                  placeholder="e.g. Partner's Birthday, Anniversary, Proposal"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -759,7 +1282,7 @@ const ImportantDaysView: React.FC = () => {
                   className="w-4 h-4 text-rose-600 rounded cursor-pointer"
                 />
                 <span className="text-zinc-700 dark:text-zinc-300 text-xs">
-                  Repeats annually (e.g. yearly birthday or anniversary)
+                  Repeats annually (yearly birthday/anniversary)
                 </span>
               </label>
 
@@ -767,7 +1290,7 @@ const ImportantDaysView: React.FC = () => {
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Gift Ideas & Wishlist</label>
                 <input
                   type="text"
-                  placeholder="e.g. Watch, dinner at rooftop, flowers, perfume"
+                  placeholder="e.g. Watch, dinner, flowers, perfume"
                   value={giftIdeas}
                   onChange={e => setGiftIdeas(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -778,7 +1301,7 @@ const ImportantDaysView: React.FC = () => {
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Celebration Notes</label>
                 <textarea
                   rows={2}
-                  placeholder="Surprise plans, restaurant booking details..."
+                  placeholder="Surprise plans, restaurant details..."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -797,7 +1320,7 @@ const ImportantDaysView: React.FC = () => {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer shadow-md"
                 >
-                  Add Event
+                  Save Event
                 </button>
               </div>
             </form>
@@ -809,7 +1332,7 @@ const ImportantDaysView: React.FC = () => {
 };
 
 /* =========================================================================
-   3. MEET-UP & LAST MEETING PLANNER TOOL
+   4. MEET-UP & LAST MEETING PLANNER
    ========================================================================= */
 
 interface MeetupLog {
@@ -844,7 +1367,6 @@ const DEFAULT_PAST_MEETINGS: MeetupLog[] = [
 ];
 
 const MeetupTrackerView: React.FC = () => {
-  // Next planned meet-up
   const [nextMeetup, setNextMeetup] = useState<{
     date: string;
     time: string;
@@ -865,7 +1387,6 @@ const MeetupTrackerView: React.FC = () => {
     };
   });
 
-  // Last meeting logs
   const [pastMeetings, setPastMeetings] = useState<MeetupLog[]>(() => {
     try {
       const saved = localStorage.getItem('omni_love_past_meetings');
@@ -881,7 +1402,6 @@ const MeetupTrackerView: React.FC = () => {
   const [newActivity, setNewActivity] = useState('');
   const [newHighlights, setNewHighlights] = useState('');
 
-  // Editing next meetup
   const [isEditingNext, setIsEditingNext] = useState(false);
   const [editDate, setEditDate] = useState(nextMeetup.date);
   const [editTime, setEditTime] = useState(nextMeetup.time);
@@ -916,9 +1436,7 @@ const MeetupTrackerView: React.FC = () => {
 
   const handleDeleteMeetingLog = (id: string) => {
     sounds.playClick();
-    if (confirm('Delete this past meeting memory log?')) {
-      setPastMeetings(prev => prev.filter(m => m.id !== id));
-    }
+    setPastMeetings(prev => prev.filter(m => m.id !== id));
   };
 
   const handleAddPastMeeting = (e: React.FormEvent) => {
@@ -930,13 +1448,13 @@ const MeetupTrackerView: React.FC = () => {
       id: `m-${Date.now()}`,
       title: newTitle.trim(),
       date: newDate,
-      location: newLocation.trim(),
-      activity: newActivity.trim(),
+      location: newLocation.trim() || 'Cozy Spot',
+      activity: newActivity.trim() || 'Spent time together',
       highlights: newHighlights.trim() || undefined,
       rating: 5,
     };
 
-    setPastMeetings(prev => [newLog, ...prev]);
+    setPastMeetings(prev => [newLog, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setNewTitle('');
     setNewDate('');
     setNewLocation('');
@@ -945,13 +1463,40 @@ const MeetupTrackerView: React.FC = () => {
     setIsLogModalOpen(false);
   };
 
-  // Calculate days since last meeting
-  const lastMeeting = pastMeetings[0];
+  // 1-Click: Mark next meet-up as met and convert directly into a memory
+  const handleMarkNextMet = () => {
+    sounds.playSuccess();
+    const newLog: MeetupLog = {
+      id: `m-${Date.now()}`,
+      title: nextMeetup.activity,
+      date: nextMeetup.date,
+      location: nextMeetup.location,
+      activity: nextMeetup.activity,
+      highlights: nextMeetup.notes || 'Had an amazing date together!',
+      rating: 5,
+    };
+    setPastMeetings(prev => [newLog, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    // Set next meetup placeholder to 1 week out
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const dateStr = nextWeek.toISOString().split('T')[0];
+    setNextMeetup({
+      date: dateStr,
+      time: '19:00',
+      location: 'Favorite Cafe',
+      activity: 'Next date & coffee talk',
+      notes: '',
+    });
+  };
+
+  // Sort past meetings chronologically descending
+  const sortedMeetings = [...pastMeetings].sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
+  const lastMeeting = sortedMeetings[0];
   const daysSinceLastMeeting = lastMeeting
-    ? Math.max(0, Math.floor((Date.now() - new Date(lastMeeting.date).getTime()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.floor((Date.now() - parseLocalDate(lastMeeting.date).getTime()) / (1000 * 60 * 60 * 24)))
     : null;
 
-  // Calculate days until next meetup
+  // Days until next meetup
   const daysUntilNext = nextMeetup.date
     ? Math.ceil((new Date(`${nextMeetup.date}T${nextMeetup.time || '00:00'}`).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
@@ -965,7 +1510,7 @@ const MeetupTrackerView: React.FC = () => {
             <Compass className="w-4 h-4 text-rose-500" />
             <span>Meet-Up & Date Hub</span>
             <span aria-hidden="true">·</span>
-            <span>Cherished Moments</span>
+            <span>Cherished Encounters</span>
           </div>
           <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight mt-0.5">
             Meet-Up & Last Meeting Planner
@@ -987,10 +1532,10 @@ const MeetupTrackerView: React.FC = () => {
         </button>
       </div>
 
-      {/* Two Big Highlight Cards: Next Meetup vs Last Met Counter */}
+      {/* Two Highlight Cards: Next Meetup vs Last Met */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Next Planned Meet-Up Card */}
-        <div className="bg-gradient-to-br from-rose-500/10 via-pink-500/5 to-transparent rounded-3xl border border-rose-200 dark:border-rose-900/60 p-6 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        {/* Next Planned Meet-Up */}
+        <div className="bg-gradient-to-br from-rose-500/10 via-pink-500/5 to-transparent rounded-3xl border border-rose-200 dark:border-rose-900/60 p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-rose-500 text-white flex items-center gap-1.5 shadow-xs">
@@ -1000,7 +1545,7 @@ const MeetupTrackerView: React.FC = () => {
 
               {daysUntilNext !== null && (
                 <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 bg-white dark:bg-zinc-800 px-3 py-1 rounded-xl shadow-2xs border border-rose-200/50 dark:border-rose-900/50">
-                  {daysUntilNext > 0 ? `In ${daysUntilNext} days` : daysUntilNext === 0 ? 'TODAY!' : 'Meeting passed'}
+                  {daysUntilNext > 0 ? `In ${daysUntilNext} days` : daysUntilNext === 0 ? 'TODAY!' : 'Meeting time passed'}
                 </span>
               )}
             </div>
@@ -1013,7 +1558,7 @@ const MeetupTrackerView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-rose-500 shrink-0" />
                 <span className="font-mono font-bold">
-                  {new Date(nextMeetup.date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })} at {nextMeetup.time}
+                  {formatLocalDate(nextMeetup.date, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })} at {nextMeetup.time}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1028,8 +1573,15 @@ const MeetupTrackerView: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-5 pt-3 border-t border-rose-200/60 dark:border-rose-900/60 flex items-center justify-between">
-            <span className="text-xs text-rose-700 dark:text-rose-300 font-semibold">Ready for your date?</span>
+          <div className="mt-5 pt-3 border-t border-rose-200/60 dark:border-rose-900/60 flex items-center justify-between gap-2">
+            <button
+              onClick={handleMarkNextMet}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm active:scale-95"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>We Met! Save Memory</span>
+            </button>
+
             <button
               onClick={() => {
                 sounds.playClick();
@@ -1043,7 +1595,7 @@ const MeetupTrackerView: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-rose-50 text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 cursor-pointer shadow-2xs"
             >
               <Edit2 className="w-3.5 h-3.5" />
-              <span>Edit Details</span>
+              <span>Edit Date</span>
             </button>
           </div>
         </div>
@@ -1054,12 +1606,12 @@ const MeetupTrackerView: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                 <HeartHandshake className="w-3.5 h-3.5 text-rose-500" />
-                Last Meeting Highlights
+                Last Meeting Memory
               </span>
 
               {daysSinceLastMeeting !== null && (
-                <span className="font-mono text-xs font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-xl">
-                  {daysSinceLastMeeting === 0 ? 'Met today!' : `${daysSinceLastMeeting} days since last hug`}
+                <span className="font-mono text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-xl">
+                  {daysSinceLastMeeting === 0 ? 'Met today! ❤️' : `${daysSinceLastMeeting} days since last meeting`}
                 </span>
               )}
             </div>
@@ -1070,7 +1622,7 @@ const MeetupTrackerView: React.FC = () => {
                   {lastMeeting.title}
                 </h3>
                 <p className="text-xs text-zinc-500 font-mono">
-                  {new Date(lastMeeting.date).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })} · {lastMeeting.location}
+                  {formatLocalDate(lastMeeting.date, { month: 'long', day: 'numeric', year: 'numeric' })} · {lastMeeting.location}
                 </p>
                 {lastMeeting.highlights && (
                   <p className="text-xs text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/60 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800">
@@ -1080,7 +1632,7 @@ const MeetupTrackerView: React.FC = () => {
               </div>
             ) : (
               <p className="text-xs text-zinc-400 py-6 text-center">
-                No past meetings logged yet. Tap "Log Past Meeting" to record memories.
+                No past meetings recorded yet. Tap "Log Past Meeting" to record memories.
               </p>
             )}
           </div>
@@ -1095,17 +1647,17 @@ const MeetupTrackerView: React.FC = () => {
       {/* Chronological History of Past Meetings */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
-          <span>Memories & Past Date History ({pastMeetings.length})</span>
-          <span>Logged Encounters</span>
+          <span>Memories & Past Date History ({sortedMeetings.length})</span>
+          <span>Chronological Log</span>
         </div>
 
-        {pastMeetings.length === 0 ? (
+        {sortedMeetings.length === 0 ? (
           <div className="py-12 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6">
             No memories logged yet.
           </div>
         ) : (
           <div className="space-y-2.5">
-            {pastMeetings.map(item => (
+            {sortedMeetings.map(item => (
               <div
                 key={item.id}
                 className="p-4 sm:p-5 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -1116,7 +1668,7 @@ const MeetupTrackerView: React.FC = () => {
                       {item.title}
                     </h4>
                     <span className="text-[11px] font-mono text-zinc-400">
-                      ({item.date})
+                      ({formatLocalDate(item.date)})
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
@@ -1133,15 +1685,13 @@ const MeetupTrackerView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <button
-                    onClick={() => handleDeleteMeetingLog(item.id)}
-                    className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all shadow-2xs"
-                    title="Delete meeting memory"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleDeleteMeetingLog(item.id)}
+                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer active:scale-95 transition-all shadow-2xs self-end sm:self-center shrink-0"
+                  title="Delete memory"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -1305,7 +1855,7 @@ const MeetupTrackerView: React.FC = () => {
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Sweet Highlights / Memories</label>
                 <textarea
                   rows={2}
-                  placeholder="Most memorable moment, favorite funny story..."
+                  placeholder="Most memorable moment, funny story..."
                   value={newHighlights}
                   onChange={e => setNewHighlights(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
@@ -1331,195 +1881,6 @@ const MeetupTrackerView: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-/* =========================================================================
-   4. LOVE DAY COUNTER & ANNIVERSARY GUIDE
-   ========================================================================= */
-
-const LoveDayCounterView: React.FC = () => {
-  const [startDate, setStartDate] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('omni_love_start_date');
-      if (saved) return saved;
-    } catch {}
-    return '2024-02-14';
-  });
-
-  const [partnerNames, setPartnerNames] = useState<{ user: string; partner: string }>(() => {
-    try {
-      const saved = localStorage.getItem('omni_love_partner_names');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { user: 'Alex', partner: 'Jordan' };
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('omni_love_start_date', startDate);
-      localStorage.setItem('omni_love_partner_names', JSON.stringify(partnerNames));
-    } catch {}
-  }, [startDate, partnerNames]);
-
-  // Compute stats
-  const now = new Date();
-  const start = new Date(startDate);
-  const diffMs = Math.max(0, now.getTime() - start.getTime());
-  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const totalWeeks = Math.floor(totalDays / 7);
-  const totalMonths = Math.floor(totalDays / 30.4375);
-  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
-
-  // Upcoming major milestones
-  const milestones = [
-    { target: 100, label: '100 Days of Love' },
-    { target: 365, label: '1 Year Anniversary (365 Days)' },
-    { target: 500, label: '500 Days of Love' },
-    { target: 730, label: '2 Years Anniversary' },
-    { target: 1000, label: '1,000 Days Milestone' },
-    { target: 1825, label: '5 Years of Love' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
-            <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
-            <span>Love Journey Counter</span>
-            <span aria-hidden="true">·</span>
-            <span>Every Second Counts</span>
-          </div>
-          <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight mt-0.5">
-            Love Day Counter & Anniversary Milestones
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Real-time celebration of every single day, hour, and milestone you've spent together.
-          </p>
-        </div>
-
-        {/* Start Date Config */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-zinc-500">Together Since:</span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-bold cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Hero Love Display */}
-      <div className="bg-gradient-to-br from-rose-500 via-pink-600 to-rose-700 text-white rounded-3xl p-8 shadow-2xl text-center relative overflow-hidden space-y-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-extrabold tracking-wide uppercase">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>{partnerNames.user} & {partnerNames.partner}</span>
-        </div>
-
-        <div>
-          <div className="font-mono font-black text-6xl sm:text-8xl tabular-nums drop-shadow-md">
-            {totalDays.toLocaleString()}
-          </div>
-          <div className="text-lg sm:text-xl font-extrabold tracking-wider uppercase opacity-90 mt-1">
-            Days of Love & Togetherness
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 max-w-lg mx-auto pt-4 border-t border-white/20 text-xs font-bold">
-          <div>
-            <div className="text-xl font-mono font-black">{totalMonths}</div>
-            <div className="opacity-80">Months</div>
-          </div>
-          <div>
-            <div className="text-xl font-mono font-black">{totalWeeks}</div>
-            <div className="opacity-80">Weeks</div>
-          </div>
-          <div>
-            <div className="text-xl font-mono font-black">{totalHours.toLocaleString()}</div>
-            <div className="opacity-80">Hours</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Upcoming Milestones */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs space-y-4">
-        <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Award className="w-4 h-4 text-amber-500" />
-          <span>Next Major Relationship Milestones</span>
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {milestones.map(m => {
-            const isPassed = totalDays >= m.target;
-            const remaining = m.target - totalDays;
-
-            return (
-              <div
-                key={m.target}
-                className={`p-4 rounded-2xl border transition-all ${
-                  isPassed
-                    ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20'
-                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40'
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100">{m.label}</span>
-                  {isPassed ? (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-500 text-white">
-                      UNLOCKED ✓
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[11px] font-bold text-rose-500">
-                      In {remaining} days
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-zinc-400">
-                  {isPassed ? 'Celebrated milestone!' : `Target: ${m.target} days`}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Anniversary Gift Guide */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 shadow-xs space-y-3">
-        <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Gift className="w-4 h-4 text-rose-500" />
-          <span>Traditional & Modern Anniversary Gift Guide</span>
-        </h3>
-        <p className="text-xs text-zinc-500">
-          Inspiration for meaningful anniversary gifts based on historic milestone traditions.
-        </p>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-2">
-          <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="font-bold text-rose-600 dark:text-rose-400 block">1st Year</span>
-            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Paper / Clocks</div>
-            <p className="text-[11px] text-zinc-400 mt-0.5">Love letter, tickets, photo album</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="font-bold text-rose-600 dark:text-rose-400 block">2nd Year</span>
-            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Cotton / China</div>
-            <p className="text-[11px] text-zinc-400 mt-0.5">Matching pajamas, cozy blanket</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="font-bold text-rose-600 dark:text-rose-400 block">3rd Year</span>
-            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Leather / Glass</div>
-            <p className="text-[11px] text-zinc-400 mt-0.5">Wallet, passport holder, perfume</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="font-bold text-rose-600 dark:text-rose-400 block">5th Year</span>
-            <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">Wood / Silverware</div>
-            <p className="text-[11px] text-zinc-400 mt-0.5">Custom engraved frame, jewelry</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
