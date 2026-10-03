@@ -31,6 +31,7 @@ import { ScorecardMakerTool } from './ScorecardMakerTool';
 import { CodeIdePlayground } from './CodeIdePlayground';
 import { LoveManagementTools } from './LoveManagementTools';
 import { DateReminderTools } from './DateReminderTools';
+import { NumberArrangementTool } from './NumberArrangementTool';
 
 interface ToolDispatcherProps {
   tool: ToolItem;
@@ -54,6 +55,9 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
   const renderToolBody = () => {
     if (tool.id === 'prime-checker' || tool.id === 'prime-calculator') {
       return <PerfectPrimeCalculatorView key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'number-arrangement') {
+      return <NumberArrangementTool key={`${tool.id}-${resetKey}`} />;
     }
     if (tool.id === 'code-ide-playground') {
       return <CodeIdePlayground key={`${tool.id}-${resetKey}`} />;

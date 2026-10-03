@@ -1374,6 +1374,15 @@ export const TOOLS: ToolItem[] = [
     isOnline: false,
   },
   {
+    id: 'number-arrangement',
+    name: 'Number Arrangement',
+    categoryId: 'general',
+    description: 'Rearrange numbers and digits in every possible way with permutations, duplicate handling, ordering, length slicing, and theoretical breakdown',
+    iconName: 'Shuffle',
+    keywords: ['number arrangement', 'rearrange number', 'permutations', 'combinatorics', 'rearrange digits', 'multiset', 'all possible ways', 'anagram', 'numbers rearrangement', 'number combinations'],
+    isOnline: false,
+  },
+  {
     id: 'binary-hex-converter',
     name: 'Binary, Octal & Hex Converter',
     categoryId: 'conversions',

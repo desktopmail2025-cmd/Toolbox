@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, HelpCircle } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, HelpCircle, Download } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
@@ -18,6 +18,7 @@ interface NavbarProps {
   onSelectTab: (tab: string) => void;
   onSelectTool?: (tool: ToolItem) => void;
   onOpenOnboarding?: () => void;
+  onOpenDownloads?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -30,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   onSelectTool,
   onOpenOnboarding,
+  onOpenDownloads,
 }) => {
   // Expandable search state: collapsed by default
   const [isExpanded, setIsExpanded] = useState(false);
@@ -305,6 +307,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
+
+          {/* Download App Packages (Website, APK, AAB) */}
+          {onOpenDownloads && (
+            <button
+              onClick={() => {
+                sounds.playClick();
+                onOpenDownloads();
+              }}
+              aria-label="Download App Packages"
+              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              title="Download App Packages (APK, AAB, Website)"
+            >
+              <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </button>
+          )}
 
           {/* Quick Tour / Help Button */}
           {onOpenOnboarding && (

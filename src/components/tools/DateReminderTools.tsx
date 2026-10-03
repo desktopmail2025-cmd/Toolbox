@@ -43,51 +43,15 @@ export const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOp
 };
 
 export const DateReminderTools: React.FC<ToolComponentProps> = ({ toolId }) => {
-  const [selectedTool, setSelectedTool] = useState<string>(toolId);
-
-  useEffect(() => {
-    setSelectedTool(toolId);
-  }, [toolId]);
-
-  const dateSubTools = [
-    { id: 'date-reminder', name: 'Date Reminder Hub', icon: CalendarDays },
-    { id: 'date-countdown-milestones', name: 'Event Countdowns', icon: Clock },
-    { id: 'date-subscription-bills', name: 'Bills & Subscriptions', icon: CreditCard },
-    { id: 'date-deadlines-planner', name: 'Deadlines & Tasks', icon: BookOpen },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Category Sub-Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-200/80 dark:border-zinc-800/80 scrollbar-none">
-        {dateSubTools.map(sub => {
-          const Icon = sub.icon;
-          const isActive = selectedTool === sub.id;
-          return (
-            <button
-              key={sub.id}
-              onClick={() => {
-                sounds.playClick();
-                setSelectedTool(sub.id);
-              }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                isActive
-                  ? 'bg-violet-600 text-white shadow-sm shadow-violet-600/20'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/90 dark:border-zinc-800 hover:border-violet-300 dark:hover:border-violet-900/60'
-              }`}
-            >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-violet-500'}`} />
-              <span>{sub.name}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedTool === 'date-reminder' && <DateReminderMasterView />}
-      {selectedTool === 'date-countdown-milestones' && <CountdownMilestonesView />}
-      {selectedTool === 'date-subscription-bills' && <SubscriptionBillsView />}
-      {selectedTool === 'date-deadlines-planner' && <DeadlinesPlannerView />}
-      {!['date-reminder', 'date-countdown-milestones', 'date-subscription-bills', 'date-deadlines-planner'].includes(selectedTool) && (
+      {toolId === 'date-countdown-milestones' ? (
+        <CountdownMilestonesView />
+      ) : toolId === 'date-subscription-bills' ? (
+        <SubscriptionBillsView />
+      ) : toolId === 'date-deadlines-planner' ? (
+        <DeadlinesPlannerView />
+      ) : (
         <DateReminderMasterView />
       )}
     </div>

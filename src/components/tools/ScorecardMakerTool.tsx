@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
-type SportType = 'football' | 'basketball' | 'cricket' | 'badminton' | 'tennis' | 'volleyball' | 'custom';
+type SportType = 'football' | 'cricket' | 'combat' | 'rugby' | 'handball' | 'basketball' | 'tennis' | 'badminton' | 'volleyball' | 'custom';
 
 interface TeamPreset {
   name: string;
@@ -17,7 +17,7 @@ interface TeamPreset {
 }
 
 const PRESET_TEAMS: TeamPreset[] = [
-  // Football World Clubs
+  // Football World Clubs (European & Global Giants)
   { name: 'Real Madrid CF', shortName: 'RMA', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/86.png', sport: 'football' },
   { name: 'FC Barcelona', shortName: 'BAR', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/83.png', sport: 'football' },
   { name: 'Manchester City', shortName: 'MCI', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/382.png', sport: 'football' },
@@ -44,13 +44,62 @@ const PRESET_TEAMS: TeamPreset[] = [
   { name: 'Netherlands', shortName: 'NED', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/449.png', sport: 'football' },
   { name: 'Italy', shortName: 'ITA', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/115.png', sport: 'football' },
 
-  // Basketball (NBA)
+  // Cricket International & League Teams
+  { name: 'India Cricket', shortName: 'IND', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/6.png', sport: 'cricket' },
+  { name: 'Australia Cricket', shortName: 'AUS', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/2.png', sport: 'cricket' },
+  { name: 'England Cricket', shortName: 'ENG', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/1.png', sport: 'cricket' },
+  { name: 'South Africa Cricket', shortName: 'SA', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/3.png', sport: 'cricket' },
+  { name: 'Pakistan Cricket', shortName: 'PAK', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/7.png', sport: 'cricket' },
+  { name: 'New Zealand Cricket', shortName: 'NZ', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/5.png', sport: 'cricket' },
+  { name: 'Chennai Super Kings', shortName: 'CSK', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/4340.png', sport: 'cricket' },
+  { name: 'Mumbai Indians', shortName: 'MI', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/4346.png', sport: 'cricket' },
+  { name: 'Royal Challengers Bengaluru', shortName: 'RCB', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/4347.png', sport: 'cricket' },
+  { name: 'Kolkata Knight Riders', shortName: 'KKR', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/4341.png', sport: 'cricket' },
+  { name: 'Surrey CCC (County)', shortName: 'SUR', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/333.png', sport: 'cricket' },
+  { name: 'Yorkshire CCC (County)', shortName: 'YOR', logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/338.png', sport: 'cricket' },
+
+  // Combat Sports & Pro Wrestling (WWE / UFC / AEW)
+  { name: 'Cody Rhodes (Undisputed Champion)', shortName: 'CODY', logo: 'https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/wwe_championship.png', sport: 'combat' },
+  { name: 'Roman Reigns (The OTC)', shortName: 'ROMAN', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png', sport: 'combat' },
+  { name: 'CM Punk (Best in the World)', shortName: 'PUNK', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png', sport: 'combat' },
+  { name: 'Gunther (World Heavyweight Champ)', shortName: 'GUNTHER', logo: 'https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/wwe_championship.png', sport: 'combat' },
+  { name: 'Seth "Freakin" Rollins', shortName: 'SETH', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png', sport: 'combat' },
+  { name: 'Rhea Ripley (Mami)', shortName: 'RHEA', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/aus.png', sport: 'combat' },
+  { name: 'Bryan Danielson (AEW World Champ)', shortName: 'BRYAN', logo: 'https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/aew_belt.png', sport: 'combat' },
+  { name: 'Swerve Strickland (AEW)', shortName: 'SWERVE', logo: 'https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/aew_belt.png', sport: 'combat' },
+  { name: 'Will Ospreay (The Aerial Assassin)', shortName: 'OSPREAY', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/gbr.png', sport: 'combat' },
+  { name: 'Jon Moxley (Death Riders)', shortName: 'MOXLEY', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png', sport: 'combat' },
+  { name: 'Jon Jones (UFC Heavyweight Champ)', shortName: 'JONES', logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png', sport: 'combat' },
+  { name: 'Alex Pereira (Poatan / UFC Champ)', shortName: 'POATAN', logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png', sport: 'combat' },
+  { name: 'Islam Makhachev (UFC Lightweight)', shortName: 'ISLAM', logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png', sport: 'combat' },
+  { name: 'Ilia Topuria (El Matador)', shortName: 'TOPURIA', logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png', sport: 'combat' },
+
+  // European Rugby Six Nations & Champions Cup
+  { name: 'England Rugby', shortName: 'ENG', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/59.png', sport: 'rugby' },
+  { name: 'France Rugby (Les Bleus)', shortName: 'FRA', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/60.png', sport: 'rugby' },
+  { name: 'Ireland Rugby', shortName: 'IRE', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/61.png', sport: 'rugby' },
+  { name: 'Scotland Rugby', shortName: 'SCO', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/62.png', sport: 'rugby' },
+  { name: 'Wales Rugby', shortName: 'WAL', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/63.png', sport: 'rugby' },
+  { name: 'Italy Rugby (Azzurri)', shortName: 'ITA', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/64.png', sport: 'rugby' },
+  { name: 'Stade Toulousain (Toulouse)', shortName: 'TOU', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/25920.png', sport: 'rugby' },
+  { name: 'Leinster Rugby', shortName: 'LEI', logo: 'https://a.espncdn.com/i/teamlogos/rugby/500/25927.png', sport: 'rugby' },
+
+  // European Handball (EHF Champions League)
+  { name: 'THW Kiel Handball', shortName: 'KIE', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/ger.png', sport: 'handball' },
+  { name: 'FC Barcelona Handbol', shortName: 'FCB', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/83.png', sport: 'handball' },
+  { name: 'Paris Saint-Germain Handball', shortName: 'PSG', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/160.png', sport: 'handball' },
+  { name: 'SC Magdeburg Handball', shortName: 'SCM', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/ger.png', sport: 'handball' },
+  { name: 'Aalborg Håndbold', shortName: 'AAL', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/den.png', sport: 'handball' },
+
+  // Basketball (NBA & EuroLeague)
+  { name: 'Real Madrid Baloncesto', shortName: 'RMB', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/86.png', sport: 'basketball' },
+  { name: 'Panathinaikos AKTOR', shortName: 'PAO', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/gre.png', sport: 'basketball' },
+  { name: 'Olympiacos Piraeus', shortName: 'OLY', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/gre.png', sport: 'basketball' },
+  { name: 'FC Barcelona Bàsquet', shortName: 'FCB', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/83.png', sport: 'basketball' },
+  { name: 'Fenerbahçe Beko', shortName: 'FEN', logo: 'https://a.espncdn.com/i/teamlogos/countries/500/tur.png', sport: 'basketball' },
   { name: 'Los Angeles Lakers', shortName: 'LAL', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png', sport: 'basketball' },
   { name: 'Golden State Warriors', shortName: 'GSW', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/gsw.png', sport: 'basketball' },
   { name: 'Boston Celtics', shortName: 'BOS', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png', sport: 'basketball' },
-  { name: 'Chicago Bulls', shortName: 'CHI', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png', sport: 'basketball' },
-  { name: 'Miami Heat', shortName: 'MIA', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png', sport: 'basketball' },
-  { name: 'Milwaukee Bucks', shortName: 'MIL', logo: 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png', sport: 'basketball' },
 ];
 
 interface MatchEvent {
@@ -98,6 +147,15 @@ export const ScorecardMakerTool: React.FC = () => {
   // Quick event input
   const [customEventDetail, setCustomEventDetail] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Cricket Specific: Wickets, Overs & Balls
+  const [wicketsA, setWicketsA] = useState<number>(0);
+  const [wicketsB, setWicketsB] = useState<number>(0);
+  const [ballsA, setBallsA] = useState<number>(0);
+  const [ballsB, setBallsB] = useState<number>(0);
+
+  // Combat / Wrestling Specific: Result Decision & Stipulation
+  const [combatOutcome, setCombatOutcome] = useState<string | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -154,10 +212,75 @@ export const ScorecardMakerTool: React.FC = () => {
     if (confirm('Reset match scorecard, scoreline, and timer to zero?')) {
       setScoreA(0);
       setScoreB(0);
+      setWicketsA(0);
+      setWicketsB(0);
+      setBallsA(0);
+      setBallsB(0);
+      setCombatOutcome(null);
       setSeconds(0);
       setIsRunning(false);
       setEvents([]);
     }
+  };
+
+  const handleCricketBall = (team: 'A' | 'B', runs: number = 0) => {
+    sounds.playClick();
+    if (team === 'A') {
+      const nextBalls = ballsA + 1;
+      setBallsA(nextBalls);
+      const nextRuns = scoreA + runs;
+      setScoreA(nextRuns);
+      const ov = `${Math.floor(nextBalls / 6)}.${nextBalls % 6}`;
+      logEvent('A', runs === 4 ? 'Boundary Four 🏏' : runs === 6 ? 'Maximum Six 💥' : `${runs} Run(s)`, `Score: ${nextRuns}/${wicketsA} (${ov} ov)`);
+    } else {
+      const nextBalls = ballsB + 1;
+      setBallsB(nextBalls);
+      const nextRuns = scoreB + runs;
+      setScoreB(nextRuns);
+      const ov = `${Math.floor(nextBalls / 6)}.${nextBalls % 6}`;
+      logEvent('B', runs === 4 ? 'Boundary Four 🏏' : runs === 6 ? 'Maximum Six 💥' : `${runs} Run(s)`, `Score: ${nextRuns}/${wicketsB} (${ov} ov)`);
+    }
+  };
+
+  const handleCricketWicket = (team: 'A' | 'B') => {
+    sounds.playClick();
+    if (team === 'A') {
+      const nextW = Math.min(10, wicketsA + 1);
+      setWicketsA(nextW);
+      const nextBalls = ballsA + 1;
+      setBallsA(nextBalls);
+      const ov = `${Math.floor(nextBalls / 6)}.${nextBalls % 6}`;
+      logEvent('A', 'WICKET DOWN! ☝️', `Fall of Wicket: ${scoreA}/${nextW} in ${ov} ov`);
+    } else {
+      const nextW = Math.min(10, wicketsB + 1);
+      setWicketsB(nextW);
+      const nextBalls = ballsB + 1;
+      setBallsB(nextBalls);
+      const ov = `${Math.floor(nextBalls / 6)}.${nextBalls % 6}`;
+      logEvent('B', 'WICKET DOWN! ☝️', `Fall of Wicket: ${scoreB}/${nextW} in ${ov} ov`);
+    }
+  };
+
+  const handleCricketExtra = (team: 'A' | 'B', type: 'Wide' | 'No-Ball' | 'Leg-Bye') => {
+    sounds.playClick();
+    if (team === 'A') {
+      const nextRuns = scoreA + 1;
+      setScoreA(nextRuns);
+      logEvent('A', `Extra (${type})`, `+1 run · Total: ${nextRuns}/${wicketsA}`);
+    } else {
+      const nextRuns = scoreB + 1;
+      setScoreB(nextRuns);
+      logEvent('B', `Extra (${type})`, `+1 run · Total: ${nextRuns}/${wicketsB}`);
+    }
+  };
+
+  const handleCombatFinish = (winner: 'A' | 'B', method: string) => {
+    sounds.playSuccess();
+    const winTeam = winner === 'A' ? teamAName : teamBName;
+    const loseTeam = winner === 'A' ? teamBName : teamAName;
+    const resStr = `${winTeam} def. ${loseTeam} via ${method} (${period})`;
+    setCombatOutcome(resStr);
+    logEvent(winner, 'Match Finish / Fall 🏆', resStr);
   };
 
   const handleSelectTeamPreset = (preset: TeamPreset) => {
@@ -232,12 +355,16 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
         {/* Sport Switcher Segmented Control */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           {[
-            { id: 'football', label: 'Football', periods: ['1st Half', '2nd Half', 'Extra Time', 'Penalties'] },
-            { id: 'basketball', label: 'Basketball', periods: ['Q1', 'Q2', 'Q3', 'Q4', 'Overtime'] },
-            { id: 'cricket', label: 'Cricket', periods: ['1st Innings', '2nd Innings'] },
-            { id: 'tennis', label: 'Tennis', periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'] },
-            { id: 'badminton', label: 'Badminton', periods: ['Set 1', 'Set 2', 'Set 3'] },
-            { id: 'custom', label: 'Custom', periods: ['Period 1', 'Period 2', 'Period 3'] },
+            { id: 'football', label: '⚽ Football', periods: ['1st Half', '2nd Half', 'Extra Time', 'Penalties'] },
+            { id: 'cricket', label: '🏏 Cricket', periods: ['1st Innings', '2nd Innings', 'Super Over'] },
+            { id: 'combat', label: '🥊 Combat / Wrestling', periods: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5 (Championship)', 'Sudden Victory'] },
+            { id: 'rugby', label: '🏉 Rugby', periods: ['1st Half (40m)', '2nd Half (40m)', 'Extra Time'] },
+            { id: 'handball', label: '🤾 Handball', periods: ['1st Half (30m)', '2nd Half (30m)', '7m Shootout'] },
+            { id: 'basketball', label: '🏀 Basketball', periods: ['Q1', 'Q2', 'Q3', 'Q4', 'Overtime'] },
+            { id: 'tennis', label: '🎾 Tennis', periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'] },
+            { id: 'badminton', label: '🏸 Badminton', periods: ['Set 1', 'Set 2', 'Set 3'] },
+            { id: 'volleyball', label: '🏐 Volleyball', periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'] },
+            { id: 'custom', label: '⚙️ Custom', periods: ['Period 1', 'Period 2', 'Period 3'] },
           ].map(s => (
             <button
               key={s.id}
@@ -263,6 +390,22 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
         {/* Ambient Top Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-24 bg-indigo-500/10 blur-3xl pointer-events-none rounded-full" />
 
+        {/* Combat / Wrestling Winner Announcement Banner */}
+        {combatOutcome && (
+          <div className="p-3.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200 flex items-center justify-between text-xs font-bold shadow-lg animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-400 shrink-0" />
+              <span>{combatOutcome}</span>
+            </div>
+            <button
+              onClick={() => setCombatOutcome(null)}
+              className="text-[10px] uppercase tracking-wider text-amber-400 hover:text-white px-2 py-1 rounded bg-black/40 cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         {/* Top Control Bar: Match Period & Official Clock */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-zinc-800/80 relative z-10">
           <div className="flex items-center gap-3">
@@ -278,9 +421,13 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
               className="px-3.5 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 text-white text-xs font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {sport === 'football' && ['1st Half', '2nd Half', 'Extra Time', 'Penalties'].map(p => <option key={p} value={p}>{p}</option>)}
+              {sport === 'cricket' && ['1st Innings', '2nd Innings', 'Super Over'].map(p => <option key={p} value={p}>{p}</option>)}
+              {sport === 'combat' && ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5 (Championship)', 'Sudden Victory'].map(p => <option key={p} value={p}>{p}</option>)}
+              {sport === 'rugby' && ['1st Half (40m)', '2nd Half (40m)', 'Extra Time'].map(p => <option key={p} value={p}>{p}</option>)}
+              {sport === 'handball' && ['1st Half (30m)', '2nd Half (30m)', '7m Shootout'].map(p => <option key={p} value={p}>{p}</option>)}
               {sport === 'basketball' && ['Q1', 'Q2', 'Q3', 'Q4', 'Overtime'].map(p => <option key={p} value={p}>{p}</option>)}
-              {sport === 'cricket' && ['1st Innings', '2nd Innings'].map(p => <option key={p} value={p}>{p}</option>)}
               {['badminton', 'tennis'].includes(sport) && ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'].map(p => <option key={p} value={p}>{p}</option>)}
+              {sport === 'volleyball' && ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'].map(p => <option key={p} value={p}>{p}</option>)}
               {sport === 'custom' && ['Period 1', 'Period 2', 'Period 3', 'Overtime'].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -353,7 +500,7 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                 />
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">
-                    HOME CLUB
+                    {sport === 'combat' ? 'RED CORNER' : 'HOME CLUB'}
                   </span>
                   <button
                     onClick={() => {
@@ -369,55 +516,166 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
             </div>
 
             {/* Score Big Tabular Display */}
-            <div className="w-full py-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-center shadow-inner">
-              <span className="font-mono font-black tabular-nums text-6xl sm:text-7xl text-white tracking-tight">
-                {scoreA}
-              </span>
+            <div className="w-full py-4 px-3 rounded-2xl bg-zinc-950/80 border border-zinc-800 flex flex-col items-center justify-center shadow-inner">
+              {sport === 'cricket' ? (
+                <>
+                  <div className="flex items-baseline gap-1 font-mono font-black tracking-tight">
+                    <span className="text-5xl sm:text-6xl text-white">{scoreA}</span>
+                    <span className="text-3xl sm:text-4xl text-rose-400">/{wicketsA}</span>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400 mt-1">
+                    {Math.floor(ballsA / 6)}.{ballsA % 6} Overs · RR: {ballsA > 0 ? ((scoreA / ballsA) * 6).toFixed(2) : '0.00'}
+                  </span>
+                </>
+              ) : (
+                <span className="font-mono font-black tabular-nums text-6xl sm:text-7xl text-white tracking-tight">
+                  {scoreA}
+                </span>
+              )}
             </div>
 
-            {/* Quick Scoring Controls */}
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full pt-1">
-              <button
-                onClick={() => handleScoreChange('A', 1)}
-                className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                +1
-              </button>
-              {['basketball'].includes(sport) && (
+            {/* Quick Scoring Controls for Sport */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 w-full pt-1">
+              {sport === 'cricket' ? (
                 <>
                   <button
-                    onClick={() => handleScoreChange('A', 2)}
-                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('A', 1)}
+                    className="flex-1 min-w-[55px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1
+                  </button>
+                  <button
+                    onClick={() => handleCricketBall('A', 2)}
+                    className="flex-1 min-w-[55px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     +2
                   </button>
                   <button
-                    onClick={() => handleScoreChange('A', 3)}
-                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('A', 4)}
+                    className="flex-1 min-w-[65px] py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
-                    +3
-                  </button>
-                </>
-              )}
-              {['cricket'].includes(sport) && (
-                <>
-                  <button
-                    onClick={() => handleScoreChange('A', 4)}
-                    className="flex-1 min-w-[60px] py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
-                  >
-                    +4 Boundary
+                    +4 Four
                   </button>
                   <button
-                    onClick={() => handleScoreChange('A', 6)}
-                    className="flex-1 min-w-[60px] py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('A', 6)}
+                    className="flex-1 min-w-[65px] py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     +6 Six
                   </button>
+                  <button
+                    onClick={() => handleCricketWicket('A')}
+                    className="flex-1 min-w-[70px] py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    ☝️ Wicket
+                  </button>
+                  <button
+                    onClick={() => handleCricketExtra('A', 'Wide')}
+                    className="py-2 px-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    Wide
+                  </button>
+                </>
+              ) : sport === 'rugby' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('A', 5)}
+                    className="flex-1 min-w-[70px] py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +5 Try
+                  </button>
+                  <button
+                    onClick={() => handleScoreChange('A', 2)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +2 Conv
+                  </button>
+                  <button
+                    onClick={() => handleScoreChange('A', 3)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +3 Pen
+                  </button>
+                </>
+              ) : sport === 'handball' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('A', 1)}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1 Goal
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleScoreChange('A', 1);
+                      logEvent('A', '7m Penalty Goal', `Score: ${scoreA + 1}`);
+                    }}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1 (7m)
+                  </button>
+                  <button
+                    onClick={() => logEvent('A', '2-Min Suspension ⏱️', 'Player sent off for 2 minutes')}
+                    className="px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-amber-300 font-bold text-xs cursor-pointer"
+                  >
+                    2m Susp
+                  </button>
+                </>
+              ) : sport === 'combat' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('A', 1)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-xs cursor-pointer active:scale-95"
+                  >
+                    +1 Pt
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('A', 'Pinfall (1-2-3)')}
+                    className="flex-1 min-w-[80px] py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    🏆 Pinfall
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('A', 'Submission (Tapout)')}
+                    className="flex-1 min-w-[80px] py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    🥋 Tapout
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('A', 'Knockout (KO/TKO)')}
+                    className="flex-1 min-w-[75px] py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    💥 KO/TKO
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('A', 1)}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1
+                  </button>
+                  {['basketball'].includes(sport) && (
+                    <>
+                      <button
+                        onClick={() => handleScoreChange('A', 2)}
+                        className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        +2
+                      </button>
+                      <button
+                        onClick={() => handleScoreChange('A', 3)}
+                        className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        +3
+                      </button>
+                    </>
+                  )}
                 </>
               )}
               <button
                 onClick={() => handleScoreChange('A', -1)}
-                className="px-3.5 py-2.5 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
                 title="Subtract 1"
               >
                 -1
@@ -465,7 +723,7 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                 />
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">
-                    AWAY CLUB
+                    {sport === 'combat' ? 'BLUE CORNER' : 'AWAY CLUB'}
                   </span>
                   <button
                     onClick={() => {
@@ -481,55 +739,166 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
             </div>
 
             {/* Score Big Tabular Display */}
-            <div className="w-full py-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-center shadow-inner">
-              <span className="font-mono font-black tabular-nums text-6xl sm:text-7xl text-white tracking-tight">
-                {scoreB}
-              </span>
+            <div className="w-full py-4 px-3 rounded-2xl bg-zinc-950/80 border border-zinc-800 flex flex-col items-center justify-center shadow-inner">
+              {sport === 'cricket' ? (
+                <>
+                  <div className="flex items-baseline gap-1 font-mono font-black tracking-tight">
+                    <span className="text-5xl sm:text-6xl text-white">{scoreB}</span>
+                    <span className="text-3xl sm:text-4xl text-rose-400">/{wicketsB}</span>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400 mt-1">
+                    {Math.floor(ballsB / 6)}.{ballsB % 6} Overs · RR: {ballsB > 0 ? ((scoreB / ballsB) * 6).toFixed(2) : '0.00'}
+                  </span>
+                </>
+              ) : (
+                <span className="font-mono font-black tabular-nums text-6xl sm:text-7xl text-white tracking-tight">
+                  {scoreB}
+                </span>
+              )}
             </div>
 
-            {/* Quick Scoring Controls */}
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full pt-1">
-              <button
-                onClick={() => handleScoreChange('B', 1)}
-                className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                +1
-              </button>
-              {['basketball'].includes(sport) && (
+            {/* Quick Scoring Controls for Sport */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 w-full pt-1">
+              {sport === 'cricket' ? (
                 <>
                   <button
-                    onClick={() => handleScoreChange('B', 2)}
-                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('B', 1)}
+                    className="flex-1 min-w-[55px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1
+                  </button>
+                  <button
+                    onClick={() => handleCricketBall('B', 2)}
+                    className="flex-1 min-w-[55px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     +2
                   </button>
                   <button
-                    onClick={() => handleScoreChange('B', 3)}
-                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('B', 4)}
+                    className="flex-1 min-w-[65px] py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
-                    +3
-                  </button>
-                </>
-              )}
-              {['cricket'].includes(sport) && (
-                <>
-                  <button
-                    onClick={() => handleScoreChange('B', 4)}
-                    className="flex-1 min-w-[60px] py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
-                  >
-                    +4 Boundary
+                    +4 Four
                   </button>
                   <button
-                    onClick={() => handleScoreChange('B', 6)}
-                    className="flex-1 min-w-[60px] py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                    onClick={() => handleCricketBall('B', 6)}
+                    className="flex-1 min-w-[65px] py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     +6 Six
                   </button>
+                  <button
+                    onClick={() => handleCricketWicket('B')}
+                    className="flex-1 min-w-[70px] py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    ☝️ Wicket
+                  </button>
+                  <button
+                    onClick={() => handleCricketExtra('B', 'Wide')}
+                    className="py-2 px-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    Wide
+                  </button>
+                </>
+              ) : sport === 'rugby' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('B', 5)}
+                    className="flex-1 min-w-[70px] py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +5 Try
+                  </button>
+                  <button
+                    onClick={() => handleScoreChange('B', 2)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +2 Conv
+                  </button>
+                  <button
+                    onClick={() => handleScoreChange('B', 3)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +3 Pen
+                  </button>
+                </>
+              ) : sport === 'handball' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('B', 1)}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1 Goal
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleScoreChange('B', 1);
+                      logEvent('B', '7m Penalty Goal', `Score: ${scoreB + 1}`);
+                    }}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1 (7m)
+                  </button>
+                  <button
+                    onClick={() => logEvent('B', '2-Min Suspension ⏱️', 'Player sent off for 2 minutes')}
+                    className="px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-amber-300 font-bold text-xs cursor-pointer"
+                  >
+                    2m Susp
+                  </button>
+                </>
+              ) : sport === 'combat' ? (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('B', 1)}
+                    className="flex-1 min-w-[60px] py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-xs cursor-pointer active:scale-95"
+                  >
+                    +1 Pt
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('B', 'Pinfall (1-2-3)')}
+                    className="flex-1 min-w-[80px] py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    🏆 Pinfall
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('B', 'Submission (Tapout)')}
+                    className="flex-1 min-w-[80px] py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    🥋 Tapout
+                  </button>
+                  <button
+                    onClick={() => handleCombatFinish('B', 'Knockout (KO/TKO)')}
+                    className="flex-1 min-w-[75px] py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                  >
+                    💥 KO/TKO
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleScoreChange('B', 1)}
+                    className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    +1
+                  </button>
+                  {['basketball'].includes(sport) && (
+                    <>
+                      <button
+                        onClick={() => handleScoreChange('B', 2)}
+                        className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        +2
+                      </button>
+                      <button
+                        onClick={() => handleScoreChange('B', 3)}
+                        className="flex-1 min-w-[70px] py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        +3
+                      </button>
+                    </>
+                  )}
                 </>
               )}
               <button
                 onClick={() => handleScoreChange('B', -1)}
-                className="px-3.5 py-2.5 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-extrabold text-sm shadow-md active:scale-95 transition-all cursor-pointer"
                 title="Subtract 1"
               >
                 -1

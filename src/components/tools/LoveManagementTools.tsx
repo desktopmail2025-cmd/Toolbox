@@ -33,51 +33,15 @@ export const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOp
 };
 
 export const LoveManagementTools: React.FC<ToolComponentProps> = ({ toolId }) => {
-  const [selectedTool, setSelectedTool] = useState<string>(toolId);
-
-  useEffect(() => {
-    setSelectedTool(toolId);
-  }, [toolId]);
-
-  const loveSubTools = [
-    { id: 'love-day-counter', name: 'Love Day Counter', icon: Heart },
-    { id: 'love-relationship-goals', name: 'Goals & Bucket List', icon: HeartHandshake },
-    { id: 'love-important-days', name: 'Important Days & Dates', icon: CalendarHeart },
-    { id: 'love-meetup-tracker', name: 'Meet-Up & Dates Planner', icon: Compass },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Category Companion Sub-Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-200/80 dark:border-zinc-800/80 scrollbar-none">
-        {loveSubTools.map(sub => {
-          const Icon = sub.icon;
-          const isActive = selectedTool === sub.id;
-          return (
-            <button
-              key={sub.id}
-              onClick={() => {
-                sounds.playClick();
-                setSelectedTool(sub.id);
-              }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                isActive
-                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/20'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/90 dark:border-zinc-800 hover:border-rose-300 dark:hover:border-rose-900/60'
-              }`}
-            >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-rose-500'}`} />
-              <span>{sub.name}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedTool === 'love-day-counter' && <LoveDayCounterView />}
-      {selectedTool === 'love-relationship-goals' && <RelationshipGoalsView />}
-      {selectedTool === 'love-important-days' && <ImportantDaysView />}
-      {selectedTool === 'love-meetup-tracker' && <MeetupTrackerView />}
-      {!['love-day-counter', 'love-relationship-goals', 'love-important-days', 'love-meetup-tracker'].includes(selectedTool) && (
+      {toolId === 'love-relationship-goals' ? (
+        <RelationshipGoalsView />
+      ) : toolId === 'love-important-days' ? (
+        <ImportantDaysView />
+      ) : toolId === 'love-meetup-tracker' ? (
+        <MeetupTrackerView />
+      ) : (
         <LoveDayCounterView />
       )}
     </div>

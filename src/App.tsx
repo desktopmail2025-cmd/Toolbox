@@ -5,6 +5,7 @@ import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingModal } from './components/common/OnboardingModal';
+import { DownloadPackagesModal } from './components/common/DownloadPackagesModal';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { CategoryExplorer } from './components/views/CategoryExplorer';
 import { FavoritesView } from './components/views/FavoritesView';
@@ -28,6 +29,7 @@ export default function App() {
   // Splash Screen & Professional Onboarding
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [showDownloads, setShowDownloads] = useState<boolean>(false);
 
   const handleFinishSplash = () => {
     setShowSplash(false);
@@ -41,24 +43,10 @@ export default function App() {
     }
   };
 
-  // Persistent category accordion states
+  // In the beginning of the app keep all categories collapsed; expand when user clicks
   const [expandedCatIds, setExpandedCatIds] = useState<Set<CategoryId>>(() => {
-    try {
-      const saved = localStorage.getItem('omni_expanded_cats');
-      if (saved) return new Set<CategoryId>(JSON.parse(saved));
-    } catch {
-      // ignore
-    }
-    return new Set<CategoryId>(['general', 'health']);
+    return new Set<CategoryId>();
   });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('omni_expanded_cats', JSON.stringify(Array.from(expandedCatIds)));
-    } catch {
-      // ignore
-    }
-  }, [expandedCatIds]);
 
   const handleToggleCategory = (catId: CategoryId) => {
     sounds.playClick();
@@ -136,17 +124,65 @@ export default function App() {
     setActiveTab('categories');
     addStoredRecent(tool.id);
     setRecents(getStoredRecents());
+    try {
+      window.history.pushState({ toolId: tool.id, tab: 'categories' }, '', `?tool=${tool.id}`);
+    } catch {
+      // ignore
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleBackToOverview = () => {
     setActiveTool(null);
     setActiveTab('categories');
+    try {
+      window.history.pushState({ tab: 'categories' }, '', '/');
+    } catch {
+      // ignore
+    }
     // Restore the scroll position so it stays exactly where it was
     requestAnimationFrame(() => {
       window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
     });
   };
+
+  // Browser back button / gesture handler: first return to tool left off, then on another press to home
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state;
+      if (state?.toolId) {
+        const found = TOOLS.find(t => t.id === state.toolId);
+        if (found) {
+          setActiveTool(found);
+          setActiveTab('categories');
+          return;
+        }
+      }
+      if (state?.tab) {
+        if (state.tab === 'categories') {
+          if (activeTool) {
+            setActiveTool(null);
+          }
+          setActiveTab('categories');
+        } else {
+          setActiveTab(state.tab);
+        }
+        return;
+      }
+      // If user came from a tool to notes/starred, back takes them to tool
+      if (activeTab !== 'categories' && activeTool) {
+        setActiveTab('categories');
+        return;
+      }
+      // If user is inside a tool, back takes them to home overview
+      if (activeTool) {
+        handleBackToOverview();
+        return;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeTool, activeTab, savedScrollPos]);
 
   const handleToggleFavorite = (toolId: string) => {
     const updated = favorites.includes(toolId)
@@ -206,6 +242,7 @@ export default function App() {
         onSelectTab={handleSelectTab}
         onSelectTool={handleSelectTool}
         onOpenOnboarding={() => setShowOnboarding(true)}
+        onOpenDownloads={() => setShowDownloads(true)}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
@@ -254,7 +291,13 @@ export default function App() {
               favorites={favorites}
               onSelectTool={handleSelectTool}
               onToggleFavorite={handleToggleFavorite}
-              onBrowseAll={() => handleBackToOverview()}
+              onBrowseAll={() => {
+                if (activeTool) {
+                  setActiveTab('categories');
+                } else {
+                  handleBackToOverview();
+                }
+              }}
             />
           </div>
         ) : activeTab === 'games' ? (
@@ -356,6 +399,12 @@ export default function App() {
       <OnboardingModal
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
+      />
+
+      {/* Standalone Separate App Packages Download Modal (Website, APK, AAB) */}
+      <DownloadPackagesModal
+        isOpen={showDownloads}
+        onClose={() => setShowDownloads(false)}
       />
 
       {/* Network Connectivity & Offline Indicator */}
