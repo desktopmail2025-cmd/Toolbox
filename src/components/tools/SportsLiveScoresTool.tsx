@@ -153,7 +153,7 @@ const SPORTS_LEAGUES: LeagueConfig[] = [
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
   },
 
-  // 2. Cricket (IPL, World Cup, International Series)
+  // 2. Cricket (Official Live ESPN Scoreboard Feeds)
   {
     id: 'ipl',
     sportId: 'cricket',
@@ -161,31 +161,51 @@ const SPORTS_LEAGUES: LeagueConfig[] = [
     shortName: 'IPL Cricket',
     country: 'India',
     flag: '🏏',
-    endpoint: 'cricket-ipl',
+    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard',
     logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/ipl.png',
   },
   {
-    id: 'icc-cwc',
+    id: 'bbl',
     sportId: 'cricket',
-    name: 'ICC Cricket World Cup / Champions Trophy',
-    shortName: 'ICC World Cup',
-    country: 'International',
-    flag: '🏆',
-    endpoint: 'cricket-icc',
-    logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/icc.png',
+    name: 'Big Bash League (BBL)',
+    shortName: 'BBL Cricket',
+    country: 'Australia',
+    flag: '🇦🇺',
+    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8044/scoreboard',
+    logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/8044.png',
+  },
+  {
+    id: 'ranji',
+    sportId: 'cricket',
+    name: 'Ranji Trophy (First-Class)',
+    shortName: 'Ranji Trophy',
+    country: 'India',
+    flag: '🏏',
+    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8050/scoreboard',
+    logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/8050.png',
+  },
+  {
+    id: 't20blast',
+    sportId: 'cricket',
+    name: 'T20 Blast (England)',
+    shortName: 'T20 Blast',
+    country: 'England',
+    flag: '🇬🇧',
+    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8053/scoreboard',
+    logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/8053.png',
   },
   {
     id: 'ashes-series',
     sportId: 'cricket',
     name: 'The Ashes & International Series',
-    shortName: 'The Ashes Test',
-    country: 'UK / Australia',
-    flag: '🇬🇧',
-    endpoint: 'cricket-ashes',
+    shortName: 'The Ashes & Tests',
+    country: 'International',
+    flag: '🏆',
+    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard',
     logo: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
   },
 
-  // 3. Combat Sports & Wrestling (UFC, WWE, AEW)
+  // 3. Combat Sports (UFC Octagon Official Feeds)
   {
     id: 'ufc',
     sportId: 'combat',
@@ -195,26 +215,6 @@ const SPORTS_LEAGUES: LeagueConfig[] = [
     flag: '🥊',
     endpoint: 'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard',
     logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png',
-  },
-  {
-    id: 'wwe',
-    sportId: 'combat',
-    name: 'WWE (World Wrestling Entertainment)',
-    shortName: 'WWE Live',
-    country: 'Global',
-    flag: '🤼',
-    endpoint: 'wwe-curated',
-    logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/wwe.png',
-  },
-  {
-    id: 'aew',
-    sportId: 'combat',
-    name: 'AEW (All Elite Wrestling)',
-    shortName: 'AEW Live',
-    country: 'Global',
-    flag: '🤼',
-    endpoint: 'aew-curated',
-    logo: 'https://a.espncdn.com/i/teamlogos/leagues/500/aew.png',
   },
 
   // 4. Formula 1
@@ -427,535 +427,10 @@ export const SportsLiveScoresTool: React.FC = () => {
     }
   };
 
-  // Curated WWE & Combat Live Events with verified superstar photos
-  const getWWEMatches = (): MatchEventItem[] => [
-    {
-      id: 'wwe-match-1',
-      sportId: 'combat',
-      leagueId: 'wwe',
-      leagueName: 'WWE WrestleMania XL / Saturday Night Main Event',
-      name: 'Undisputed WWE Championship: Cody Rhodes vs. Roman Reigns',
-      date: '2026-10-03T23:00Z',
-      venue: 'Allegiant Stadium, Las Vegas',
-      status: 'LIVE',
-      statusDetail: '🔴 Main Event In Progress (22m)',
-      clock: '22:45',
-      stipulation: 'Undisputed WWE Championship · Bloodline Rules',
-      homeTeam: {
-        id: 'cody-rhodes',
-        name: 'Cody Rhodes',
-        shortName: 'Cody',
-        score: 'Champion',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Cody_Rhodes_at_WrestleMania_XL.jpg/440px-Cody_Rhodes_at_WrestleMania_XL.jpg',
-        homeAway: 'home',
-        records: 'The American Nightmare · Undisputed WWE Champion',
-        color: '#1e3a8a',
-      },
-      awayTeam: {
-        id: 'roman-reigns',
-        name: 'Roman Reigns',
-        shortName: 'Roman',
-        score: 'Challenger',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Roman_Reigns_in_January_2020.jpg/440px-Roman_Reigns_in_January_2020.jpg',
-        homeAway: 'away',
-        records: 'The Original Tribal Chief (OTC) · Former 1,316-day Champ',
-        color: '#881337',
-      },
-      details: [
-        { min: '12m', text: 'Cross Rhodes executed near announce table', player: 'Cody Rhodes', type: 'finisher' },
-        { min: '18m', text: 'Superman Punch counter near the steel ring steps', player: 'Roman Reigns', type: 'knockdown' },
-        { min: '21m', text: 'Spear through barricade into timekeeper area', player: 'Roman Reigns', type: 'finisher' },
-      ],
-    },
-    {
-      id: 'wwe-match-2',
-      sportId: 'combat',
-      leagueId: 'wwe',
-      leagueName: 'WWE World Heavyweight Title Match',
-      name: 'World Heavyweight Championship: Gunther vs. CM Punk',
-      date: '2026-10-03T21:30Z',
-      venue: 'Allstate Arena, Chicago',
-      status: 'FT',
-      statusDetail: 'Finished (Pinfall after GTS)',
-      stipulation: 'World Heavyweight Championship Bout',
-      homeTeam: {
-        id: 'gunther',
-        name: 'Gunther',
-        shortName: 'Gunther',
-        score: 'Defeated',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Walter_NXT_UK_WrestleMania_Axxess.jpg/440px-Walter_NXT_UK_WrestleMania_Axxess.jpg',
-        homeAway: 'home',
-        records: 'The Ring General · Reigning Heavyweight Champion',
-        color: '#3f3f46',
-      },
-      awayTeam: {
-        id: 'cm-punk',
-        name: 'CM Punk',
-        shortName: 'CM Punk',
-        score: 'WINNER (Pin)',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/CM_Punk_March_2024.jpg/440px-CM_Punk_March_2024.jpg',
-        homeAway: 'away',
-        records: 'The Best in the World · NEW World Heavyweight Champion',
-        winner: true,
-        color: '#b91c1c',
-      },
-      details: [
-        { min: '14m', text: 'Powerbomb from the top rope countered into Anaconda Vise', player: 'CM Punk', type: 'sub' },
-        { min: '22m', text: 'GTS (Go to Sleep) executed for the 3-count pinfall', player: 'CM Punk', type: 'finisher' },
-      ],
-    },
-    {
-      id: 'wwe-match-3',
-      sportId: 'combat',
-      leagueId: 'wwe',
-      leagueName: 'WWE Bad Blood: Hell in a Cell',
-      name: 'Hell in a Cell Grudge Match: Drew McIntyre vs. Seth Rollins',
-      date: '2026-10-04T01:00Z',
-      venue: 'State Farm Arena, Atlanta',
-      status: 'UPCOMING',
-      statusDetail: 'Scheduled · Hell in a Cell',
-      stipulation: 'Hell in a Cell Grudge Match',
-      homeTeam: {
-        id: 'drew-mcintyre',
-        name: 'Drew McIntyre',
-        shortName: 'McIntyre',
-        score: 'Scheduled',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Drew_McIntyre_March_2024.jpg/440px-Drew_McIntyre_March_2024.jpg',
-        homeAway: 'home',
-        records: 'The Scottish Warrior · 2x WWE Champion',
-        color: '#065f46',
-      },
-      awayTeam: {
-        id: 'seth-rollins',
-        name: 'Seth "Freakin" Rollins',
-        shortName: 'Rollins',
-        score: 'Scheduled',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Seth_Rollins_April_2022.jpg/440px-Seth_Rollins_April_2022.jpg',
-        homeAway: 'away',
-        records: 'The Visionary · Former World Heavyweight Champ',
-        color: '#7c3aed',
-      },
-    },
-    {
-      id: 'wwe-match-4',
-      sportId: 'combat',
-      leagueId: 'wwe',
-      leagueName: "WWE Women's World Championship",
-      name: "Women's World Championship: Rhea Ripley vs. Liv Morgan",
-      date: '2026-10-04T02:00Z',
-      venue: 'TD Garden, Boston',
-      status: 'UPCOMING',
-      statusDetail: 'Scheduled · Street Fight',
-      stipulation: "Street Fight for Women's World Championship",
-      homeTeam: {
-        id: 'rhea-ripley',
-        name: 'Rhea Ripley',
-        shortName: 'Rhea',
-        score: 'Challenger',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rhea_Ripley_October_2022.jpg/440px-Rhea_Ripley_October_2022.jpg',
-        homeAway: 'home',
-        records: 'Mami · Former Women\'s World Champion',
-        color: '#18181b',
-      },
-      awayTeam: {
-        id: 'liv-morgan',
-        name: 'Liv Morgan',
-        shortName: 'Liv',
-        score: 'Champion',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Liv_Morgan_December_2022.jpg/440px-Liv_Morgan_December_2022.jpg',
-        homeAway: 'away',
-        records: "Reigning Women's World Champion · Judgment Day",
-        color: '#db2777',
-      },
-    },
-  ];
-
-  const getAEWMatches = (): MatchEventItem[] => [
-    {
-      id: 'aew-match-1',
-      sportId: 'combat',
-      leagueId: 'aew',
-      leagueName: 'AEW All In: Wembley Stadium, London',
-      name: 'AEW World Championship: Bryan Danielson vs. Swerve Strickland',
-      date: '2026-10-03T18:00Z',
-      venue: 'Wembley Stadium, London, UK',
-      status: 'LIVE',
-      statusDetail: '🔴 Title vs. Career (24m in ring)',
-      clock: '24:10',
-      stipulation: 'AEW World Championship · Title vs. Career Match',
-      homeTeam: {
-        id: 'bryan-danielson',
-        name: 'Bryan Danielson',
-        shortName: 'Danielson',
-        score: 'Challenger',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Bryan_Danielson_AEW_2022.jpg/440px-Bryan_Danielson_AEW_2022.jpg',
-        homeAway: 'home',
-        records: 'The American Dragon · Career on the Line',
-        color: '#831843',
-      },
-      awayTeam: {
-        id: 'swerve-strickland',
-        name: 'Swerve Strickland',
-        shortName: 'Swerve',
-        score: 'Champion',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Swerve_Strickland_May_2024.jpg/440px-Swerve_Strickland_May_2024.jpg',
-        homeAway: 'away',
-        records: 'AEW World Heavyweight Champion',
-        color: '#14532d',
-      },
-      details: [
-        { min: '14m', text: 'Busaiku Knee strike locked in near turnbuckle', player: 'Bryan Danielson', type: 'finisher' },
-        { min: '20m', text: 'Swerve Stomp executed through ring table', player: 'Swerve Strickland', type: 'knockdown' },
-      ],
-    },
-    {
-      id: 'aew-match-2',
-      sportId: 'combat',
-      leagueId: 'aew',
-      leagueName: 'AEW International Championship',
-      name: 'AEW International Title: Will Ospreay vs. MJF',
-      date: '2026-10-03T16:30Z',
-      venue: 'Wembley Stadium, London, UK',
-      status: 'FT',
-      statusDetail: 'Finished (Hidden Blade KO)',
-      stipulation: 'AEW International Championship',
-      homeTeam: {
-        id: 'will-ospreay',
-        name: 'Will Ospreay',
-        shortName: 'Ospreay',
-        score: 'WINNER (Pin)',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Will_Ospreay_AEW_2024.jpg/440px-Will_Ospreay_AEW_2024.jpg',
-        homeAway: 'home',
-        records: 'The Aerial Assassin · NEW International Champion',
-        winner: true,
-        color: '#0369a1',
-      },
-      awayTeam: {
-        id: 'mjf',
-        name: 'MJF (Maxwell Jacob Friedman)',
-        shortName: 'MJF',
-        score: 'Defeated',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/MJF_AEW_2022.jpg/440px-MJF_AEW_2022.jpg',
-        homeAway: 'away',
-        records: 'The Salt of the Earth · American Champion',
-        color: '#b45309',
-      },
-      details: [
-        { min: '26m', text: 'Tiger Driver 91 into Hidden Blade for pinfall victory', player: 'Will Ospreay', type: 'finisher' },
-      ],
-    },
-    {
-      id: 'aew-match-3',
-      sportId: 'combat',
-      leagueId: 'aew',
-      leagueName: 'AEW Dynamite Fight Card',
-      name: 'Lights Out Deathmatch: Darby Allin vs. Jon Moxley',
-      date: '2026-10-04T00:00Z',
-      venue: 'Arthur Ashe Stadium, New York',
-      status: 'UPCOMING',
-      statusDetail: 'Scheduled · Lights Out Deathmatch',
-      stipulation: 'Unsanctioned Lights Out Match',
-      homeTeam: {
-        id: 'darby-allin',
-        name: 'Darby Allin',
-        shortName: 'Darby',
-        score: 'Scheduled',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Darby_Allin_AEW_2022.jpg/440px-Darby_Allin_AEW_2022.jpg',
-        homeAway: 'home',
-        records: 'TNT Icon · Coffin Drop Specialist',
-        color: '#171717',
-      },
-      awayTeam: {
-        id: 'jon-moxley',
-        name: 'Jon Moxley',
-        shortName: 'Moxley',
-        score: 'Scheduled',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Jon_Moxley_AEW_2022.jpg/440px-Jon_Moxley_AEW_2022.jpg',
-        homeAway: 'away',
-        records: 'Blackpool Combat Club / Death Riders Leader',
-        color: '#7f1d1d',
-      },
-    },
-  ];
-
-  // Curated High-Fidelity Cricket Match Center (IPL, ICC, Ashes) with verified club logos
-  const getCricketMatches = (leagueId: string): MatchEventItem[] => {
-    if (leagueId === 'ipl') {
-      return [
-        {
-          id: 'ipl-match-1',
-          sportId: 'cricket',
-          leagueId: 'ipl',
-          leagueName: 'Indian Premier League (IPL) 2026',
-          name: 'Chennai Super Kings vs. Mumbai Indians (IPL El Clásico)',
-          date: '2026-10-03T14:00Z',
-          venue: 'Wankhede Stadium, Mumbai',
-          status: 'LIVE',
-          statusDetail: '🔴 Live · 2nd Innings (CSK need 24 runs in 16 balls)',
-          clock: '17.2 ov',
-          cricketNote: 'MI: 196/5 (20.0 ov) · CSK: 173/3 (17.2 ov) · Required RR: 9.00',
-          homeTeam: {
-            id: 'csk',
-            name: 'Chennai Super Kings',
-            shortName: 'CSK',
-            score: '173/3',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/2/2b/Chennai_Super_Kings_Logo.svg/440px-Chennai_Super_Kings_Logo.svg.png',
-            cricketOvers: '17.2 ov',
-            homeAway: 'home',
-            records: 'Target: 197 · R. Gaikwad 68* (44), MS Dhoni on strike',
-            color: '#eab308',
-          },
-          awayTeam: {
-            id: 'mi',
-            name: 'Mumbai Indians',
-            shortName: 'MI',
-            score: '196/5',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/cd/Mumbai_Indians_Logo.svg/440px-Mumbai_Indians_Logo.svg.png',
-            cricketOvers: '20.0 ov',
-            homeAway: 'away',
-            records: '1st Innings: S. Yadav 76 (41), J. Bumrah 2/22 (3.2)',
-            color: '#0284c7',
-          },
-          details: [
-            { min: '16.4 ov', text: 'SIX over long-on into the grandstand!', player: 'R. Gaikwad', type: 'boundary' },
-            { min: '15.1 ov', text: 'WICKET! Clean bowled by Jasprit Bumrah yorker (145 kph)', player: 'S. Dube', type: 'wicket' },
-            { min: '12.3 ov', text: 'FOUR! Sliced over backward point', player: 'R. Gaikwad', type: 'boundary' },
-          ],
-        },
-        {
-          id: 'ipl-match-2',
-          sportId: 'cricket',
-          leagueId: 'ipl',
-          leagueName: 'Indian Premier League (IPL) 2026',
-          name: 'Royal Challengers Bengaluru vs. Kolkata Knight Riders',
-          date: '2026-10-03T10:00Z',
-          venue: 'M. Chinnaswamy Stadium, Bengaluru',
-          status: 'FT',
-          statusDetail: 'Finished · RCB won by 18 runs',
-          cricketNote: 'RCB: 218/4 (20.0 ov) · KKR: 200/9 (20.0 ov) · Player of Match: V. Kohli',
-          homeTeam: {
-            id: 'rcb',
-            name: 'Royal Challengers Bengaluru',
-            shortName: 'RCB',
-            score: '218/4',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Royal_Challengers_Bengaluru_Logo.png/440px-Royal_Challengers_Bengaluru_Logo.png',
-            cricketOvers: '20.0 ov',
-            homeAway: 'home',
-            records: 'V. Kohli 94* (52), G. Maxwell 42 (18)',
-            winner: true,
-            color: '#dc2626',
-          },
-          awayTeam: {
-            id: 'kkr',
-            name: 'Kolkata Knight Riders',
-            shortName: 'KKR',
-            score: '200/9',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/Kolkata_Knight_Riders_Logo.svg/440px-Kolkata_Knight_Riders_Logo.svg.png',
-            cricketOvers: '20.0 ov',
-            homeAway: 'away',
-            records: 'A. Russell 61 (25), M. Siraj 3/31 (4.0)',
-            color: '#581c87',
-          },
-          details: [
-            { min: '19.4 ov', text: 'WICKET! Caught at deep mid-wicket off Siraj', player: 'A. Russell', type: 'wicket' },
-            { min: '18.1 ov', text: 'SIX! 106-meter monster over cow corner', player: 'A. Russell', type: 'boundary' },
-            { min: '1st Inn', text: 'Virat Kohli completes sensational 94 not out', player: 'V. Kohli', type: 'general' },
-          ],
-        },
-        {
-          id: 'ipl-match-3',
-          sportId: 'cricket',
-          leagueId: 'ipl',
-          leagueName: 'Indian Premier League (IPL) 2026',
-          name: 'Gujarat Titans vs. Rajasthan Royals',
-          date: '2026-10-04T14:00Z',
-          venue: 'Narendra Modi Stadium, Ahmedabad',
-          status: 'UPCOMING',
-          statusDetail: 'Scheduled · 19:30 IST / 14:00 GMT',
-          cricketNote: 'Match 48 · Pitch Report: Fast & bouncy surface favored for pacers',
-          homeTeam: {
-            id: 'gt',
-            name: 'Gujarat Titans',
-            shortName: 'GT',
-            score: 'Scheduled',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/0/09/Gujarat_Titans_Logo.svg/440px-Gujarat_Titans_Logo.svg.png',
-            homeAway: 'home',
-            records: 'Captain: Shubman Gill · 6 Wins / 3 Losses',
-            color: '#1e293b',
-          },
-          awayTeam: {
-            id: 'rr',
-            name: 'Rajasthan Royals',
-            shortName: 'RR',
-            score: 'Scheduled',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/6/60/Rajasthan_Royals_Logo.svg/440px-Rajasthan_Royals_Logo.svg.png',
-            homeAway: 'away',
-            records: 'Captain: Sanju Samson · 7 Wins / 2 Losses',
-            color: '#db2777',
-          },
-        },
-      ];
-    }
-
-    // ICC World Cup / Champions Trophy
-    if (leagueId === 'icc-cwc') {
-      return [
-        {
-          id: 'icc-match-1',
-          sportId: 'cricket',
-          leagueId: 'icc-cwc',
-          leagueName: 'ICC Men\'s T20 World Cup Grand Final',
-          name: 'India vs. South Africa (ICC T20 World Cup Final)',
-          date: '2026-10-03T09:00Z',
-          venue: 'Kensington Oval, Bridgetown, Barbados',
-          status: 'FT',
-          statusDetail: 'Finished · India won by 7 runs',
-          cricketNote: 'IND: 176/7 (20.0 ov) · SA: 169/8 (20.0 ov) · India World Champions',
-          homeTeam: {
-            id: 'ind',
-            name: 'India',
-            shortName: 'IND',
-            score: '176/7',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/4/41/Flag_of_India.svg/440px-Flag_of_India.svg.png',
-            cricketOvers: '20.0 ov',
-            homeAway: 'home',
-            records: 'V. Kohli 76 (59), H. Pandya 3/20, J. Bumrah 2/18',
-            winner: true,
-            color: '#0284c7',
-          },
-          awayTeam: {
-            id: 'sa',
-            name: 'South Africa',
-            shortName: 'SA',
-            score: '169/8',
-            logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Flag_of_South_Africa.svg/440px-Flag_of_South_Africa.svg.png',
-            cricketOvers: '20.0 ov',
-            homeAway: 'away',
-            records: 'H. Klaasen 52 (27), Q. de Kock 39 (31)',
-            color: '#15803d',
-          },
-          details: [
-            { min: '19.6 ov', text: 'WICKET & VICTORY! Suryakumar Yadav miraculous boundary catch to crown India champions!', player: 'H. Pandya', type: 'wicket' },
-            { min: '17.4 ov', text: 'WICKET! Bumrah clean bowls Marco Jansen with masterclass cutter', player: 'J. Bumrah', type: 'wicket' },
-            { min: '15.1 ov', text: 'Heinrich Klaasen completes explosive 50 off 23 balls', player: 'H. Klaasen', type: 'general' },
-          ],
-        },
-        {
-          id: 'icc-match-2',
-          sportId: 'cricket',
-          leagueId: 'icc-cwc',
-          leagueName: 'ICC World Championship Semi-Final',
-          name: 'England vs. Australia (World Championship Semi-Final)',
-          date: '2026-10-04T10:30Z',
-          venue: 'Lord\'s Cricket Ground, London',
-          status: 'UPCOMING',
-          statusDetail: 'Scheduled · Toss at 10:00 GMT',
-          cricketNote: 'Knockout clash · Winner advances to Championship Grand Final',
-          homeTeam: {
-            id: 'eng',
-            name: 'England',
-            shortName: 'ENG',
-            score: 'Scheduled',
-            logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Flag_of_England.svg/440px-Flag_of_England.svg.png',
-            homeAway: 'home',
-            records: 'Captain: Jos Buttler · J. Root, H. Brook, J. Archer',
-            color: '#1e3a8a',
-          },
-          awayTeam: {
-            id: 'aus',
-            name: 'Australia',
-            shortName: 'AUS',
-            score: 'Scheduled',
-            logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Flag_of_Australia_%28converted%29.svg/440px-Flag_of_Australia_%28converted%29.svg.png',
-            homeAway: 'away',
-            records: 'Captain: Pat Cummins · T. Head, M. Starc, G. Maxwell',
-            color: '#ca8a04',
-          },
-        },
-      ];
-    }
-
-    // The Ashes & Bilateral Test Series
-    return [
-      {
-        id: 'ashes-match-1',
-        sportId: 'cricket',
-        leagueId: 'ashes-series',
-        leagueName: 'The Ashes Test Series 2026',
-        name: 'England vs. Australia — 5th Test at The Oval',
-        date: '2026-10-03T10:00Z',
-        venue: 'The Oval, London, England',
-        status: 'LIVE',
-        statusDetail: '🔴 Day 4 · Session 2 (Australia need 142 runs with 4 wickets remaining)',
-        clock: 'Day 4 · 64.2 ov',
-        cricketNote: 'ENG 1st: 342 · AUS 1st: 295 · ENG 2nd: 284 · AUS 2nd: 190/6 (64.2 ov)',
-        homeTeam: {
-          id: 'eng-test',
-          name: 'England',
-          shortName: 'ENG',
-          score: 'Lead by 141',
-          logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Flag_of_England.svg/440px-Flag_of_England.svg.png',
-          cricketOvers: '342 & 284',
-          homeAway: 'home',
-          records: 'Bowling: C. Woakes 3/42, M. Wood 2/38',
-          color: '#1e3a8a',
-        },
-        awayTeam: {
-          id: 'aus-test',
-          name: 'Australia',
-          shortName: 'AUS',
-          score: '190/6',
-          logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Flag_of_Australia_%28converted%29.svg/440px-Flag_of_Australia_%28converted%29.svg.png',
-          cricketOvers: '64.2 ov (Target 332)',
-          homeAway: 'away',
-          records: 'S. Smith 48*, P. Cummins on strike',
-          color: '#ca8a04',
-        },
-        details: [
-          { min: '62.4 ov', text: 'WICKET! Wood snatches outside edge caught at 2nd slip', player: 'M. Wood', type: 'wicket' },
-          { min: '55.1 ov', text: 'FOUR! Exquisite cover drive through the off-side', player: 'S. Smith', type: 'boundary' },
-        ],
-      },
-    ];
-  };
-
-  // Pure Live Fetcher directly from ESPN Official Feeds + Combat/Cricket
+  // Pure Live Fetcher directly from ESPN Official Feeds (NO MOCK DATA)
   const fetchLiveMatches = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     setError(null);
-
-    // 1. WWE Live Events
-    if (currentLeague.id === 'wwe' || currentLeague.endpoint === 'wwe-curated') {
-      const wweEvents = getWWEMatches();
-      setMatches(wweEvents);
-      setSelectedMatch(wweEvents[0]);
-      setLastUpdated(new Date());
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    // 2. AEW Live Events
-    if (currentLeague.id === 'aew' || currentLeague.endpoint === 'aew-curated') {
-      const aewEvents = getAEWMatches();
-      setMatches(aewEvents);
-      setSelectedMatch(aewEvents[0]);
-      setLastUpdated(new Date());
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    // 3. Cricket Live Match Center
-    if (currentLeague.sportId === 'cricket') {
-      const cricketEvents = getCricketMatches(currentLeague.id);
-      setMatches(cricketEvents);
-      setSelectedMatch(cricketEvents[0]);
-      setLastUpdated(new Date());
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
 
     try {
       const res = await fetch(currentLeague.endpoint);
@@ -1059,6 +534,30 @@ export const SportsLiveScoresTool: React.FC = () => {
             };
           });
 
+          // Add official match decision / cricket summary if available
+          if (comp.status?.summary) {
+            details.unshift({
+              min: matchStatus === 'LIVE' ? 'LIVE' : 'RESULT',
+              text: comp.status.summary,
+              player: comp.status.type?.detail || 'Match Decision',
+              type: 'general',
+            });
+          }
+
+          // Add Featured athletes (e.g. Player of the Match / Series)
+          if (comp.status?.featuredAthletes) {
+            for (const fa of comp.status.featuredAthletes) {
+              details.push({
+                min: fa.shortDisplayName || 'Award',
+                text: `${fa.displayName}: ${fa.athlete?.displayName || fa.athlete?.fullName || ''}`,
+                player: fa.athlete?.position || 'Featured Star',
+                type: 'general',
+              });
+            }
+          }
+
+          const isCricket = currentLeague.sportId === 'cricket';
+
           parsedMatches.push({
             id: ev.id,
             sportId: currentLeague.sportId,
@@ -1069,28 +568,31 @@ export const SportsLiveScoresTool: React.FC = () => {
             date: ev.date,
             venue: comp.venue?.fullName || comp.venue?.address?.city || ev.venue?.displayName || 'Official Arena',
             status: matchStatus,
-            statusDetail: ev.status?.type?.detail || ev.status?.type?.description || 'Scheduled',
+            statusDetail: comp.status?.summary || ev.status?.type?.detail || ev.status?.type?.description || 'Scheduled',
             clock: ev.status?.displayClock,
             period: ev.status?.period,
+            cricketNote: comp.status?.summary,
             homeTeam: {
               id: homeComp.id,
               name: homeComp.team?.displayName || homeComp.team?.name || 'Home Club',
               shortName: homeComp.team?.abbreviation,
               logo: homeComp.team?.logo,
-              score: homeComp.score ?? '0',
+              score: homeComp.score ?? (isCricket ? 'Yet to bat' : '0'),
+              cricketOvers: isCricket && homeComp.score ? homeComp.score.split('(')[1]?.replace(')', '') : undefined,
               homeAway: 'home',
               records: homeComp.records?.[0]?.summary,
-              winner: homeComp.winner,
+              winner: homeComp.winner === 'true' || homeComp.winner === true,
             },
             awayTeam: {
               id: awayComp.id,
               name: awayComp.team?.displayName || awayComp.team?.name || 'Away Club',
               shortName: awayComp.team?.abbreviation,
               logo: awayComp.team?.logo,
-              score: awayComp.score ?? '0',
+              score: awayComp.score ?? (isCricket ? 'Yet to bat' : '0'),
+              cricketOvers: isCricket && awayComp.score ? awayComp.score.split('(')[1]?.replace(')', '') : undefined,
               homeAway: 'away',
               records: awayComp.records?.[0]?.summary,
-              winner: awayComp.winner,
+              winner: awayComp.winner === 'true' || awayComp.winner === true,
             },
             details,
           });
@@ -1414,6 +916,62 @@ export const SportsLiveScoresTool: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Match Fixtures Feed Column (5 Cols) */}
           <div className="lg:col-span-5 space-y-3">
+            {/* Google Live Sports Match Search & Quick Scorecard Launcher */}
+            <div className="p-3.5 rounded-2xl bg-zinc-900 text-white shadow-xs space-y-2.5 border border-zinc-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                    Google Sports Live Match Finder
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
+                  Real-Time Verified
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  id="google-sports-search-input"
+                  type="text"
+                  placeholder={
+                    selectedSport === 'cricket'
+                      ? 'e.g. India vs Australia, IPL, The Ashes...'
+                      : selectedSport === 'combat'
+                      ? 'e.g. UFC 310, WWE Bad Blood, AEW...'
+                      : 'e.g. Real Madrid, Arsenal, Lakers...'
+                  }
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white placeholder-zinc-400 focus:outline-none focus:border-amber-400"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val) {
+                        const a = document.createElement('a');
+                        a.href = `https://www.google.com/search?q=${encodeURIComponent(val + ' live score')}`;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.click();
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('google-sports-search-input') as HTMLInputElement;
+                    const val = input?.value.trim();
+                    const q = val ? val + ' live score' : (selectedSport === 'cricket' ? 'cricket live score' : currentLeague.name + ' live score');
+                    const a = document.createElement('a');
+                    a.href = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.click();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs shrink-0 cursor-pointer shadow-2xs transition-all active:scale-95"
+                >
+                  Search Google
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between text-xs text-zinc-500 font-semibold px-1">
               <span>{currentLeague.name}</span>
               {liveMatchesCount > 0 ? (
@@ -1429,14 +987,31 @@ export const SportsLiveScoresTool: React.FC = () => {
             {filteredMatches.length === 0 ? (
               <div className="py-12 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 space-y-3">
                 <Radio className="w-8 h-8 text-zinc-400 mx-auto" />
-                <p className="font-bold text-zinc-700 dark:text-zinc-200 text-sm">No matches found for this filter</p>
-                <div className="pt-2 flex items-center justify-center gap-2">
+                <p className="font-bold text-zinc-700 dark:text-zinc-200 text-sm">No live matches currently in progress for {currentLeague.name}</p>
+                <p className="text-[11px] text-zinc-400 max-w-xs mx-auto">
+                  Follow official ball-by-ball commentary, series schedules, and live scorecards directly on Google Sports:
+                </p>
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
                   <button
-                    onClick={() => setStatusFilter('ALL')}
-                    className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs cursor-pointer active:scale-95 transition-all"
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = `https://www.google.com/search?q=${encodeURIComponent(currentLeague.name + ' live score')}`;
+                      a.target = '_blank';
+                      a.rel = 'noopener noreferrer';
+                      a.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
                   >
-                    View All Fixtures
+                    <span>Search {currentLeague.name} on Google</span>
                   </button>
+                  {statusFilter !== 'ALL' && (
+                    <button
+                      onClick={() => setStatusFilter('ALL')}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs cursor-pointer active:scale-95 transition-all"
+                    >
+                      View All Fixtures
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1755,6 +1330,36 @@ export const SportsLiveScoresTool: React.FC = () => {
                         🏏 {activeDisplayMatch.cricketNote}
                       </div>
                     )}
+
+                    {/* One-Tap Google Sports Live Scoreboard Launcher */}
+                    <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                      <div>
+                        <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+                          <span className="text-xs font-black text-blue-950 dark:text-blue-200">
+                            Google Sports Official Real-Time Live Scorecard
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white font-bold">100% REAL DATA</span>
+                        </div>
+                        <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
+                          Follow live ball-by-ball updates, commentary, fall of wickets, run-rate worms, and player scorecards.
+                        </p>
+                      </div>
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(
+                          activeDisplayMatch.leagueId === 'ipl'
+                            ? 'IPL live score'
+                            : activeDisplayMatch.leagueId === 'ashes-series'
+                            ? 'the ashes live score'
+                            : activeDisplayMatch.name + ' live score'
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all shrink-0 cursor-pointer active:scale-95"
+                      >
+                        <span>Watch Live on Google Sports</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
                 ) : (
                   /* FOOTBALL, BASKETBALL, BASEBALL, HOCKEY BROADCAST */

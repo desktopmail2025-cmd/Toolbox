@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import jsPDF from 'jspdf';
 import {
   Users, Shirt, Shield, Shuffle, Download, Copy, Check,
   Edit2, Trash2, Plus, Sparkles, RefreshCw, Star, ArrowRightLeft,
   Settings, Award, Image as ImageIcon, Upload, Palette, Move,
-  FolderOpen, Save, Eye, EyeOff, Info, HelpCircle
+  FolderOpen, Save, Eye, EyeOff, Info, HelpCircle, FileText
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -664,6 +665,317 @@ export const TeamFormationBuilder: React.FC = () => {
     }
   };
 
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Generate High-Resolution Pitch Canvas for PNG and PDF exports
+  const generatePitchCanvas = (): HTMLCanvasElement => {
+    const W = 1200;
+    const H = 1600;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    // 1. Draw Pitch Background
+    if (pitchTheme === 'noir') {
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(0, 0, W, H);
+    } else if (pitchTheme === 'midnight') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, W, H);
+    } else if (pitchTheme === 'chalkboard') {
+      ctx.fillStyle = '#064e3b';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      // Classic Lawn Stripes
+      const stripes = 12;
+      const stripeH = H / stripes;
+      for (let i = 0; i < stripes; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#15803d' : '#166534';
+        ctx.fillRect(0, i * stripeH, W, stripeH);
+      }
+    }
+
+    // 2. Pitch Markings (White strokes)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const pX = W * 0.05;
+    const pY = H * 0.04;
+    const pW = W * 0.9;
+    const pH = H * 0.92;
+
+    // Outer border
+    ctx.strokeRect(pX, pY, pW, pH);
+
+    // Halfway line
+    ctx.beginPath();
+    ctx.moveTo(pX, H * 0.5);
+    ctx.lineTo(pX + pW, H * 0.5);
+    ctx.stroke();
+
+    // Center circle
+    ctx.beginPath();
+    ctx.arc(W * 0.5, H * 0.5, W * 0.14, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Center kick-off spot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(W * 0.5, H * 0.5, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Penalty Boxes & Goal Boxes (Top & Bottom)
+    // Top Penalty Box
+    ctx.strokeRect(W * 0.28, pY, W * 0.44, H * 0.16);
+    ctx.strokeRect(W * 0.37, pY, W * 0.26, H * 0.07);
+    ctx.beginPath();
+    ctx.arc(W * 0.5, pY + H * 0.12, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bottom Penalty Box
+    ctx.strokeRect(W * 0.28, pY + pH - H * 0.16, W * 0.44, H * 0.16);
+    ctx.strokeRect(W * 0.37, pY + pH - H * 0.07, W * 0.26, H * 0.07);
+    ctx.beginPath();
+    ctx.arc(W * 0.5, pY + pH - H * 0.12, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Penalty Arcs
+    ctx.beginPath();
+    ctx.arc(W * 0.5, pY + H * 0.12, W * 0.09, 0.65, Math.PI - 0.65);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(W * 0.5, pY + pH - H * 0.12, W * 0.09, Math.PI + 0.65, -0.65);
+    ctx.stroke();
+
+    // Corner arcs
+    const rC = 30;
+    ctx.beginPath();
+    ctx.arc(pX, pY, rC, 0, Math.PI / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pX + pW, pY, rC, Math.PI / 2, Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pX, pY + pH, rC, -Math.PI / 2, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pX + pW, pY + pH, rC, Math.PI, -Math.PI / 2);
+    ctx.stroke();
+
+    // 3. Header Tactical Banner
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect(pX + 20, pY + 20, 480, 72, 24);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText(`${teamName}`, pX + 44, pY + 52);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText(`· ${formationKey} · ${managerName ? 'Mgr: ' + managerName : ''}`, pX + 44, pY + 78);
+
+    // 4. Draw Player Tokens
+    players.forEach(player => {
+      const posX = (player.x / 100) * W;
+      const posY = (player.y / 100) * H;
+      const radius = 42;
+
+      // Drop shadow for token
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 6;
+
+      // Circle badge
+      ctx.fillStyle = kitPrimaryColor;
+      ctx.beginPath();
+      ctx.arc(posX, posY, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Number
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(player.number), posX, posY);
+
+      // Captain / Vice-Captain Badge
+      if (player.isCaptain || player.isViceCaptain) {
+        ctx.fillStyle = player.isCaptain ? '#eab308' : '#cbd5e1';
+        ctx.beginPath();
+        ctx.arc(posX + radius * 0.7, posY - radius * 0.7, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#000000';
+        ctx.font = 'black 14px sans-serif';
+        ctx.fillText(player.isCaptain ? 'C' : 'VC', posX + radius * 0.7, posY - radius * 0.7);
+      }
+
+      // Name & Position Tag Pill below token
+      const tagText = `${player.name} (${player.position})`;
+      ctx.font = 'bold 18px sans-serif';
+      const textMetrics = ctx.measureText(tagText);
+      const pillW = textMetrics.width + 24;
+      const pillH = 30;
+      const pillX = posX - pillW / 2;
+      const pillY = posY + radius + 10;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 15);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(tagText, posX, pillY + pillH / 2);
+    });
+
+    return canvas;
+  };
+
+  // High-Quality PNG Export
+  const handleExportPNG = () => {
+    sounds.playSuccess();
+    const canvas = generatePitchCanvas();
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${teamName.replace(/\s+/g, '_')}_Formation_${formationKey}.png`;
+    a.click();
+  };
+
+  // High-Quality Print PDF Export
+  const handleExportPDF = () => {
+    sounds.playSuccess();
+    const canvas = generatePitchCanvas();
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // Match Header Banner
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, 210, 26, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(15);
+    pdf.text(`${teamName.toUpperCase()} — OFFICIAL TACTICAL LINEUP`, 15, 12);
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(203, 213, 225);
+    pdf.text(`Formation: ${formationKey}   |   Manager: ${managerName || 'Tactical Team'}   |   Style: ${tacticalStyle}`, 15, 20);
+
+    // Pitch visual diagram
+    const imgW = 110;
+    const imgH = 146.6;
+    const imgX = (210 - imgW) / 2;
+    pdf.addImage(imgData, 'PNG', imgX, 29, imgW, imgH);
+
+    // Roster Table below pitch
+    const startY = 180;
+    pdf.setFillColor(241, 245, 249);
+    pdf.rect(15, startY, 180, 7, 'F');
+    pdf.setTextColor(15, 23, 42);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('NO.', 18, startY + 5);
+    pdf.text('PLAYER NAME', 35, startY + 5);
+    pdf.text('POSITION', 105, startY + 5);
+    pdf.text('ROLE / CAPTAINCY', 135, startY + 5);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    players.slice(0, 11).forEach((p, idx) => {
+      const rowY = startY + 12 + idx * 5.2;
+      if (idx % 2 === 1) {
+        pdf.setFillColor(248, 250, 252);
+        pdf.rect(15, rowY - 3.8, 180, 5.2, 'F');
+      }
+      pdf.text(String(p.number), 18, rowY);
+      pdf.text(p.name, 35, rowY);
+      pdf.text(p.position, 105, rowY);
+      const badges = [
+        p.isCaptain ? 'Captain [C]' : '',
+        p.isViceCaptain ? 'Vice-Captain [VC]' : '',
+        p.role || ''
+      ].filter(Boolean).join(' · ');
+      pdf.text(badges || 'Starting XI', 135, rowY);
+    });
+
+    // Bench substitutes
+    if (bench.length > 0) {
+      const benchY = startY + 74;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.text('SUBSTITUTES BENCH: ' + bench.map(b => `${b.number}. ${b.name} (${b.position})`).join(', '), 15, benchY);
+    }
+
+    pdf.save(`${teamName.replace(/\s+/g, '_')}_Formation_${formationKey}.pdf`);
+  };
+
+  // Export Squad JSON file
+  const handleExportJSON = () => {
+    sounds.playSuccess();
+    const squadData = {
+      teamName,
+      managerName,
+      customLogoUrl,
+      formationKey,
+      tacticalStyle,
+      kitPrimaryColor,
+      pitchTheme,
+      players,
+      bench,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(squadData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${teamName.replace(/\s+/g, '_')}_Squad.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import Squad JSON file
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (data.teamName) setTeamName(data.teamName);
+        if (data.managerName) setManagerName(data.managerName);
+        if (data.customLogoUrl !== undefined) setCustomLogoUrl(data.customLogoUrl);
+        if (data.formationKey) setFormationKey(data.formationKey);
+        if (data.tacticalStyle) setTacticalStyle(data.tacticalStyle);
+        if (data.kitPrimaryColor) setKitPrimaryColor(data.kitPrimaryColor);
+        if (data.pitchTheme) setPitchTheme(data.pitchTheme);
+        if (data.players) setPlayers(data.players);
+        if (data.bench) setBench(data.bench);
+        sounds.playSuccess();
+      } catch {
+        // ignore
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Club & Config Banner */}
@@ -742,7 +1054,7 @@ export const TeamFormationBuilder: React.FC = () => {
             </select>
           </div>
 
-          <div className="self-end flex items-center gap-1.5">
+          <div className="self-end flex flex-wrap items-center gap-1.5">
             <button
               onClick={handleSaveLineupLocally}
               className="flex items-center gap-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-bold text-zinc-800 dark:text-zinc-200 transition-all cursor-pointer shadow-2xs active:scale-95"
@@ -762,11 +1074,30 @@ export const TeamFormationBuilder: React.FC = () => {
             </button>
 
             <button
+              onClick={handleExportPNG}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+              title="Export high-resolution PNG image"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Export PNG</span>
+            </button>
+
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+              title="Download tactical print PDF"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Print PDF</span>
+            </button>
+
+            <button
               onClick={handleCopyLineup}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+              className="flex items-center gap-1 px-2.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-bold cursor-pointer active:scale-95 transition-all"
+              title="Copy squad roster text"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Export'}</span>
+              <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
         </div>
@@ -905,6 +1236,25 @@ export const TeamFormationBuilder: React.FC = () => {
               className="w-6 h-6 rounded-lg cursor-pointer border border-zinc-200 dark:border-zinc-700 p-0"
               title="Pick team jersey color"
             />
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:ml-auto">
+            <button
+              onClick={handleExportPNG}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] border border-indigo-200 dark:border-indigo-800 cursor-pointer shadow-2xs"
+              title="Download High-Res PNG image of the pitch"
+            >
+              <ImageIcon className="w-3 h-3" />
+              <span>Save PNG</span>
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] border border-zinc-200 dark:border-zinc-700 cursor-pointer shadow-2xs"
+              title="Download tactical match PDF"
+            >
+              <FileText className="w-3 h-3" />
+              <span>Save PDF</span>
+            </button>
           </div>
         </div>
       </div>

@@ -364,25 +364,71 @@ const LoveDayCounterView: React.FC = () => {
             <form onSubmit={handleSaveNames} className="space-y-3 text-xs font-semibold">
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Your Name</label>
-                <input
-                  type="text"
-                  required
-                  value={userNameInput}
-                  onChange={e => setUserNameInput(e.target.value)}
-                  placeholder="e.g. Alex"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={userNameInput}
+                    onChange={e => setUserNameInput(e.target.value)}
+                    onClick={() => {
+                      if (userNameInput.trim().toLowerCase() === 'you' || userNameInput === 'You') {
+                        setUserNameInput('');
+                      }
+                    }}
+                    onFocus={e => {
+                      if (userNameInput.trim().toLowerCase() === 'you' || userNameInput === 'You') {
+                        setUserNameInput('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    placeholder="e.g. Alex"
+                    className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  />
+                  {userNameInput && (
+                    <button
+                      type="button"
+                      onClick={() => setUserNameInput('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs px-1"
+                      title="Clear field"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="text-zinc-700 dark:text-zinc-300 block mb-1">Partner's Name</label>
-                <input
-                  type="text"
-                  required
-                  value={partnerNameInput}
-                  onChange={e => setPartnerNameInput(e.target.value)}
-                  placeholder="e.g. Jordan"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={partnerNameInput}
+                    onChange={e => setPartnerNameInput(e.target.value)}
+                    onClick={() => {
+                      if (partnerNameInput.trim().toLowerCase() === 'partner' || partnerNameInput === 'Partner') {
+                        setPartnerNameInput('');
+                      }
+                    }}
+                    onFocus={e => {
+                      if (partnerNameInput.trim().toLowerCase() === 'partner' || partnerNameInput === 'Partner') {
+                        setPartnerNameInput('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    placeholder="e.g. Jordan"
+                    className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  />
+                  {partnerNameInput && (
+                    <button
+                      type="button"
+                      onClick={() => setPartnerNameInput('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs px-1"
+                      title="Clear field"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button

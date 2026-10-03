@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
 import {
   ClipboardList, Play, Pause, RotateCcw, Plus, Minus,
   Undo2, Copy, Check, Download, Share2, Award, Clock,
   Calendar, Shield, Flag, Trash2, Volume2, Search, Sparkles,
-  ChevronDown, Image as ImageIcon
+  ChevronDown, Image as ImageIcon, Upload, FileText
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -308,6 +309,241 @@ export const ScorecardMakerTool: React.FC = () => {
     }
     setCustomLogoUrl('');
     setActivePickerTeam(null);
+  };
+
+  const handleDeviceLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    sounds.playSuccess();
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        if (activePickerTeam === 'A') {
+          setTeamALogo(dataUrl);
+        } else if (activePickerTeam === 'B') {
+          setTeamBLogo(dataUrl);
+        }
+        setActivePickerTeam(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const generateScorecardCanvas = async (): Promise<HTMLCanvasElement> => {
+    const canvas = document.createElement('canvas');
+    const W = 1600;
+    const H = 1000;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    // Background Gradient (Dark Broadcast Arena)
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, '#09090b');
+    bgGrad.addColorStop(0.5, '#18181b');
+    bgGrad.addColorStop(1, '#09090b');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Outer Border
+    ctx.strokeStyle = '#27272a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+
+    // 1. Header Tournament Banner
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${sport.toUpperCase()} OFFICIAL MATCH SCORECARD`, W / 2, 80);
+
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = 'bold 20px monospace';
+    const matchDateStr = new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    ctx.fillText(`Period: ${period}  |  Match Time: ${formatTimer(seconds)}  |  ${matchDateStr}`, W / 2, 120);
+
+    // Helper to safely load and draw image onto canvas
+    const drawImageSafe = async (src: string, x: number, y: number, size: number) => {
+      return new Promise<void>((resolve) => {
+        if (!src) return resolve();
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            ctx.drawImage(img, x, y, size, size);
+          } catch {}
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = src;
+      });
+    };
+
+    // 2. Scoreboard Cards: Team A (Left) & Team B (Right)
+    const cardY = 160;
+    const cardH = 260;
+    const cardW = 600;
+
+    // Team A Card
+    ctx.fillStyle = 'rgba(24, 24, 27, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(80, cardY, cardW, cardH, 24);
+    ctx.fill();
+    ctx.strokeStyle = '#3f3f46';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Team A Logo
+    await drawImageSafe(teamALogo, 120, cardY + 50, 160);
+
+    // Team A Text
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillText(teamAName, 310, cardY + 100, 340);
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillText(`[${teamAShort}]`, 310, cardY + 140);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 64px monospace';
+    const scoreStrA = sport === 'cricket' ? `${scoreA}/${wicketsA} (${oversA}.${ballsA} ov)` : String(scoreA);
+    ctx.fillText(scoreStrA, 310, cardY + 215, 340);
+
+    // Team B Card
+    ctx.fillStyle = 'rgba(24, 24, 27, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(W - 80 - cardW, cardY, cardW, cardH, 24);
+    ctx.fill();
+    ctx.strokeStyle = '#3f3f46';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Team B Logo
+    await drawImageSafe(teamBLogo, W - 80 - cardW + 40, cardY + 50, 160);
+
+    // Team B Text
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillText(teamBName, W - 80 - cardW + 230, cardY + 100, 340);
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillText(`[${teamBShort}]`, W - 80 - cardW + 230, cardY + 140);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 64px monospace';
+    const scoreStrB = sport === 'cricket' ? `${scoreB}/${wicketsB}` : String(scoreB);
+    ctx.fillText(scoreStrB, W - 80 - cardW + 230, cardY + 215, 340);
+
+    // Center VS
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6366f1';
+    ctx.font = 'black 48px sans-serif';
+    ctx.fillText('VS', W / 2, cardY + 145);
+
+    // Combat Outcome banner if any
+    if (combatOutcome) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(combatOutcome, W / 2, cardY + 200);
+    }
+
+    // 3. Match Timeline / Events Table
+    const tableY = 460;
+    ctx.fillStyle = '#18181b';
+    ctx.beginPath();
+    ctx.roundRect(80, tableY, W - 160, 480, 24);
+    ctx.fill();
+    ctx.strokeStyle = '#27272a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Table Header
+    ctx.fillStyle = '#27272a';
+    ctx.fillRect(80, tableY, W - 160, 56);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('OFFICIAL MATCH INCIDENT TIMELINE & NOTATIONS', 110, tableY + 36);
+
+    // Table Column Headers
+    const colY = tableY + 90;
+    ctx.fillStyle = '#71717a';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillText('TIME', 110, colY);
+    ctx.fillText('TEAM', 240, colY);
+    ctx.fillText('TYPE / INCIDENT', 460, colY);
+    ctx.fillText('DETAILS / SCORER NOTATION', 800, colY);
+
+    // Table Rows
+    const displayEvents = events.slice(0, 8);
+    if (displayEvents.length === 0) {
+      ctx.fillStyle = '#71717a';
+      ctx.font = 'italic 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No incidents logged yet. Game in progress or scheduled.', W / 2, tableY + 240);
+    } else {
+      ctx.textAlign = 'left';
+      displayEvents.forEach((ev, idx) => {
+        const rowY = colY + 38 + idx * 42;
+        if (idx % 2 === 1) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+          ctx.fillRect(85, rowY - 28, W - 170, 38);
+        }
+        ctx.fillStyle = '#e4e4e7';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText(ev.time, 110, rowY);
+
+        ctx.fillStyle = ev.team === 'A' ? '#60a5fa' : '#f87171';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(ev.team === 'A' ? teamAShort : teamBShort, 240, rowY);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(ev.type, 460, rowY, 300);
+
+        ctx.fillStyle = '#d4d4d8';
+        ctx.fillText(ev.detail, 800, rowY, 650);
+      });
+    }
+
+    return canvas;
+  };
+
+  const handleExportScorecardPNG = async () => {
+    sounds.playSuccess();
+    const canvas = await generateScorecardCanvas();
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}_Scorecard.png`;
+    a.click();
+  };
+
+  const handleExportScorecardPDF = async () => {
+    sounds.playSuccess();
+    const canvas = await generateScorecardCanvas();
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    // Header
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, 297, 24, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(16);
+    pdf.text(`${sport.toUpperCase()} OFFICIAL MATCH SCORECARD`, 15, 12);
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(203, 213, 225);
+    pdf.text(`Period: ${period}   |   Match Time: ${formatTimer(seconds)}   |   ${new Date().toLocaleDateString()}`, 15, 19);
+
+    // Scorecard Image
+    const imgW = 277;
+    const imgH = 173;
+    pdf.addImage(imgData, 'PNG', 10, 27, imgW, imgH);
+
+    pdf.save(`${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}_Scorecard.pdf`);
   };
 
   const handleCopyReport = () => {
@@ -947,13 +1183,34 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
               <span>For {teamBName.split(' ')[0]}</span>
             </button>
 
-            <button
-              onClick={handleCopyReport}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all shadow-md"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied' : 'Export'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleExportScorecardPNG}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all shadow-md"
+                title="Export high-resolution PNG scorecard image"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Export PNG</span>
+              </button>
+
+              <button
+                onClick={handleExportScorecardPDF}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 text-xs font-bold cursor-pointer active:scale-95 transition-all shadow-md border border-zinc-700 dark:border-zinc-300"
+                title="Download match scorecard PDF"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Print PDF</span>
+              </button>
+
+              <button
+                onClick={handleCopyReport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold cursor-pointer active:scale-95 transition-all border border-zinc-700"
+                title="Copy text match report"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Copied' : 'Copy Text'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
