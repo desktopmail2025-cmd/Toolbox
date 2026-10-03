@@ -90,20 +90,20 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </div>
 
         {/* Figma Segmented Control: 2 Sections (Offline vs Online) + All */}
-        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-100/70 dark:bg-zinc-900/60 p-1.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-100/70 dark:bg-zinc-900/60 p-1.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none pb-0.5">
             <button
               onClick={() => {
                 sounds.playClick();
                 setActiveSection('all');
               }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeSection === 'all'
                   ? 'bg-white text-zinc-950 shadow-xs dark:bg-zinc-800 dark:text-zinc-50'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
+              <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               <span>All Tools</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700/80 text-zinc-500 dark:text-zinc-300">
                 {TOOLS.length}
@@ -115,14 +115,14 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 sounds.playClick();
                 setActiveSection('offline');
               }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeSection === 'offline'
                   ? 'bg-white text-emerald-800 shadow-xs dark:bg-zinc-800 dark:text-emerald-300'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
               }`}
             >
-              <WifiOff className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Offline Tools</span>
+              <WifiOff className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span>Offline</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
                 {offlineToolsCount}
               </span>
@@ -133,14 +133,14 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 sounds.playClick();
                 setActiveSection('online');
               }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeSection === 'online'
                   ? 'bg-white text-sky-800 shadow-xs dark:bg-zinc-800 dark:text-sky-300'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
               }`}
             >
-              <Globe className="w-3.5 h-3.5 text-sky-500" />
-              <span>Online Tools</span>
+              <Globe className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+              <span>Online</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-sky-100/70 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400">
                 {onlineToolsCount}
               </span>

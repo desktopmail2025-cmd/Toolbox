@@ -5,7 +5,6 @@ import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingModal } from './components/common/OnboardingModal';
-import { DownloadPackagesModal } from './components/common/DownloadPackagesModal';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { CategoryExplorer } from './components/views/CategoryExplorer';
 import { FavoritesView } from './components/views/FavoritesView';
@@ -29,7 +28,6 @@ export default function App() {
   // Splash Screen & Professional Onboarding
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
-  const [showDownloads, setShowDownloads] = useState<boolean>(false);
 
   const handleFinishSplash = () => {
     setShowSplash(false);
@@ -242,7 +240,6 @@ export default function App() {
         onSelectTab={handleSelectTab}
         onSelectTool={handleSelectTool}
         onOpenOnboarding={() => setShowOnboarding(true)}
-        onOpenDownloads={() => setShowDownloads(true)}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
@@ -376,7 +373,7 @@ export default function App() {
         activeToolName={activeTool?.name}
       />
 
-      {/* Mobile Bottom Navigation (Tools, Starred, Notes, Games) */}
+      {/* Mobile Bottom Navigation (Tools, Starred, Notes) */}
       <MobileBottomNav
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
@@ -399,12 +396,6 @@ export default function App() {
       <OnboardingModal
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
-      />
-
-      {/* Standalone Separate App Packages Download Modal (Website, APK, AAB) */}
-      <DownloadPackagesModal
-        isOpen={showDownloads}
-        onClose={() => setShowDownloads(false)}
       />
 
       {/* Network Connectivity & Offline Indicator */}

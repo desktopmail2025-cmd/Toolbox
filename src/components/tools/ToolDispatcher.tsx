@@ -32,6 +32,8 @@ import { CodeIdePlayground } from './CodeIdePlayground';
 import { LoveManagementTools } from './LoveManagementTools';
 import { DateReminderTools } from './DateReminderTools';
 import { NumberArrangementTool } from './NumberArrangementTool';
+import { HeadlineMakerTool } from './HeadlineMakerTool';
+import { PackageArchiveConverterTool } from './PackageArchiveConverterTool';
 
 interface ToolDispatcherProps {
   tool: ToolItem;
@@ -70,6 +72,12 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
     }
     if (tool.id === 'scorecard-maker') {
       return <ScorecardMakerTool key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'headline-maker') {
+      return <HeadlineMakerTool key={`${tool.id}-${resetKey}`} />;
+    }
+    if (tool.id === 'package-archive-converter') {
+      return <PackageArchiveConverterTool key={`${tool.id}-${resetKey}`} />;
     }
 
     switch (tool.categoryId) {

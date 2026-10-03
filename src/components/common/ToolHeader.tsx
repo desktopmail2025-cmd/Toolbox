@@ -26,7 +26,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   return (
     <div className="mb-6 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
           <button
             onClick={() => {
               sounds.playClick();
@@ -38,19 +38,19 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
             <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <div>
-            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-0.5 flex-wrap">
               <span>{categoryMeta?.name || 'Tools'}</span>
               <span aria-hidden="true">/</span>
-              <span className="text-zinc-700 dark:text-zinc-300">{tool.name}</span>
+              <span className="text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">{tool.name}</span>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2.5">
-              <span className={`p-1.5 rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} inline-flex shadow-2xs`}>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2.5 flex-wrap min-w-0">
+              <span className={`p-1.5 rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} inline-flex shadow-2xs shrink-0`}>
                 <IconRenderer name={tool.iconName} size={18} />
               </span>
-              {tool.name}
+              <span className="break-words min-w-0">{tool.name}</span>
             </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl line-clamp-2">
               {tool.description}
             </p>
           </div>

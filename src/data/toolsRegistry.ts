@@ -1616,6 +1616,24 @@ export const TOOLS: ToolItem[] = [
     keywords: ['video to audio', 'extract audio', 'mp4 to mp3', 'video audio', 'soundtrack', 'wav converter'],
     isOnline: false,
   },
+  {
+    id: 'package-archive-converter',
+    name: 'Universal Package & Archive Converter',
+    categoryId: 'professional',
+    description: 'Convert between ZIP and APK, APK to ZIP, JAR and CBZ archives with file tree inspection, AndroidManifest generation, and packaging',
+    iconName: 'ArrowRightLeft',
+    keywords: ['zip to apk', 'apk to zip', 'convert zip to apk', 'apk converter', 'archive converter', 'package converter', 'jar converter', 'cbz'],
+    isOnline: false,
+  },
+  {
+    id: 'headline-maker',
+    name: 'Breaking News & Headline Maker',
+    categoryId: 'text',
+    description: 'Design broadcast-grade breaking news lower-thirds, vintage newspaper front pages, live tickers, and viral social bulletins with instant 1080p image download',
+    iconName: 'Flame',
+    keywords: ['headline maker', 'breaking news', 'news generator', 'breaking headline', 'lower third', 'newspaper generator', 'news banner', 'tv news', 'ticker maker', 'news maker'],
+    isOnline: false,
+  },
 
   // 22. Live Score & Sports Hub
   {

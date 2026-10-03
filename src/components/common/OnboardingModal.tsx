@@ -28,9 +28,9 @@ const SLIDES: OnboardingSlide[] = [
     title: 'Your Ultimate Offline & Live Utility Suite',
     subtitle: 'Over 100+ lightning-fast calculators, scientific solvers, measurement tools, and document suites for mobile, tablet, and desktop.',
     features: [
+      'Install to Android / iOS home screen via "Install App" or browser menu for 1-tap offline native app experience',
       'Zero server lag — all calculations and processing execute 100% client-side',
       'Unified searchable directory across 20+ specialized domain categories',
-      'Touch-optimized for mobile phones, adaptive layout for tablets and PC',
     ],
   },
   {
@@ -109,6 +109,13 @@ const SLIDES: OnboardingSlide[] = [
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Always restart onboarding from the beginning when opened
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentSlide(0);
+    }
+  }, [isOpen]);
 
   // Keyboard navigation
   useEffect(() => {

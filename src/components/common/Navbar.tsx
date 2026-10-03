@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, HelpCircle, Download } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Star, Sparkles, Search, X, ArrowRight, FileText, HelpCircle } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
@@ -18,7 +18,6 @@ interface NavbarProps {
   onSelectTab: (tab: string) => void;
   onSelectTool?: (tool: ToolItem) => void;
   onOpenOnboarding?: () => void;
-  onOpenDownloads?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -31,7 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   onSelectTool,
   onOpenOnboarding,
-  onOpenDownloads,
 }) => {
   // Expandable search state: collapsed by default
   const [isExpanded, setIsExpanded] = useState(false);
@@ -123,7 +121,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-50 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
-              OmniToolbox
+              <span className="hidden min-[380px]:inline">OmniToolbox</span>
+              <span className="min-[380px]:hidden">Omni</span>
             </span>
           </button>
         </div>
@@ -167,8 +166,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: Actions - Expandable Search Bar + Audio/Theme controls */}
-        <div className="flex items-center gap-2">
+        {/* Zone 3: Actions - Expandable Search Bar + Audio/Theme/Help controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* EXPANDABLE SEARCH: No 'X' sign when collapsed. 'X' sign ONLY appears when search is expanded! */}
           <div ref={containerRef} className="relative">
             {!isExpanded ? (
@@ -188,8 +187,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             ) : (
               // Expanded state: Full active search input WITH the 'X' button on the right to collapse/clear!
-              <div className="flex items-center rounded-xl border border-indigo-500/80 bg-white dark:bg-zinc-900 dark:border-indigo-400/80 shadow-md transition-all duration-200 w-52 sm:w-72 md:w-80 overflow-hidden ring-2 ring-indigo-500/20">
-                <div className="pl-3 pr-2 text-indigo-500 dark:text-indigo-400 shrink-0">
+              <div className="flex items-center rounded-xl border border-indigo-500/80 bg-white dark:bg-zinc-900 dark:border-indigo-400/80 shadow-md transition-all duration-200 w-44 min-[380px]:w-56 sm:w-72 md:w-80 overflow-hidden ring-2 ring-indigo-500/20">
+                <div className="pl-2.5 pr-1.5 text-indigo-500 dark:text-indigo-400 shrink-0">
                   <Search className="w-3.5 h-3.5" />
                 </div>
                 <input
@@ -292,7 +291,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onToggleSound}
             aria-label="Toggle sound effects"
-            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
             title={soundEnabled ? 'Mute sound effects' : 'Enable tactile audio'}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
@@ -302,37 +301,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onToggleDarkMode}
             aria-label="Toggle color theme"
-            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
             title="Switch Dark/Light Mode"
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Download App Packages (Website, APK, AAB) */}
-          {onOpenDownloads && (
-            <button
-              onClick={() => {
-                sounds.playClick();
-                onOpenDownloads();
-              }}
-              aria-label="Download App Packages"
-              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
-              title="Download App Packages (APK, AAB, Website)"
-            >
-              <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            </button>
-          )}
-
-          {/* Quick Tour / Help Button */}
+          {/* Quick Tour / Help Button (Always starts from beginning) */}
           {onOpenOnboarding && (
             <button
               onClick={() => {
                 sounds.playClick();
                 onOpenOnboarding();
               }}
-              aria-label="Quick Tour"
-              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
-              title="Quick App Tour & Guide"
+              aria-label="Quick Tour & Guide"
+              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
+              title="Quick App Tour & Guide (?)"
             >
               <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             </button>

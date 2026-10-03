@@ -5,6 +5,7 @@ import {
   RefreshCw, Check, Sliders, Eye, Sparkles, Volume2, Play, Pause,
   Layers, Palette, ShieldCheck, Trash2
 } from 'lucide-react';
+import { PackageArchiveConverterTool } from './PackageArchiveConverterTool';
 
 interface ToolComponentProps {
   toolId: string;
@@ -16,6 +17,8 @@ export const ProfessionalTools: React.FC<ToolComponentProps> = ({ toolId }) => {
       return <ImageBgRemoverView />;
     case 'video-to-audio':
       return <VideoToAudioView />;
+    case 'package-archive-converter':
+      return <PackageArchiveConverterTool />;
     default:
       return <ImageBgRemoverView />;
   }

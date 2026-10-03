@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Star, Trophy, FileText } from 'lucide-react';
+import { LayoutGrid, Star, FileText } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface MobileBottomNavProps {
