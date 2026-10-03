@@ -28,7 +28,7 @@ const SLIDES: OnboardingSlide[] = [
     title: 'Your Ultimate Offline & Live Utility Suite',
     subtitle: 'Over 100+ lightning-fast calculators, scientific solvers, measurement tools, and document suites for mobile, tablet, and desktop.',
     features: [
-      'Install to Android / iOS home screen via "Install App" or browser menu for 1-tap offline native app experience',
+      'Install to Android & iOS with 0 parse errors: 1-tap via Chrome "Install App" or Safari "Add to Home Screen" for native WebAPK offline speed',
       'Zero server lag — all calculations and processing execute 100% client-side',
       'Unified searchable directory across 20+ specialized domain categories',
     ],

@@ -6,6 +6,7 @@ import {
   FileSpreadsheet, ArrowRightLeft, Layers, ShieldCheck, X
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 type ConversionMode = 'zip-to-apk' | 'apk-to-zip' | 'zip-to-jar' | 'jar-to-zip' | 'zip-to-cbz';
 
@@ -17,6 +18,7 @@ interface ArchiveFileEntry {
 }
 
 export const PackageArchiveConverterTool: React.FC = () => {
+  const { isInstallable, isInstalled, install } = usePWAInstall();
   const [conversionMode, setConversionMode] = useState<ConversionMode>('zip-to-apk');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -605,6 +607,50 @@ export const PackageArchiveConverterTool: React.FC = () => {
                 </button>
               </div>
             )}
+
+            {/* Android "There Was a Problem Parsing the Package" Solution Guide */}
+            <div className="p-4 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-900/60 space-y-3">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <h4 className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                  Android Installation & "Parse Error" Guide
+                </h4>
+              </div>
+
+              <div className="text-[11px] text-indigo-900/85 dark:text-indigo-300 space-y-2 leading-relaxed">
+                <p>
+                  <strong>Why Android says &ldquo;There was a problem parsing the package&rdquo;:</strong>
+                  <br />
+                  Android OS requires APK files to contain binary-compiled AndroidManifest.xml (AXML), dalvik bytecode (classes.dex), and v2/v3 cryptographic signatures. A raw zip archive or uncompiled package cannot be opened directly by Android's Package Manager.
+                </p>
+
+                <p>
+                  <strong>100% Working Fix to Install OmniToolbox on Android:</strong>
+                  <br />
+                  Install directly via your mobile browser (Chrome / Edge / Samsung Internet). Android's built-in Google Play WebAPK service will automatically compile, sign, and install OmniToolbox on your device with <strong>0 parse errors</strong>!
+                </p>
+
+                {isInstallable && (
+                  <button
+                    type="button"
+                    onClick={() => { sounds.playClick(); install(); }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Install OmniToolbox App on Android (1-Tap WebAPK)</span>
+                  </button>
+                )}
+
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-zinc-900/70 border border-indigo-100 dark:border-indigo-900/40 text-[10px]">
+                  <strong>Manual 1-Tap Steps in Chrome:</strong>
+                  <ol className="list-decimal pl-4 mt-0.5 space-y-0.5">
+                    <li>Tap the <strong>three dots menu (⋮)</strong> in Chrome at top right.</li>
+                    <li>Tap <strong>&ldquo;Install app&rdquo;</strong> or <strong>&ldquo;Add to Home screen&rdquo;</strong>.</li>
+                    <li>The app is instantly added with zero errors, full offline mode, and home screen icon!</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

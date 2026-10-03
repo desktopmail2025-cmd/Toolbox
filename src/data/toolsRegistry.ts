@@ -1324,7 +1324,7 @@ export const TOOLS: ToolItem[] = [
     name: 'Retirement & FIRE Runway Planner',
     categoryId: 'finance',
     description: 'Calculate retirement nest egg duration, safe 4% withdrawal rate and FIRE target number',
-    iconName: 'PiggyBank',
+    iconName: 'Palmtree',
     keywords: ['fire', 'retirement', 'nest egg', '4 percent rule', 'financial independence', 'runway'],
     isOnline: false,
   },

@@ -109,6 +109,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab]);
 
+  // If user selected something and touched anywhere of the app, the selection vanishes immediately
+  useEffect(() => {
+    const handleGlobalDeselect = (e: MouseEvent | TouchEvent) => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      selection.removeAllRanges();
+    };
+
+    window.addEventListener('pointerdown', handleGlobalDeselect, { passive: true });
+    window.addEventListener('touchstart', handleGlobalDeselect, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleGlobalDeselect);
+      window.removeEventListener('touchstart', handleGlobalDeselect);
+    };
+  }, []);
+
   const handleSelectTool = (tool: ToolItem) => {
     // Preserve current scroll position
     setSavedScrollPos(window.scrollY);

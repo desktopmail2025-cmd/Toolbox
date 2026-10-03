@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Plus, Trash2, ArrowRight, RefreshCw, Globe, Copy, Check } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, RefreshCw, Globe, Copy, Check, Edit2, X } from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -1115,6 +1115,9 @@ const ExpenseSplitterView: React.FC = () => {
   const [amt, setAmt] = useState('');
   const [payer, setPayer] = useState('Alice');
 
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editMemberName, setEditMemberName] = useState<string>('');
+
   const addExpense = () => {
     if (!amt || parseFloat(amt) <= 0) return;
     sounds.playClick();
@@ -1141,6 +1144,28 @@ const ExpenseSplitterView: React.FC = () => {
     sounds.playClick();
     setMembers([...members, newMember.trim()]);
     setNewMember('');
+  };
+
+  const startEditMember = (name: string) => {
+    sounds.playClick();
+    setEditingMember(name);
+    setEditMemberName(name);
+  };
+
+  const saveEditMember = (oldName: string) => {
+    const trimmed = editMemberName.trim();
+    if (!trimmed || (trimmed !== oldName && members.includes(trimmed))) {
+      setEditingMember(null);
+      return;
+    }
+    sounds.playClick();
+    setMembers(members.map(m => (m === oldName ? trimmed : m)));
+    // Update any expenses paid by this person
+    setExpenses(expenses.map(e => (e.payer === oldName ? { ...e, payer: trimmed } : e)));
+    if (payer === oldName) {
+      setPayer(trimmed);
+    }
+    setEditingMember(null);
   };
 
   const removeMember = (name: string) => {
@@ -1173,17 +1198,61 @@ const ExpenseSplitterView: React.FC = () => {
         <div className="flex flex-wrap gap-2 mb-3">
           {members.map(m => (
             <span key={m} className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-2xs">
-              <span>{m}</span>
-              {members.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeMember(m)}
-                  className="text-zinc-400 hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
-                  title={`Remove ${m}`}
-                  aria-label={`Remove ${m}`}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+              {editingMember === m ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={editMemberName}
+                    onChange={e => setEditMemberName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEditMember(m);
+                      if (e.key === 'Escape') setEditingMember(null);
+                    }}
+                    autoFocus
+                    className="w-24 px-1.5 py-0.5 text-xs font-semibold bg-white dark:bg-zinc-900 border border-indigo-400 rounded-md outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => saveEditMember(m)}
+                    className="p-1 text-emerald-600 hover:text-emerald-500 cursor-pointer"
+                    title="Save name"
+                  >
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember(null)}
+                    className="p-1 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span>{m}</span>
+                  {/* Edit Person Button beside Delete */}
+                  <button
+                    type="button"
+                    onClick={() => startEditMember(m)}
+                    className="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded p-0.5 transition-colors cursor-pointer"
+                    title={`Edit ${m}`}
+                    aria-label={`Edit ${m}`}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                  {members.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeMember(m)}
+                      className="text-zinc-400 hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
+                      title={`Remove ${m}`}
+                      aria-label={`Remove ${m}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </>
               )}
             </span>
           ))}

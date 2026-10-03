@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
 import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
-import { Delete, Trash2, X } from 'lucide-react';
+import { Delete, Trash2, X, Calendar, Clock, Users, ArrowRightLeft, Sparkles, Percent, Check } from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -886,137 +886,501 @@ const DateCalcView: React.FC = () => {
   );
 };
 
-// 8. Time Duration Calculator
+// 8. Time Duration Calculator (With AM/PM and Auto-Vanish Default)
 const DurationCalcView: React.FC = () => {
-  const [h1, setH1] = useState(2);
-  const [m1, setM1] = useState(45);
-  const [h2, setH2] = useState(3);
-  const [m2, setM2] = useState(30);
+  const [calcMode, setCalcMode] = useState<'clock' | 'span'>('clock');
 
-  const totalMin = h1 * 60 + m1 + (h2 * 60 + m2);
-  const resH = Math.floor(totalMin / 60);
-  const resM = totalMin % 60;
+  // Clock Mode (12-hour with AM/PM)
+  const [h1, setH1] = useState<string>('09');
+  const [m1, setM1] = useState<string>('00');
+  const [ampm1, setAmpm1] = useState<'AM' | 'PM'>('AM');
 
-  const diffMin = Math.abs(h1 * 60 + m1 - (h2 * 60 + m2));
-  const diffH = Math.floor(diffMin / 60);
-  const diffM = diffMin % 60;
+  const [h2, setH2] = useState<string>('05');
+  const [m2, setM2] = useState<string>('30');
+  const [ampm2, setAmpm2] = useState<'AM' | 'PM'>('PM');
+
+  // Span Mode (Hours & Minutes arithmetic)
+  const [spanH1, setSpanH1] = useState<string>('2');
+  const [spanM1, setSpanM1] = useState<string>('45');
+  const [spanH2, setSpanH2] = useState<string>('3');
+  const [spanM2, setSpanM2] = useState<string>('30');
+
+  // Helper for auto-vanish default
+  const handleAutoClear = (e: React.FocusEvent<HTMLInputElement>, currentVal: string, setter: (val: string) => void) => {
+    if (['0', '00', '09', '05', '2', '3', '30', '45'].includes(currentVal)) {
+      setter('');
+    }
+  };
+
+  // Calculate 12-hour AM/PM clock difference
+  let elapsedMinutes = 0;
+  if (calcMode === 'clock') {
+    let hour1 = parseInt(h1, 10) || 0;
+    const min1 = parseInt(m1, 10) || 0;
+    if (ampm1 === 'PM' && hour1 < 12) hour1 += 12;
+    if (ampm1 === 'AM' && hour1 === 12) hour1 = 0;
+
+    let hour2 = parseInt(h2, 10) || 0;
+    const min2 = parseInt(m2, 10) || 0;
+    if (ampm2 === 'PM' && hour2 < 12) hour2 += 12;
+    if (ampm2 === 'AM' && hour2 === 12) hour2 = 0;
+
+    const totalMin1 = hour1 * 60 + min1;
+    const totalMin2 = hour2 * 60 + min2;
+
+    elapsedMinutes = totalMin2 - totalMin1;
+    if (elapsedMinutes < 0) {
+      elapsedMinutes += 24 * 60; // Overnight next day
+    }
+  }
+
+  const clockHrs = Math.floor(elapsedMinutes / 60);
+  const clockMins = elapsedMinutes % 60;
+  const clockDecimal = (elapsedMinutes / 60).toFixed(2);
+  const clockSeconds = elapsedMinutes * 60;
+
+  // Span Mode calculations
+  const totalMinSpan = ((parseInt(spanH1, 10) || 0) * 60 + (parseInt(spanM1, 10) || 0)) +
+                       ((parseInt(spanH2, 10) || 0) * 60 + (parseInt(spanM2, 10) || 0));
+  const diffMinSpan = Math.abs(((parseInt(spanH1, 10) || 0) * 60 + (parseInt(spanM1, 10) || 0)) -
+                               ((parseInt(spanH2, 10) || 0) * 60 + (parseInt(spanM2, 10) || 0)));
 
   return (
-    <div className="max-w-xl mx-auto rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-2">Time 1</label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              value={h1}
-              onChange={e => setH1(parseInt(e.target.value) || 0)}
-              className="w-full text-center border rounded-lg py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              placeholder="Hrs"
-            />
-            <input
-              type="number"
-              value={m1}
-              onChange={e => setM1(parseInt(e.target.value) || 0)}
-              className="w-full text-center border rounded-lg py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              placeholder="Min"
-            />
-          </div>
+    <div className="max-w-xl mx-auto rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-6 shadow-xs">
+      {/* Mode Switcher */}
+      <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-indigo-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Time Duration Calculator
+          </h2>
         </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-2">Time 2</label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              value={h2}
-              onChange={e => setH2(parseInt(e.target.value) || 0)}
-              className="w-full text-center border rounded-lg py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              placeholder="Hrs"
-            />
-            <input
-              type="number"
-              value={m2}
-              onChange={e => setM2(parseInt(e.target.value) || 0)}
-              className="w-full text-center border rounded-lg py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              placeholder="Min"
-            />
-          </div>
+        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+          <button
+            onClick={() => { sounds.playClick(); setCalcMode('clock'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              calcMode === 'clock'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-2xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            Clock Times (AM/PM)
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setCalcMode('span'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              calcMode === 'span'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-2xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            Hours + Mins Math
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <ResultCard label="Combined Total" value={`${resH}h ${resM}m`} highlight />
-        <ResultCard label="Difference" value={`${diffH}h ${diffM}m`} />
-      </div>
+      {calcMode === 'clock' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Start Time with AM/PM */}
+            <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+              <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 block">
+                Start Time (Time 1)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={h1}
+                  onFocus={e => handleAutoClear(e, h1, setH1)}
+                  onBlur={() => { if (!h1) setH1('09'); }}
+                  onChange={e => setH1(e.target.value)}
+                  className="w-16 text-center border border-zinc-300 dark:border-zinc-700 rounded-xl py-2 font-mono font-bold text-base bg-white dark:bg-zinc-900"
+                  placeholder="09"
+                />
+                <span className="font-bold text-zinc-400">:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={m1}
+                  onFocus={e => handleAutoClear(e, m1, setM1)}
+                  onBlur={() => { if (!m1) setM1('00'); }}
+                  onChange={e => setM1(e.target.value)}
+                  className="w-16 text-center border border-zinc-300 dark:border-zinc-700 rounded-xl py-2 font-mono font-bold text-base bg-white dark:bg-zinc-900"
+                  placeholder="00"
+                />
+
+                {/* AM / PM Toggle */}
+                <div className="flex rounded-xl border border-zinc-300 dark:border-zinc-700 overflow-hidden ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => { sounds.playClick(); setAmpm1('AM'); }}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      ampm1 === 'AM'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { sounds.playClick(); setAmpm1('PM'); }}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      ampm1 === 'PM'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* End Time with AM/PM */}
+            <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+              <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 block">
+                End Time (Time 2)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={h2}
+                  onFocus={e => handleAutoClear(e, h2, setH2)}
+                  onBlur={() => { if (!h2) setH2('05'); }}
+                  onChange={e => setH2(e.target.value)}
+                  className="w-16 text-center border border-zinc-300 dark:border-zinc-700 rounded-xl py-2 font-mono font-bold text-base bg-white dark:bg-zinc-900"
+                  placeholder="05"
+                />
+                <span className="font-bold text-zinc-400">:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={m2}
+                  onFocus={e => handleAutoClear(e, m2, setM2)}
+                  onBlur={() => { if (!m2) setM2('30'); }}
+                  onChange={e => setM2(e.target.value)}
+                  className="w-16 text-center border border-zinc-300 dark:border-zinc-700 rounded-xl py-2 font-mono font-bold text-base bg-white dark:bg-zinc-900"
+                  placeholder="30"
+                />
+
+                {/* AM / PM Toggle */}
+                <div className="flex rounded-xl border border-zinc-300 dark:border-zinc-700 overflow-hidden ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => { sounds.playClick(); setAmpm2('AM'); }}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      ampm2 === 'AM'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { sounds.playClick(); setAmpm2('PM'); }}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      ampm2 === 'PM'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ResultCard label="Elapsed Time" value={`${clockHrs}h ${clockMins}m`} highlight />
+            <ResultCard label="Decimal Hours" value={`${clockDecimal} hrs`} />
+            <ResultCard label="Total Minutes" value={`${elapsedMinutes.toLocaleString()} min`} />
+            <ResultCard label="Total Seconds" value={`${clockSeconds.toLocaleString()} s`} />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-2">Duration 1</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={spanH1}
+                  onFocus={e => handleAutoClear(e, spanH1, setSpanH1)}
+                  onBlur={() => { if (!spanH1) setSpanH1('0'); }}
+                  onChange={e => setSpanH1(e.target.value)}
+                  className="w-full text-center border rounded-xl py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono font-bold"
+                  placeholder="Hrs"
+                />
+                <input
+                  type="number"
+                  value={spanM1}
+                  onFocus={e => handleAutoClear(e, spanM1, setSpanM1)}
+                  onBlur={() => { if (!spanM1) setSpanM1('0'); }}
+                  onChange={e => setSpanM1(e.target.value)}
+                  className="w-full text-center border rounded-xl py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono font-bold"
+                  placeholder="Min"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-2">Duration 2</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={spanH2}
+                  onFocus={e => handleAutoClear(e, spanH2, setSpanH2)}
+                  onBlur={() => { if (!spanH2) setSpanH2('0'); }}
+                  onChange={e => setSpanH2(e.target.value)}
+                  className="w-full text-center border rounded-xl py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono font-bold"
+                  placeholder="Hrs"
+                />
+                <input
+                  type="number"
+                  value={spanM2}
+                  onFocus={e => handleAutoClear(e, spanM2, setSpanM2)}
+                  onBlur={() => { if (!spanM2) setSpanM2('0'); }}
+                  onChange={e => setSpanM2(e.target.value)}
+                  className="w-full text-center border rounded-xl py-2 bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono font-bold"
+                  placeholder="Min"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <ResultCard label="Combined Total" value={`${Math.floor(totalMinSpan / 60)}h ${totalMinSpan % 60}m`} highlight />
+            <ResultCard label="Difference" value={`${Math.floor(diffMinSpan / 60)}h ${diffMinSpan % 60}m`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// 9. Age Calculator
+// 9. Age Calculator (Detailed Weeks, Months, Minutes, Seconds + Compare Person Option)
 const AgeCalcView: React.FC = () => {
   const [birthDate, setBirthDate] = useState('2000-01-15');
+  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [compareBirthDate, setCompareBirthDate] = useState('1998-05-20');
 
-  const bDate = new Date(birthDate);
-  const now = new Date();
+  // Handle auto vanish on focus for date inputs
+  const handleDateFocus = (e: React.FocusEvent<HTMLInputElement>, current: string, setter: (val: string) => void) => {
+    if (current === '2000-01-15' || current === '1998-05-20') {
+      setter('');
+    }
+  };
 
-  let years = now.getFullYear() - bDate.getFullYear();
-  let months = now.getMonth() - bDate.getMonth();
-  let days = now.getDate() - bDate.getDate();
+  const calculateAgeDetails = (dateStr: string) => {
+    if (!dateStr) return null;
+    const bDate = new Date(dateStr);
+    if (isNaN(bDate.getTime())) return null;
 
-  if (days < 0) {
-    months -= 1;
-    days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    const now = new Date();
+    let years = now.getFullYear() - bDate.getFullYear();
+    let months = now.getMonth() - bDate.getMonth();
+    let days = now.getDate() - bDate.getDate();
+
+    if (days < 0) {
+      months -= 1;
+      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    const diffMs = now.getTime() - bDate.getTime();
+    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const totalWeeks = Math.floor(totalDays / 7);
+    const totalMonths = years * 12 + months;
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const totalSeconds = Math.floor(diffMs / 1000);
+
+    // Next birthday countdown
+    const nextBirthday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
+    if (nextBirthday < now) {
+      nextBirthday.setFullYear(now.getFullYear() + 1);
+    }
+    const daysUntilNext = Math.ceil((nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    const dayOfWeek = bDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+    return {
+      years,
+      months,
+      days,
+      totalMonths,
+      totalWeeks,
+      totalDays,
+      totalHours,
+      totalMinutes,
+      totalSeconds,
+      daysUntilNext,
+      dayOfWeek,
+      birthTime: bDate.getTime(),
+    };
+  };
+
+  const person1 = calculateAgeDetails(birthDate);
+  const person2 = calculateAgeDetails(compareBirthDate);
+
+  // Compare diff
+  let compareDiff = null;
+  if (isCompareMode && person1 && person2) {
+    const older = person1.birthTime < person2.birthTime ? 'Person 1' : 'Person 2';
+    const msDiff = Math.abs(person1.birthTime - person2.birthTime);
+    const daysDiff = Math.floor(msDiff / (1000 * 60 * 60 * 24));
+    const yearsDiff = (daysDiff / 365.25).toFixed(1);
+
+    compareDiff = {
+      older,
+      daysDiff,
+      yearsDiff,
+    };
   }
-  if (months < 0) {
-    years -= 1;
-    months += 12;
-  }
-
-  const totalDays = Math.floor((now.getTime() - bDate.getTime()) / (1000 * 60 * 60 * 24));
-
-  // Next birthday countdown
-  const nextBirthday = new Date(now.getFullYear(), bDate.getMonth(), bDate.getDate());
-  if (nextBirthday < now) {
-    nextBirthday.setFullYear(now.getFullYear() + 1);
-  }
-  const daysUntilNext = Math.ceil((nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <label className="block text-xs font-semibold text-zinc-500 mb-2">Select Your Date of Birth</label>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="rounded-3xl border border-zinc-200/90 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Person 1 Date of Birth
+          </label>
+          <button
+            onClick={() => { sounds.playClick(); setIsCompareMode(prev => !prev); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+              isCompareMode
+                ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs'
+                : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+            }`}
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>{isCompareMode ? 'Comparing with Person 2' : 'Compare with Another Person'}</span>
+          </button>
+        </div>
+
         <input
           type="date"
           value={birthDate}
+          onFocus={e => handleDateFocus(e, birthDate, setBirthDate)}
+          onBlur={() => { if (!birthDate) setBirthDate('2000-01-15'); }}
           onChange={e => setBirthDate(e.target.value)}
-          className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-base font-medium"
+          className="w-full rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-2.5 text-base font-bold"
         />
+
+        {/* Person 2 Date for Comparison */}
+        {isCompareMode && (
+          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2 animate-in fade-in">
+            <label className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              Person 2 Date of Birth
+            </label>
+            <input
+              type="date"
+              value={compareBirthDate}
+              onFocus={e => handleDateFocus(e, compareBirthDate, setCompareBirthDate)}
+              onBlur={() => { if (!compareBirthDate) setCompareBirthDate('1998-05-20'); }}
+              onChange={e => setCompareBirthDate(e.target.value)}
+              className="w-full rounded-2xl border border-indigo-300 dark:border-indigo-800 bg-white dark:bg-zinc-950 px-4 py-2.5 text-base font-bold"
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ResultCard label="Exact Age" value={`${years} yrs, ${months} mos`} subtext={`${days} days`} highlight />
-        <ResultCard label="Total Days Lived" value={totalDays.toLocaleString()} />
-        <ResultCard label="Next Birthday in" value={`${daysUntilNext} days`} />
-      </div>
+      {/* Comparison Result Banner */}
+      {isCompareMode && compareDiff && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/80 text-indigo-900 dark:text-indigo-100 space-y-2 animate-in fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <h4 className="font-extrabold text-sm">Age Comparison Analysis</h4>
+          </div>
+          <p className="text-xs leading-relaxed">
+            <strong>{compareDiff.older}</strong> is older by <strong>{compareDiff.yearsDiff} years</strong> ({compareDiff.daysDiff.toLocaleString()} days difference).
+          </p>
+        </div>
+      )}
+
+      {/* Main Age Stats Breakdown */}
+      {person1 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <ResultCard
+              label="Exact Age"
+              value={`${person1.years} yrs, ${person1.months} mos`}
+              subtext={`${person1.days} days`}
+              highlight
+            />
+            <ResultCard label="Born on a" value={person1.dayOfWeek} />
+            <ResultCard label="Next Birthday In" value={`${person1.daysUntilNext} days`} />
+          </div>
+
+          <div className="rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              Total Lifetime Elapsed Units
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Months</span>
+                <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-100">{person1.totalMonths.toLocaleString()} mos</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Weeks</span>
+                <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-100">{person1.totalWeeks.toLocaleString()} wks</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Days</span>
+                <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-100">{person1.totalDays.toLocaleString()} days</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Hours</span>
+                <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-100">{person1.totalHours.toLocaleString()} hrs</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Minutes</span>
+                <span className="font-mono font-bold text-base text-zinc-900 dark:text-zinc-100">{person1.totalMinutes.toLocaleString()} min</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <span className="text-[10px] font-bold uppercase text-zinc-400 block">Total Seconds</span>
+                <span className="font-mono font-bold text-base text-indigo-600 dark:text-indigo-400">{person1.totalSeconds.toLocaleString()} s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // 10. Discount & Final Price Calculator
 const DiscountCalcView: React.FC = () => {
-  const [price, setPrice] = useState(0);
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [extraCoupon, setExtraCoupon] = useState(0);
-  const [taxPercent, setTaxPercent] = useState(0);
+  const [price, setPrice] = useState<number | string>(0);
+  const [discountPercent, setDiscountPercent] = useState<number | string>(0);
+  const [extraCoupon, setExtraCoupon] = useState<number | string>(0);
+  const [taxPercent, setTaxPercent] = useState<number | string>(0);
 
-  const firstDiscount = (price * discountPercent) / 100;
-  const afterFirst = price - firstDiscount;
-  const secondDiscount = (afterFirst * extraCoupon) / 100;
+  const numPrice = typeof price === 'number' ? price : parseFloat(price) || 0;
+  const numDisc = typeof discountPercent === 'number' ? discountPercent : parseFloat(discountPercent) || 0;
+  const numCoupon = typeof extraCoupon === 'number' ? extraCoupon : parseFloat(extraCoupon) || 0;
+  const numTax = typeof taxPercent === 'number' ? taxPercent : parseFloat(taxPercent) || 0;
+
+  const firstDiscount = (numPrice * numDisc) / 100;
+  const afterFirst = numPrice - firstDiscount;
+  const secondDiscount = (afterFirst * numCoupon) / 100;
   const afterSecond = afterFirst - secondDiscount;
-  const tax = (afterSecond * taxPercent) / 100;
+  const tax = (afterSecond * numTax) / 100;
   const finalPrice = afterSecond + tax;
-  const totalSavings = price - afterSecond;
+  const totalSavings = numPrice - afterSecond;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -1030,7 +1394,9 @@ const DiscountCalcView: React.FC = () => {
           <input
             type="number"
             value={price}
-            onChange={e => setPrice(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (price === 0 || price === '0') setPrice(''); }}
+            onBlur={() => { if (price === '') setPrice(0); }}
+            onChange={e => setPrice(e.target.value)}
             className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 font-mono text-base"
           />
         </div>
@@ -1039,7 +1405,9 @@ const DiscountCalcView: React.FC = () => {
           <input
             type="number"
             value={discountPercent}
-            onChange={e => setDiscountPercent(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (discountPercent === 0 || discountPercent === '0') setDiscountPercent(''); }}
+            onBlur={() => { if (discountPercent === '') setDiscountPercent(0); }}
+            onChange={e => setDiscountPercent(e.target.value)}
             className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 font-mono text-base"
           />
         </div>
@@ -1048,7 +1416,9 @@ const DiscountCalcView: React.FC = () => {
           <input
             type="number"
             value={extraCoupon}
-            onChange={e => setExtraCoupon(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (extraCoupon === 0 || extraCoupon === '0') setExtraCoupon(''); }}
+            onBlur={() => { if (extraCoupon === '') setExtraCoupon(0); }}
+            onChange={e => setExtraCoupon(e.target.value)}
             className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 font-mono text-base"
           />
         </div>
@@ -1057,7 +1427,9 @@ const DiscountCalcView: React.FC = () => {
           <input
             type="number"
             value={taxPercent}
-            onChange={e => setTaxPercent(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (taxPercent === 0 || taxPercent === '0') setTaxPercent(''); }}
+            onBlur={() => { if (taxPercent === '') setTaxPercent(0); }}
+            onChange={e => setTaxPercent(e.target.value)}
             className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 font-mono text-base"
           />
         </div>
@@ -1072,65 +1444,121 @@ const DiscountCalcView: React.FC = () => {
   );
 };
 
-// 11. Tip & Bill Split Calculator
+// 11. Tip & Bill Split Calculator (With Custom Tip % and Vanishing Default)
 const TipCalcView: React.FC = () => {
-  const [bill, setBill] = useState(0);
-  const [tipPercent, setTipPercent] = useState(0);
-  const [people, setPeople] = useState(1);
+  const [bill, setBill] = useState<number | string>(0);
+  const [tipPercent, setTipPercent] = useState<number | string>(15);
+  const [isCustomTip, setIsCustomTip] = useState<boolean>(false);
+  const [customTipVal, setCustomTipVal] = useState<string>('18');
+  const [people, setPeople] = useState<number>(1);
 
-  const tipAmount = (bill * tipPercent) / 100;
-  const totalBill = bill + tipAmount;
+  const numBill = typeof bill === 'number' ? bill : parseFloat(bill) || 0;
+  const activeTip = isCustomTip ? (parseFloat(customTipVal) || 0) : (typeof tipPercent === 'number' ? tipPercent : parseFloat(tipPercent) || 0);
+
+  const tipAmount = (numBill * activeTip) / 100;
+  const totalBill = numBill + tipAmount;
   const perPerson = people > 0 ? totalBill / people : totalBill;
   const tipPerPerson = people > 0 ? tipAmount / people : tipAmount;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Tip & Bill Split</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Tip & Bill Splitter</h2>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+      <div className="rounded-3xl border border-zinc-200/90 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
         <div>
-          <label className="block text-xs text-zinc-500 mb-1">Bill Amount ($)</label>
+          <label className="block text-xs font-bold text-zinc-500 mb-1">Bill Amount ($)</label>
           <input
             type="number"
             value={bill}
-            onChange={e => setBill(parseFloat(e.target.value) || 0)}
-            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2.5 font-mono text-lg"
+            onFocus={() => { if (bill === 0 || bill === '0') setBill(''); }}
+            onBlur={() => { if (bill === '') setBill(0); }}
+            onChange={e => setBill(e.target.value)}
+            className="w-full rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-3 font-mono text-xl font-bold"
+            placeholder="0"
           />
         </div>
 
         <div>
-          <div className="flex items-center justify-between text-xs text-zinc-500 mb-1">
-            <span>Tip Percentage</span>
-            <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{tipPercent}%</span>
+          <div className="flex items-center justify-between text-xs text-zinc-500 mb-1.5">
+            <span className="font-bold">Tip Percentage</span>
+            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+              {activeTip}%
+            </span>
           </div>
-          <div className="grid grid-cols-5 gap-2">
+
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {[10, 15, 18, 20, 25].map(tp => (
               <button
                 key={tp}
-                onClick={() => { sounds.playClick(); setTipPercent(tp); }}
-                className={`py-2 rounded-lg font-medium text-xs transition-colors ${tipPercent === tp ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200'}`}
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsCustomTip(false);
+                  setTipPercent(tp);
+                }}
+                className={`py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer border ${
+                  !isCustomTip && tipPercent === tp
+                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent shadow-xs'
+                    : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+                }`}
               >
                 {tp}%
               </button>
             ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setIsCustomTip(true);
+              }}
+              className={`py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer border ${
+                isCustomTip
+                  ? 'bg-indigo-600 text-white border-transparent shadow-xs'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              Custom %
+            </button>
           </div>
+
+          {/* Custom Tip Input */}
+          {isCustomTip && (
+            <div className="mt-2.5 flex items-center gap-2 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 animate-in fade-in">
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">Enter Custom Tip %:</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={customTipVal}
+                onFocus={() => { if (customTipVal === '0') setCustomTipVal(''); }}
+                onBlur={() => { if (!customTipVal) setCustomTipVal('0'); }}
+                onChange={e => setCustomTipVal(e.target.value)}
+                className="w-20 px-2 py-1 text-center font-mono font-bold text-xs border rounded-lg bg-white dark:bg-zinc-900"
+                placeholder="0"
+              />
+              <span className="font-bold text-xs text-indigo-600">%</span>
+            </div>
+          )}
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-500 mb-1">Split Between Persons</label>
+          <label className="block text-xs font-bold text-zinc-500 mb-1">Split Between Persons</label>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setPeople(Math.max(1, people - 1))}
-              className="w-10 h-10 rounded-lg border bg-zinc-50 dark:bg-zinc-800 font-bold cursor-pointer"
+              type="button"
+              onClick={() => { sounds.playClick(); setPeople(Math.max(1, people - 1)); }}
+              className="w-10 h-10 rounded-xl border bg-zinc-50 dark:bg-zinc-800 font-bold cursor-pointer text-base active:scale-95"
             >
               -
             </button>
             <span className="text-xl font-mono font-bold w-12 text-center">{people}</span>
             <button
-              onClick={() => setPeople(people + 1)}
-              className="w-10 h-10 rounded-lg border bg-zinc-50 dark:bg-zinc-800 font-bold cursor-pointer"
+              type="button"
+              onClick={() => { sounds.playClick(); setPeople(people + 1); }}
+              className="w-10 h-10 rounded-xl border bg-zinc-50 dark:bg-zinc-800 font-bold cursor-pointer text-base active:scale-95"
             >
               +
             </button>

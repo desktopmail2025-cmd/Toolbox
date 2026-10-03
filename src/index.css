@@ -185,3 +185,16 @@ html.dark .hover-card-highlight:hover {
     padding: 0 !important;
   }
 }
+
+/* Universal Mobile Text Scrolling & Overflow Protection */
+@media (max-width: 768px) {
+  pre, code, .font-mono, .formula-output, .equation-block, table, .math-expression, .scrollbar-horizontal {
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  p, h1, h2, h3, h4, span, label {
+    overflow-wrap: break-word;
+  }
+}

@@ -5,7 +5,8 @@ import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
 import {
   Copy, Check, Search, ShieldCheck, AlertTriangle, Lock, Key, Heart,
   Flame, Battery, Clock, Activity, Calculator, Brain, Shuffle, Play, Pause,
-  RotateCcw, Download, Sparkles, BookOpen, Upload
+  RotateCcw, Download, Sparkles, BookOpen, Upload, Palmtree, ArrowRight,
+  Zap, Calendar, Cpu, Grid3X3, Hash, RefreshCw
 } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -1726,18 +1727,32 @@ const UserAgentParserView: React.FC = () => {
 
 // 9. Retirement & FIRE Runway Planner
 const RetirementPlannerView: React.FC = () => {
-  const [nestEgg, setNestEgg] = useState(500000);
-  const [annualExpense, setAnnualExpense] = useState(40000);
-  const [withdrawalRate, setWithdrawalRate] = useState(4); // 4% rule
+  const [nestEgg, setNestEgg] = useState<number | string>(500000);
+  const [annualExpense, setAnnualExpense] = useState<number | string>(40000);
+  const [withdrawalRate, setWithdrawalRate] = useState<number | string>(4); // 4% rule
 
-  const annualWithdrawal = (nestEgg * withdrawalRate) / 100;
-  const yearsOfRunway = annualExpense > 0 ? (nestEgg / annualExpense).toFixed(1) : '∞';
-  const fireTarget = annualExpense * 25; // 25x annual expense for 4% rule
+  const parsedNest = typeof nestEgg === 'number' ? nestEgg : parseFloat(nestEgg) || 0;
+  const parsedExp = typeof annualExpense === 'number' ? annualExpense : parseFloat(annualExpense) || 0;
+  const parsedRate = typeof withdrawalRate === 'number' ? withdrawalRate : parseFloat(withdrawalRate) || 4;
+
+  const annualWithdrawal = (parsedNest * parsedRate) / 100;
+  const yearsOfRunway = parsedExp > 0 ? (parsedNest / parsedExp).toFixed(1) : '∞';
+  const fireTarget = parsedExp * (100 / (parsedRate || 4)); // target number based on withdrawal rate
+  const leanFireTarget = parsedExp * 0.75 * 25;
+  const fatFireTarget = parsedExp * 1.5 * 25;
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Retirement & Financial Independence (FIRE) Planner</h2>
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Palmtree className="w-5 h-5 text-amber-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Retirement & Financial Independence (FIRE) Planner
+          </h2>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          Runway & Nest Egg
+        </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1746,8 +1761,11 @@ const RetirementPlannerView: React.FC = () => {
           <input
             type="number"
             value={nestEgg}
-            onChange={e => setNestEgg(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (nestEgg === 0 || nestEgg === '0' || nestEgg === 500000) setNestEgg(''); }}
+            onBlur={() => { if (nestEgg === '') setNestEgg(0); }}
+            onChange={e => setNestEgg(e.target.value)}
             className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-base font-bold"
+            placeholder="0"
           />
         </div>
         <div>
@@ -1755,57 +1773,308 @@ const RetirementPlannerView: React.FC = () => {
           <input
             type="number"
             value={annualExpense}
-            onChange={e => setAnnualExpense(parseFloat(e.target.value) || 0)}
+            onFocus={() => { if (annualExpense === 0 || annualExpense === '0' || annualExpense === 40000) setAnnualExpense(''); }}
+            onBlur={() => { if (annualExpense === '') setAnnualExpense(0); }}
+            onChange={e => setAnnualExpense(e.target.value)}
             className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-base font-bold"
+            placeholder="0"
           />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between text-xs text-zinc-500 mb-1 font-semibold">
+          <span>Safe Withdrawal Rate: {parsedRate}%</span>
+          <span className="text-indigo-600 dark:text-indigo-400 font-bold">Standard: 4% Trinity Study Rule</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[3, 3.5, 4, 5].map(rate => (
+            <button
+              key={rate}
+              type="button"
+              onClick={() => { sounds.playClick(); setWithdrawalRate(rate); }}
+              className={`py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                parsedRate === rate
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent shadow-xs'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              {rate}%
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <ResultCard label="Years of Runway" value={`${yearsOfRunway} Yrs`} highlight />
-        <ResultCard label="Safe 4% Withdrawal" value={`$${annualWithdrawal.toLocaleString()}/yr`} />
-        <ResultCard label="FIRE Target Number" value={`$${fireTarget.toLocaleString()}`} subtext="25x annual expense" />
+        <ResultCard label={`Safe ${parsedRate}% Withdrawal`} value={`$${Math.round(annualWithdrawal).toLocaleString()}/yr`} />
+        <ResultCard label="FIRE Target Number" value={`$${Math.round(fireTarget).toLocaleString()}`} subtext={`${(100 / (parsedRate || 4)).toFixed(0)}x annual expense`} />
+      </div>
+
+      <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-xs space-y-1.5">
+        <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+          <span>Lean FIRE Target (Frugal 75%):</span>
+          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">${Math.round(leanFireTarget).toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+          <span>Fat FIRE Target (Abundant 150%):</span>
+          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">${Math.round(fatFireTarget).toLocaleString()}</span>
+        </div>
       </div>
     </div>
   );
 };
 
-// 10. Crypto Mining Profitability Calculator
-const CryptoMiningCalcView: React.FC = () => {
-  const [hashrate, setHashrate] = useState(100); // MH/s
-  const [powerWatts, setPowerWatts] = useState(250);
-  const [kwhCost, setKwhCost] = useState(0.12);
+// 10. Perfect Crypto Mining Profitability Calculator
+interface MiningCoinPreset {
+  id: string;
+  name: string;
+  ticker: string;
+  algorithm: string;
+  unit: string;
+  defaultHashrate: number;
+  defaultWatts: number;
+  estCoinsPerUnitPerDay: number;
+  defaultPrice: number;
+}
 
-  const dailyPowerKwh = (powerWatts * 24) / 1000;
-  const dailyElectricityCost = dailyPowerKwh * kwhCost;
-  const estDailyRevenue = (hashrate * 0.045); // Benchmark estimated crypto reward
-  const netDailyProfit = estDailyRevenue - dailyElectricityCost;
+const MINING_COINS: MiningCoinPreset[] = [
+  { id: 'btc', name: 'Bitcoin', ticker: 'BTC', algorithm: 'SHA-256', unit: 'TH/s', defaultHashrate: 200, defaultWatts: 3500, estCoinsPerUnitPerDay: 0.00000072, defaultPrice: 94000 },
+  { id: 'etc', name: 'Ethereum Classic', ticker: 'ETC', algorithm: 'Etchash', unit: 'MH/s', defaultHashrate: 130, defaultWatts: 280, estCoinsPerUnitPerDay: 0.0019, defaultPrice: 28 },
+  { id: 'kas', name: 'Kaspa', ticker: 'KAS', algorithm: 'kHeavyHash', unit: 'GH/s', defaultHashrate: 2000, defaultWatts: 1400, estCoinsPerUnitPerDay: 0.045, defaultPrice: 0.16 },
+  { id: 'rvn', name: 'Ravencoin', ticker: 'RVN', algorithm: 'KAWPOW', unit: 'MH/s', defaultHashrate: 60, defaultWatts: 250, estCoinsPerUnitPerDay: 0.85, defaultPrice: 0.024 },
+  { id: 'xmr', name: 'Monero', ticker: 'XMR', algorithm: 'RandomX', unit: 'KH/s', defaultHashrate: 24, defaultWatts: 170, estCoinsPerUnitPerDay: 0.00055, defaultPrice: 175 },
+  { id: 'ltc', name: 'Litecoin + Doge', ticker: 'LTC', algorithm: 'Scrypt', unit: 'GH/s', defaultHashrate: 9.05, defaultWatts: 3260, estCoinsPerUnitPerDay: 0.042, defaultPrice: 98 },
+];
+
+const CryptoMiningCalcView: React.FC = () => {
+  const [selectedCoinId, setSelectedCoinId] = useState<string>('btc');
+  const [hashrate, setHashrate] = useState<number | string>(200);
+  const [powerWatts, setPowerWatts] = useState<number | string>(3500);
+  const [kwhCost, setKwhCost] = useState<number | string>(0.10);
+  const [coinPrice, setCoinPrice] = useState<number | string>(94000);
+  const [poolFeePercent, setPoolFeePercent] = useState<number | string>(1.5);
+  const [hardwareCost, setHardwareCost] = useState<number | string>(4200);
+
+  const selectedCoin = MINING_COINS.find(c => c.id === selectedCoinId) || MINING_COINS[0];
+
+  const handleSelectCoin = (c: MiningCoinPreset) => {
+    sounds.playClick();
+    setSelectedCoinId(c.id);
+    setHashrate(c.defaultHashrate);
+    setPowerWatts(c.defaultWatts);
+    setCoinPrice(c.defaultPrice);
+  };
+
+  const parsedHash = typeof hashrate === 'number' ? hashrate : parseFloat(hashrate) || 0;
+  const parsedWatts = typeof powerWatts === 'number' ? powerWatts : parseFloat(powerWatts) || 0;
+  const parsedKwhCost = typeof kwhCost === 'number' ? kwhCost : parseFloat(kwhCost) || 0;
+  const parsedPrice = typeof coinPrice === 'number' ? coinPrice : parseFloat(coinPrice) || 0;
+  const parsedPoolFee = typeof poolFeePercent === 'number' ? poolFeePercent : parseFloat(poolFeePercent) || 0;
+  const parsedHwCost = typeof hardwareCost === 'number' ? hardwareCost : parseFloat(hardwareCost) || 0;
+
+  // Power costs
+  const dailyPowerKwh = (parsedWatts * 24) / 1000;
+  const dailyPowerCost = dailyPowerKwh * parsedKwhCost;
+  const monthlyPowerCost = dailyPowerCost * 30.5;
+  const annualPowerCost = dailyPowerCost * 365;
+
+  // Revenue calculation
+  const rawDailyCoins = parsedHash * selectedCoin.estCoinsPerUnitPerDay;
+  const netDailyCoins = rawDailyCoins * (1 - parsedPoolFee / 100);
+  const dailyGrossRev = netDailyCoins * parsedPrice;
+  const monthlyGrossRev = dailyGrossRev * 30.5;
+  const annualGrossRev = dailyGrossRev * 365;
+
+  // Net Profit
+  const dailyNetProfit = dailyGrossRev - dailyPowerCost;
+  const monthlyNetProfit = monthlyGrossRev - monthlyPowerCost;
+  const annualNetProfit = annualGrossRev - annualPowerCost;
+
+  const profitMargin = dailyGrossRev > 0 ? (dailyNetProfit / dailyGrossRev) * 100 : 0;
+  const daysToBreakEven = dailyNetProfit > 0 && parsedHwCost > 0 ? Math.ceil(parsedHwCost / dailyNetProfit) : null;
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Crypto Mining Profitability Calculator</h2>
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Cpu className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Crypto Mining Profitability Calculator
+          </h2>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+          Hardware & ASIC Suite
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Hashrate (MH/s)</label>
-          <input type="number" value={hashrate} onChange={e => setHashrate(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-xl border font-mono text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Power (Watts)</label>
-          <input type="number" value={powerWatts} onChange={e => setPowerWatts(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-xl border font-mono text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Cost ($/kWh)</label>
-          <input type="number" step="0.01" value={kwhCost} onChange={e => setKwhCost(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-xl border font-mono text-sm" />
+      {/* Coin Selector Chips */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Select Cryptocurrency & Algorithm</label>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {MINING_COINS.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => handleSelectCoin(c)}
+              className={`p-2 rounded-xl text-center border transition-all cursor-pointer ${
+                selectedCoinId === c.id
+                  ? 'bg-indigo-600 text-white border-transparent shadow-xs font-bold'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+              }`}
+            >
+              <div className="text-xs font-extrabold">{c.ticker}</div>
+              <div className="text-[9px] opacity-75">{c.unit}</div>
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* Input Parameters with Auto-Vanish Default on Focus */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <ResultCard label="Daily Power Cost" value={`$${dailyElectricityCost.toFixed(2)}`} />
-        <ResultCard label="Est. Daily Revenue" value={`$${estDailyRevenue.toFixed(2)}`} />
-        <ResultCard label="Net Profit / Day" value={`$${netDailyProfit.toFixed(2)}`} highlight />
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Hashrate ({selectedCoin.unit})
+          </label>
+          <input
+            type="number"
+            value={hashrate}
+            onFocus={() => { if (hashrate === 0 || hashrate === '0') setHashrate(''); }}
+            onBlur={() => { if (hashrate === '') setHashrate(0); }}
+            onChange={e => setHashrate(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Power Draw (Watts)
+          </label>
+          <input
+            type="number"
+            value={powerWatts}
+            onFocus={() => { if (powerWatts === 0 || powerWatts === '0') setPowerWatts(''); }}
+            onBlur={() => { if (powerWatts === '') setPowerWatts(0); }}
+            onChange={e => setPowerWatts(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Electricity ($/kWh)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={kwhCost}
+            onFocus={() => { if (kwhCost === 0 || kwhCost === '0') setKwhCost(''); }}
+            onBlur={() => { if (kwhCost === '') setKwhCost(0); }}
+            onChange={e => setKwhCost(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="0.10"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            {selectedCoin.ticker} Price ($)
+          </label>
+          <input
+            type="number"
+            value={coinPrice}
+            onFocus={() => { if (coinPrice === 0 || coinPrice === '0') setCoinPrice(''); }}
+            onBlur={() => { if (coinPrice === '') setCoinPrice(0); }}
+            onChange={e => setCoinPrice(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Pool Fee (%)
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            value={poolFeePercent}
+            onFocus={() => { if (poolFeePercent === 0 || poolFeePercent === '0') setPoolFeePercent(''); }}
+            onBlur={() => { if (poolFeePercent === '') setPoolFeePercent(0); }}
+            onChange={e => setPoolFeePercent(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="1"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Hardware Cost ($)
+          </label>
+          <input
+            type="number"
+            value={hardwareCost}
+            onFocus={() => { if (hardwareCost === 0 || hardwareCost === '0') setHardwareCost(''); }}
+            onBlur={() => { if (hardwareCost === '') setHardwareCost(0); }}
+            onChange={e => setHardwareCost(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-sm font-bold"
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      {/* Main KPI Profit Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <ResultCard
+          label="Net Profit / Day"
+          value={dailyNetProfit >= 0 ? `$${dailyNetProfit.toFixed(2)}` : `-$${Math.abs(dailyNetProfit).toFixed(2)}`}
+          highlight={dailyNetProfit > 0}
+          subtext={profitMargin > 0 ? `${profitMargin.toFixed(1)}% margin` : 'Loss'}
+        />
+        <ResultCard
+          label="Net Profit / Month"
+          value={monthlyNetProfit >= 0 ? `$${monthlyNetProfit.toFixed(2)}` : `-$${Math.abs(monthlyNetProfit).toFixed(2)}`}
+          subtext={`Electricity: $${monthlyPowerCost.toFixed(2)}`}
+        />
+        <ResultCard
+          label="Hardware Payback (ROI)"
+          value={daysToBreakEven ? `${daysToBreakEven} Days` : dailyNetProfit <= 0 ? 'Unprofitable' : 'Instant'}
+          subtext={daysToBreakEven ? `~${(daysToBreakEven / 30.5).toFixed(1)} months` : undefined}
+        />
+      </div>
+
+      {/* Profit & Loss Matrix Table */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Financial Statement Summary
+        </div>
+        <div className="grid grid-cols-4 font-semibold text-zinc-400 text-[10px]">
+          <span>Period</span>
+          <span className="text-right">Gross Rev</span>
+          <span className="text-right">Power Cost</span>
+          <span className="text-right">Net Profit</span>
+        </div>
+        <div className="grid grid-cols-4 font-mono items-center py-1 border-b border-zinc-100 dark:border-zinc-800">
+          <span className="font-bold text-zinc-700 dark:text-zinc-300">Daily</span>
+          <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold">${dailyGrossRev.toFixed(2)}</span>
+          <span className="text-right text-rose-500">-${dailyPowerCost.toFixed(2)}</span>
+          <span className={`text-right font-black ${dailyNetProfit >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600'}`}>
+            ${dailyNetProfit.toFixed(2)}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 font-mono items-center py-1 border-b border-zinc-100 dark:border-zinc-800">
+          <span className="font-bold text-zinc-700 dark:text-zinc-300">Monthly</span>
+          <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold">${monthlyGrossRev.toFixed(2)}</span>
+          <span className="text-right text-rose-500">-${monthlyPowerCost.toFixed(2)}</span>
+          <span className={`text-right font-black ${monthlyNetProfit >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600'}`}>
+            ${monthlyNetProfit.toFixed(2)}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 font-mono items-center py-1">
+          <span className="font-bold text-zinc-700 dark:text-zinc-300">Annual</span>
+          <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold">${annualGrossRev.toFixed(2)}</span>
+          <span className="text-right text-rose-500">-${annualPowerCost.toFixed(2)}</span>
+          <span className={`text-right font-black ${annualNetProfit >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600'}`}>
+            ${annualNetProfit.toFixed(2)}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1880,36 +2149,227 @@ const CarLeaseBuyCalcView: React.FC = () => {
   );
 };
 
-// 13. GCD & LCM Calculator
-const GcdLcmCalcView: React.FC = () => {
-  const [n1, setN1] = useState(48);
-  const [n2, setN2] = useState(180);
+// 13. Perfect GCD & LCM Mathematical Solver
+interface PrimeFactorMap {
+  [factor: number]: number;
+}
 
-  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-  const g = gcd(Math.abs(n1) || 1, Math.abs(n2) || 1);
-  const lcm = (Math.abs(n1 * n2)) / g;
+const getPrimeFactors = (n: number): PrimeFactorMap => {
+  const factors: PrimeFactorMap = {};
+  let d = 2;
+  let num = Math.abs(n);
+  while (d * d <= num) {
+    while (num % d === 0) {
+      factors[d] = (factors[d] || 0) + 1;
+      num /= d;
+    }
+    d++;
+  }
+  if (num > 1) {
+    factors[num] = (factors[num] || 0) + 1;
+  }
+  return factors;
+};
+
+const formatPrimeFactorization = (factors: PrimeFactorMap): string => {
+  const keys = Object.keys(factors).map(Number).sort((a, b) => a - b);
+  if (keys.length === 0) return '1';
+  return keys
+    .map(k => (factors[k] > 1 ? `${k}^${factors[k]}` : `${k}`))
+    .join(' × ');
+};
+
+interface EuclideanStep {
+  dividend: number;
+  divisor: number;
+  quotient: number;
+  remainder: number;
+}
+
+const getEuclideanSteps = (a: number, b: number): EuclideanStep[] => {
+  const steps: EuclideanStep[] = [];
+  let x = Math.max(Math.abs(a), Math.abs(b));
+  let y = Math.min(Math.abs(a), Math.abs(b));
+  if (y === 0) return steps;
+
+  while (y > 0) {
+    const q = Math.floor(x / y);
+    const r = x % y;
+    steps.push({ dividend: x, divisor: y, quotient: q, remainder: r });
+    x = y;
+    y = r;
+  }
+  return steps;
+};
+
+const GcdLcmCalcView: React.FC = () => {
+  const [numInput1, setNumInput1] = useState<number | string>(48);
+  const [numInput2, setNumInput2] = useState<number | string>(180);
+  const [extraNums, setExtraNums] = useState<string>('');
+
+  const n1 = typeof numInput1 === 'number' ? numInput1 : parseInt(numInput1, 10) || 0;
+  const n2 = typeof numInput2 === 'number' ? numInput2 : parseInt(numInput2, 10) || 0;
+
+  // Multi-number support
+  const parsedExtra = extraNums
+    .split(/[\s,]+/)
+    .map(s => parseInt(s.trim(), 10))
+    .filter(n => !isNaN(n) && n > 0);
+
+  const allNumbers = [Math.abs(n1) || 1, Math.abs(n2) || 1, ...parsedExtra];
+
+  // Binary GCD & LCM
+  const gcd2 = (a: number, b: number): number => (b === 0 ? a : gcd2(b, a % b));
+  const lcm2 = (a: number, b: number): number => (a === 0 || b === 0 ? 0 : Math.abs(a * b) / gcd2(a, b));
+
+  // Multi GCD & LCM
+  const multiGcd = allNumbers.reduce((acc, curr) => gcd2(acc, curr), allNumbers[0]);
+  const multiLcm = allNumbers.reduce((acc, curr) => lcm2(acc, curr), allNumbers[0]);
+
+  const areCoprime = multiGcd === 1;
+
+  // Euclidean steps for the first 2 numbers
+  const euclideanSteps = getEuclideanSteps(Math.abs(n1) || 1, Math.abs(n2) || 1);
+
+  // Prime factorizations
+  const prime1 = getPrimeFactors(Math.abs(n1) || 1);
+  const prime2 = getPrimeFactors(Math.abs(n2) || 1);
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">GCD & LCM Mathematical Solver</h2>
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Hash className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            GCD & LCM Mathematical Solver
+          </h2>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+          Euclidean Engine
+        </span>
       </div>
 
+      {/* Quick Presets */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-zinc-400 font-semibold text-[11px]">Presets:</span>
+        {[
+          { label: '48 & 180', a: 48, b: 180, extra: '' },
+          { label: '24 & 36', a: 24, b: 36, extra: '' },
+          { label: '105 & 252', a: 105, b: 252, extra: '' },
+          { label: '12, 18, 30', a: 12, b: 18, extra: '30' },
+          { label: 'Coprimes: 17 & 31', a: 17, b: 31, extra: '' },
+        ].map((p, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setNumInput1(p.a);
+              setNumInput2(p.b);
+              setExtraNums(p.extra);
+            }}
+            className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-xs cursor-pointer transition-colors"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Primary Number Inputs with Auto-Vanish Default on Focus */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Number 1</label>
-          <input type="number" value={n1} onChange={e => setN1(parseInt(e.target.value) || 0)} className="w-full p-3 rounded-2xl border font-mono text-base font-bold" />
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Number A</label>
+          <input
+            type="number"
+            value={numInput1}
+            onFocus={() => { if (numInput1 === 0 || numInput1 === '0' || numInput1 === 48) setNumInput1(''); }}
+            onBlur={() => { if (numInput1 === '') setNumInput1(0); }}
+            onChange={e => setNumInput1(e.target.value)}
+            className="w-full p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-base font-bold"
+            placeholder="0"
+          />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Number 2</label>
-          <input type="number" value={n2} onChange={e => setN2(parseInt(e.target.value) || 0)} className="w-full p-3 rounded-2xl border font-mono text-base font-bold" />
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Number B</label>
+          <input
+            type="number"
+            value={numInput2}
+            onFocus={() => { if (numInput2 === 0 || numInput2 === '0' || numInput2 === 180) setNumInput2(''); }}
+            onBlur={() => { if (numInput2 === '') setNumInput2(0); }}
+            onChange={e => setNumInput2(e.target.value)}
+            className="w-full p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-base font-bold"
+            placeholder="0"
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <ResultCard label="Greatest Common Divisor (GCD)" value={String(g)} highlight />
-        <ResultCard label="Least Common Multiple (LCM)" value={String(lcm)} />
+      {/* Additional Numbers for Multi-Number GCD / LCM */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-500 mb-1">
+          Optional Additional Numbers (comma or space separated)
+        </label>
+        <input
+          type="text"
+          value={extraNums}
+          onChange={e => setExtraNums(e.target.value)}
+          placeholder="e.g. 240, 360"
+          className="w-full p-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-xs"
+        />
       </div>
+
+      {/* Main Results Display */}
+      <div className="grid grid-cols-2 gap-3">
+        <ResultCard
+          label="Greatest Common Divisor (GCD)"
+          value={String(multiGcd)}
+          highlight
+          subtext={areCoprime ? '✨ Relatively Prime (Coprime)' : `Highest factor dividing all ${allNumbers.length} numbers`}
+        />
+        <ResultCard
+          label="Least Common Multiple (LCM)"
+          value={String(multiLcm)}
+          subtext={`Smallest positive multiple of all ${allNumbers.length} numbers`}
+        />
+      </div>
+
+      {/* Prime Factorization Breakdown */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Prime Factorization Decomposition
+        </div>
+        <div className="space-y-1.5 font-mono">
+          <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
+            <span>{Math.abs(n1)}:</span>
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatPrimeFactorization(prime1)}</span>
+          </div>
+          <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
+            <span>{Math.abs(n2)}:</span>
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatPrimeFactorization(prime2)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Step-by-Step Euclidean Algorithm Table */}
+      {euclideanSteps.length > 0 && (
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+          <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+            Euclidean Algorithm Derivation Steps
+          </div>
+          <div className="space-y-1 font-mono text-zinc-600 dark:text-zinc-400">
+            {euclideanSteps.map((s, idx) => (
+              <div key={idx} className="flex items-center justify-between p-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60">
+                <span>Step {idx + 1}:</span>
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                  {s.dividend} = {s.divisor} × {s.quotient} + <strong className="text-indigo-600 dark:text-indigo-400">{s.remainder}</strong>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-zinc-500 pt-1">
+            Last non-zero remainder = <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{gcd2(Math.abs(n1) || 1, Math.abs(n2) || 1)}</strong> (GCD of A & B).
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1936,7 +2396,15 @@ const BinaryHexConverterView: React.FC = () => {
 
       <div>
         <label className="block text-xs font-semibold text-zinc-500 mb-1">Decimal (Base 10)</label>
-        <input type="number" value={dec} onChange={e => setDec(e.target.value)} className="w-full p-3 rounded-2xl border font-mono text-lg font-bold" />
+        <input
+          type="number"
+          value={dec}
+          onFocus={() => { if (dec === '0' || dec === '255') setDec(''); }}
+          onBlur={() => { if (dec === '') setDec('0'); }}
+          onChange={e => setDec(e.target.value)}
+          className="w-full p-3 rounded-2xl border font-mono text-lg font-bold"
+          placeholder="0"
+        />
       </div>
 
       <div className="space-y-2 font-mono text-sm">
@@ -1948,34 +2416,305 @@ const BinaryHexConverterView: React.FC = () => {
   );
 };
 
-// 16. Matrix Math Operator (2x2)
+// 16. Perfect 2x2 Matrix Operator
 const MatrixOperatorView: React.FC = () => {
-  const [a, setA] = useState(4);
-  const [b, setB] = useState(7);
-  const [c, setC] = useState(2);
-  const [d, setD] = useState(6);
+  const [valA, setValA] = useState<number | string>(4);
+  const [valB, setValB] = useState<number | string>(7);
+  const [valC, setValC] = useState<number | string>(2);
+  const [valD, setValD] = useState<number | string>(6);
 
+  // Linear system vector [e, f]
+  const [valE, setValE] = useState<number | string>(18);
+  const [valF, setValF] = useState<number | string>(14);
+
+  const a = typeof valA === 'number' ? valA : parseFloat(valA) || 0;
+  const b = typeof valB === 'number' ? valB : parseFloat(valB) || 0;
+  const c = typeof valC === 'number' ? valC : parseFloat(valC) || 0;
+  const d = typeof valD === 'number' ? valD : parseFloat(valD) || 0;
+  const e = typeof valE === 'number' ? valE : parseFloat(valE) || 0;
+  const f = typeof valF === 'number' ? valF : parseFloat(valF) || 0;
+
+  // 1. Determinant: ad - bc
   const determinant = a * d - b * c;
+  const isSingular = Math.abs(determinant) < 1e-12;
+
+  // 2. Trace: a + d
   const trace = a + d;
+
+  // 3. Inverse: 1/det * [d, -b; -c, a]
+  const invA = isSingular ? null : d / determinant;
+  const invB = isSingular ? null : -b / determinant;
+  const invC = isSingular ? null : -c / determinant;
+  const invD = isSingular ? null : a / determinant;
+
+  // 4. Matrix Square: A^2 = [a^2 + bc, b(a+d); c(a+d), bc + d^2]
+  const sqA = a * a + b * c;
+  const sqB = a * b + b * d;
+  const sqC = c * a + d * c;
+  const sqD = c * b + d * d;
+
+  // 5. Eigenvalues: lambda^2 - tr*lambda + det = 0
+  // D = tr^2 - 4*det
+  const disc = trace * trace - 4 * determinant;
+  let eigenvalue1Text = '';
+  let eigenvalue2Text = '';
+  if (disc >= 0) {
+    const l1 = (trace + Math.sqrt(disc)) / 2;
+    const l2 = (trace - Math.sqrt(disc)) / 2;
+    eigenvalue1Text = l1.toFixed(3).replace(/\.?0+$/, '');
+    eigenvalue2Text = l2.toFixed(3).replace(/\.?0+$/, '');
+  } else {
+    const realPart = (trace / 2).toFixed(2);
+    const imagPart = (Math.sqrt(-disc) / 2).toFixed(2);
+    eigenvalue1Text = `${realPart} + ${imagPart}i`;
+    eigenvalue2Text = `${realPart} - ${imagPart}i`;
+  }
+
+  // 6. System of linear equations Ax = b
+  let sysX: string | null = null;
+  let sysY: string | null = null;
+  if (!isSingular) {
+    // Cramer's rule: detX = ed - bf, detY = af - ce
+    const detX = e * d - b * f;
+    const detY = a * f - c * e;
+    sysX = (detX / determinant).toFixed(3).replace(/\.?0+$/, '');
+    sysY = (detY / determinant).toFixed(3).replace(/\.?0+$/, '');
+  }
+
+  // Preset Matrices
+  const applyPreset = (pa: number, pb: number, pc: number, pd: number) => {
+    sounds.playClick();
+    setValA(pa);
+    setValB(pb);
+    setValC(pc);
+    setValD(pd);
+  };
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">2x2 Matrix Operator</h2>
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Grid3X3 className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            2x2 Matrix Operator
+          </h2>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+          Linear Algebra
+        </span>
       </div>
 
-      <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-center">
-        <div className="grid grid-cols-2 gap-3 w-48 font-mono">
-          <input type="number" value={a} onChange={e => setA(parseFloat(e.target.value) || 0)} className="p-3 text-center border rounded-xl font-bold" />
-          <input type="number" value={b} onChange={e => setB(parseFloat(e.target.value) || 0)} className="p-3 text-center border rounded-xl font-bold" />
-          <input type="number" value={c} onChange={e => setC(parseFloat(e.target.value) || 0)} className="p-3 text-center border rounded-xl font-bold" />
-          <input type="number" value={d} onChange={e => setD(parseFloat(e.target.value) || 0)} className="p-3 text-center border rounded-xl font-bold" />
+      {/* Preset Chips */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-zinc-400 font-semibold text-[11px]">Presets:</span>
+        <button
+          type="button"
+          onClick={() => applyPreset(1, 0, 0, 1)}
+          className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-xs cursor-pointer"
+        >
+          Identity I₂
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset(4, 7, 2, 6)}
+          className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-xs cursor-pointer"
+        >
+          Standard [4,7; 2,6]
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset(1, 2, 2, 4)}
+          className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-xs cursor-pointer"
+        >
+          Singular (Det=0)
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset(0, -1, 1, 0)}
+          className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-xs cursor-pointer"
+        >
+          90° Rotation
+        </button>
+      </div>
+
+      {/* Matrix Input Grid with Visual Brackets */}
+      <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col items-center justify-center space-y-3">
+        <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Matrix A (2 × 2)</div>
+        <div className="flex items-center gap-2">
+          <span className="text-5xl font-light text-zinc-300 dark:text-zinc-700">[</span>
+          <div className="grid grid-cols-2 gap-2.5 w-44 font-mono">
+            <input
+              type="number"
+              value={valA}
+              onFocus={() => { if (valA === 0 || valA === '0') setValA(''); }}
+              onBlur={() => { if (valA === '') setValA(0); }}
+              onChange={e => setValA(e.target.value)}
+              className="p-3 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-bold text-base"
+              placeholder="a"
+            />
+            <input
+              type="number"
+              value={valB}
+              onFocus={() => { if (valB === 0 || valB === '0') setValB(''); }}
+              onBlur={() => { if (valB === '') setValB(0); }}
+              onChange={e => setValB(e.target.value)}
+              className="p-3 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-bold text-base"
+              placeholder="b"
+            />
+            <input
+              type="number"
+              value={valC}
+              onFocus={() => { if (valC === 0 || valC === '0') setValC(''); }}
+              onBlur={() => { if (valC === '') setValC(0); }}
+              onChange={e => setValC(e.target.value)}
+              className="p-3 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-bold text-base"
+              placeholder="c"
+            />
+            <input
+              type="number"
+              value={valD}
+              onFocus={() => { if (valD === 0 || valD === '0') setValD(''); }}
+              onBlur={() => { if (valD === '') setValD(0); }}
+              onChange={e => setValD(e.target.value)}
+              className="p-3 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-bold text-base"
+              placeholder="d"
+            />
+          </div>
+          <span className="text-5xl font-light text-zinc-300 dark:text-zinc-700">]</span>
         </div>
       </div>
 
+      {/* KPI Cards: Determinant & Trace */}
       <div className="grid grid-cols-2 gap-3">
-        <ResultCard label="Determinant |A|" value={String(determinant)} highlight />
-        <ResultCard label="Trace tr(A)" value={String(trace)} />
+        <ResultCard
+          label="Determinant det(A)"
+          value={String(determinant)}
+          highlight={!isSingular}
+          subtext={`Formula: (${a}×${d}) - (${b}×${c})`}
+        />
+        <ResultCard
+          label="Trace tr(A)"
+          value={String(trace)}
+          subtext={`Sum of main diagonal: ${a} + ${d}`}
+        />
+      </div>
+
+      {/* Inverse Matrix & Transpose */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Inverse Matrix A^-1 */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+          <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px]">
+            Inverse Matrix A⁻¹
+          </div>
+          {isSingular ? (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-semibold text-center">
+              Singular Matrix (det = 0). Inverse does not exist.
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 font-mono text-center space-y-1">
+              <div className="text-[10px] text-zinc-400">1 / {determinant} × [{d}, {-b}; {-c}, {a}]</div>
+              <div className="grid grid-cols-2 gap-1 font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                <span>{invA?.toFixed(2)}</span>
+                <span>{invB?.toFixed(2)}</span>
+                <span>{invC?.toFixed(2)}</span>
+                <span>{invD?.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Transpose Matrix A^T */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+          <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px]">
+            Transpose Aᵀ & Squared A²
+          </div>
+          <div className="grid grid-cols-2 gap-2 font-mono">
+            <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 text-center">
+              <div className="text-[10px] text-zinc-400 mb-0.5">Aᵀ</div>
+              <div className="grid grid-cols-2 gap-0.5 font-bold text-zinc-800 dark:text-zinc-200 text-xs">
+                <span>{a}</span><span>{c}</span>
+                <span>{b}</span><span>{d}</span>
+              </div>
+            </div>
+            <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 text-center">
+              <div className="text-[10px] text-zinc-400 mb-0.5">A²</div>
+              <div className="grid grid-cols-2 gap-0.5 font-bold text-zinc-800 dark:text-zinc-200 text-xs">
+                <span>{sqA}</span><span>{sqB}</span>
+                <span>{sqC}</span><span>{sqD}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Eigenvalues & Characteristic Polynomial */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Characteristic Polynomial & Eigenvalues
+        </div>
+        <div className="font-mono text-zinc-700 dark:text-zinc-300">
+          λ² - ({trace})λ + ({determinant}) = 0
+        </div>
+        <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60">
+            <span className="text-zinc-400 text-[10px] block">λ₁:</span>
+            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{eigenvalue1Text}</span>
+          </div>
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60">
+            <span className="text-zinc-400 text-[10px] block">λ₂:</span>
+            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{eigenvalue2Text}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Linear System Solver: Ax = b */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Solve 2×2 Linear System: A · [x, y]ᵀ = [e, f]ᵀ
+        </div>
+        <div className="grid grid-cols-2 gap-3 items-center">
+          <div>
+            <label className="text-[10px] font-bold text-zinc-400 block mb-0.5">Vector Constant e:</label>
+            <input
+              type="number"
+              value={valE}
+              onFocus={() => { if (valE === 0 || valE === '0') setValE(''); }}
+              onBlur={() => { if (valE === '') setValE(0); }}
+              onChange={e => setValE(e.target.value)}
+              className="w-full p-2 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-mono text-xs font-bold"
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-zinc-400 block mb-0.5">Vector Constant f:</label>
+            <input
+              type="number"
+              value={valF}
+              onFocus={() => { if (valF === 0 || valF === '0') setValF(''); }}
+              onBlur={() => { if (valF === '') setValF(0); }}
+              onChange={e => setValF(e.target.value)}
+              className="w-full p-2 text-center rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-mono text-xs font-bold"
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        {isSingular ? (
+          <div className="text-amber-600 dark:text-amber-400 font-semibold text-center">
+            System has no unique solution (matrix is singular).
+          </div>
+        ) : (
+          <div className="flex items-center justify-around p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 font-mono">
+            <div>
+              <span className="text-zinc-500 text-[10px]">Solution x: </span>
+              <strong className="text-indigo-600 dark:text-indigo-400 text-sm">{sysX}</strong>
+            </div>
+            <div>
+              <span className="text-zinc-500 text-[10px]">Solution y: </span>
+              <strong className="text-indigo-600 dark:text-indigo-400 text-sm">{sysY}</strong>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2040,27 +2779,183 @@ const HiitTimerView: React.FC = () => {
   );
 };
 
-// 18. Leap Year Verifier
+// 18. Perfect Leap Year Calendar Verifier
 const LeapYearCheckerView: React.FC = () => {
-  const [year, setYear] = useState(2028);
+  const [yearInput, setYearInput] = useState<number | string>(2028);
 
-  const isLeapYear = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-  const isLeap = isLeapYear(year);
+  const year = typeof yearInput === 'number' ? yearInput : parseInt(yearInput, 10) || 2024;
+
+  // 3-Stage Gregorian verification test
+  const divBy4 = year % 4 === 0;
+  const divBy100 = year % 100 === 0;
+  const divBy400 = year % 400 === 0;
+
+  // Rule: (divBy4 && !divBy100) || divBy400
+  const isLeap = (divBy4 && !divBy100) || divBy400;
+
+  // Day of week for Feb 29 (or Feb 28 if common year)
+  const febDate = new Date(year, 1, isLeap ? 29 : 28);
+  const febDayName = febDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+  // List of upcoming 6 leap years and previous 4 leap years
+  const getNearbyLeapYears = (currentYear: number) => {
+    const list: number[] = [];
+    // Previous 4
+    for (let y = currentYear - 1; list.length < 4 && y > 1582; y--) {
+      if ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) {
+        list.unshift(y);
+      }
+    }
+    // Next 6
+    const nextList: number[] = [];
+    for (let y = currentYear + 1; nextList.length < 6; y++) {
+      if ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) {
+        nextList.push(y);
+      }
+    }
+    return { prev: list, next: nextList };
+  };
+
+  const nearby = getNearbyLeapYears(year);
+
+  // Roman / Century statistics
+  const century = Math.ceil(year / 100);
+  const isCenturyYear = divBy100;
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Leap Year Calendar Verifier</h2>
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Leap Year Calendar Verifier
+          </h2>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+          Gregorian Standard
+        </span>
       </div>
 
+      {/* Year Input with Auto-Vanish Default on Focus */}
       <div>
-        <label className="block text-xs font-semibold text-zinc-500 mb-1">Enter Year</label>
-        <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value) || 2024)} className="w-full p-3 rounded-2xl border font-mono text-xl font-bold" />
+        <label className="block text-xs font-semibold text-zinc-500 mb-1">Enter Calendar Year</label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={yearInput}
+            onFocus={() => { if (yearInput === 0 || yearInput === '0' || yearInput === 2028) setYearInput(''); }}
+            onBlur={() => { if (yearInput === '') setYearInput(2028); }}
+            onChange={e => setYearInput(e.target.value)}
+            className="flex-1 p-3.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono text-2xl font-black text-center"
+            placeholder="e.g. 2028"
+          />
+          <button
+            type="button"
+            onClick={() => { sounds.playClick(); setYearInput(new Date().getFullYear()); }}
+            className="px-4 py-2 rounded-2xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold cursor-pointer transition-colors shrink-0"
+          >
+            Current Year
+          </button>
+        </div>
       </div>
 
-      <div className={`p-8 rounded-3xl border text-center ${isLeap ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-zinc-50 text-zinc-800 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300'}`}>
-        <div className="text-2xl font-bold">{isLeap ? '✨ LEAP YEAR (366 Days)' : 'COMMON YEAR (365 Days)'}</div>
-        <p className="text-xs opacity-75 mt-1">{isLeap ? 'February has 29 days in this year.' : 'February has standard 28 days.'}</p>
+      {/* Main Verdict Banner */}
+      <div
+        className={`p-6 rounded-3xl border text-center transition-all ${
+          isLeap
+            ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800'
+            : 'bg-zinc-50 text-zinc-800 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:border-zinc-800'
+        }`}
+      >
+        <div className="text-xs uppercase tracking-widest font-bold opacity-75 mb-1">
+          {year} Calendar Analysis
+        </div>
+        <div className="text-3xl font-black mb-1">
+          {isLeap ? '✨ LEAP YEAR (366 Days)' : 'COMMON YEAR (365 Days)'}
+        </div>
+        <p className="text-xs font-medium opacity-80">
+          {isLeap
+            ? `February has 29 days in ${year} (fell / will fall on a ${febDayName}).`
+            : `February has 28 days in ${year}.`}
+        </p>
+      </div>
+
+      {/* 3-Tier Gregorian Logic Breakdown Flowchart */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2.5 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Gregorian 3-Tier Mathematical Rules Breakdown
+        </div>
+        <div className="space-y-2 font-mono">
+          {/* Rule 1: /4 */}
+          <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60">
+            <div>
+              <span className="font-bold text-zinc-800 dark:text-zinc-200">1. Divisible by 4?</span>
+              <span className="text-zinc-400 text-[10px] block">({year} ÷ 4 = {(year / 4).toFixed(2)})</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${divBy4 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
+              {divBy4 ? 'YES (Remainder 0)' : 'NO'}
+            </span>
+          </div>
+
+          {/* Rule 2: /100 */}
+          <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60">
+            <div>
+              <span className="font-bold text-zinc-800 dark:text-zinc-200">2. Divisible by 100 (Centurial Year)?</span>
+              <span className="text-zinc-400 text-[10px] block">({year} ÷ 100 = {(year / 100).toFixed(2)})</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${divBy100 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+              {divBy100 ? 'YES (Century Exception)' : 'NO (Regular Year)'}
+            </span>
+          </div>
+
+          {/* Rule 3: /400 */}
+          <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60">
+            <div>
+              <span className="font-bold text-zinc-800 dark:text-zinc-200">3. Divisible by 400 (Quadricentennial)?</span>
+              <span className="text-zinc-400 text-[10px] block">({year} ÷ 400 = {(year / 400).toFixed(2)})</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${divBy400 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+              {divBy400 ? 'YES (Leap century like 2000)' : isCenturyYear ? 'NO (Common century like 1900, 2100)' : 'N/A'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Adjacent Leap Years Explorer */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2 text-xs">
+        <div className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] pb-1 border-b border-zinc-100 dark:border-zinc-800">
+          Adjacent Leap Years Explorer
+        </div>
+        <div>
+          <span className="text-zinc-400 font-semibold text-[10px] block mb-1">Previous Leap Years:</span>
+          <div className="flex flex-wrap gap-1.5 font-mono">
+            {nearby.prev.map(py => (
+              <button
+                key={py}
+                type="button"
+                onClick={() => { sounds.playClick(); setYearInput(py); }}
+                className="px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 text-xs font-bold cursor-pointer"
+              >
+                {py}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="pt-1">
+          <span className="text-zinc-400 font-semibold text-[10px] block mb-1">Upcoming Leap Years:</span>
+          <div className="flex flex-wrap gap-1.5 font-mono">
+            {nearby.next.map(ny => (
+              <button
+                key={ny}
+                type="button"
+                onClick={() => { sounds.playClick(); setYearInput(ny); }}
+                className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-bold cursor-pointer"
+              >
+                {ny}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
