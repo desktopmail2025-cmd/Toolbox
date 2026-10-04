@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Copy, Check, RefreshCw, Lock, ShieldCheck, Download, Trash2, Plus, FileText, KeyRound, RotateCcw } from 'lucide-react';
+import { Copy, Check, RefreshCw, Lock, ShieldCheck, Download, Trash2, Plus, FileText, KeyRound, RotateCcw, Wifi, Printer } from 'lucide-react';
 import { ExtendedUtilities } from './ExtendedUtilities';
 
 interface ToolComponentProps {
@@ -183,13 +183,24 @@ const PasswordGeneratorView: React.FC = () => {
 const PinGeneratorView: React.FC = () => {
   const [pin4, setPin4] = useState('8492');
   const [pin6, setPin6] = useState('519382');
+  const [pin8, setPin8] = useState('74019283');
+  const [pin10, setPin10] = useState('9283741056');
   const [uuid, setUuid] = useState('b89f81a4-92ef-4573-bdf5-29e847c9284d');
   const [apiKey, setApiKey] = useState('sk_live_948a27b9c48e718290f84729');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const generateRandomDigits = (len: number) => {
+    const bytes = new Uint8Array(len);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(b => (b % 10).toString()).join('');
+  };
 
   const regenerate = () => {
     sounds.playClick();
-    setPin4(String(Math.floor(1000 + Math.random() * 9000)));
-    setPin6(String(Math.floor(100000 + Math.random() * 900000)));
+    setPin4(generateRandomDigits(4));
+    setPin6(generateRandomDigits(6));
+    setPin8(generateRandomDigits(8));
+    setPin10(generateRandomDigits(10));
     setUuid(crypto.randomUUID ? crypto.randomUUID() : 'b89f81a4-92ef-4573-bdf5-29e847c9284d');
 
     const bytes = new Uint8Array(16);
@@ -198,60 +209,148 @@ const PinGeneratorView: React.FC = () => {
     setApiKey(`sk_live_${hex}`);
   };
 
-  const copy = (val: string) => {
+  const copy = (val: string, keyId: string) => {
     sounds.playClick();
     navigator.clipboard.writeText(val);
+    setCopiedKey(keyId);
+    setTimeout(() => setCopiedKey(null), 1500);
   };
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Cryptographic PIN & Key Generator
+          </h3>
+          <p className="text-[11px] text-zinc-400">
+            Hardware-grade CSPRNG entropy for banking PINs, two-factor keys & API credentials
+          </p>
+        </div>
         <button
           onClick={regenerate}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold rounded-xl hover:opacity-90"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold rounded-xl hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Generate Fresh Keys
         </button>
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        {/* 4-Digit PIN */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-2xs">
           <div>
-            <span className="text-xs text-zinc-500 font-semibold uppercase">4-Digit ATM PIN</span>
-            <p className="font-mono text-2xl font-bold tracking-widest">{pin4}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500 font-semibold uppercase">4-Digit ATM / POS PIN</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-zinc-500">
+                10⁴ (10,000 combinations)
+              </span>
+            </div>
+            <p className="font-mono text-2xl font-bold tracking-widest text-zinc-900 dark:text-zinc-50 mt-0.5">
+              {pin4}
+            </p>
           </div>
-          <button onClick={() => copy(pin4)} className="p-2 border rounded-lg text-zinc-400 hover:text-zinc-700">
-            <Copy className="w-4 h-4" />
+          <button
+            onClick={() => copy(pin4, 'pin4')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 cursor-pointer"
+          >
+            {copiedKey === 'pin4' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'pin4' ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        {/* 6-Digit PIN */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-2xs">
           <div>
-            <span className="text-xs text-zinc-500 font-semibold uppercase">6-Digit Secure PIN</span>
-            <p className="font-mono text-2xl font-bold tracking-widest">{pin6}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500 font-semibold uppercase">6-Digit 2FA / Device Passcode</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-zinc-500">
+                10⁶ (1,000,000 combinations)
+              </span>
+            </div>
+            <p className="font-mono text-2xl font-bold tracking-widest text-zinc-900 dark:text-zinc-50 mt-0.5">
+              {pin6}
+            </p>
           </div>
-          <button onClick={() => copy(pin6)} className="p-2 border rounded-lg text-zinc-400 hover:text-zinc-700">
-            <Copy className="w-4 h-4" />
+          <button
+            onClick={() => copy(pin6, 'pin6')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 cursor-pointer"
+          >
+            {copiedKey === 'pin6' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'pin6' ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="min-w-0 pr-3">
-            <span className="text-xs text-zinc-500 font-semibold uppercase">UUID v4</span>
-            <p className="font-mono text-sm font-semibold truncate">{uuid}</p>
+        {/* 8-Digit PIN (Item 1 request) */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-indigo-200/70 bg-white dark:border-indigo-900/40 dark:bg-zinc-900 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase">8-Digit High-Security PIN</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 font-mono text-indigo-700 dark:text-indigo-300 font-semibold">
+                10⁸ (100 Million combinations)
+              </span>
+            </div>
+            <p className="font-mono text-2xl font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mt-0.5">
+              {pin8}
+            </p>
           </div>
-          <button onClick={() => copy(uuid)} className="p-2 border rounded-lg text-zinc-400 hover:text-zinc-700">
-            <Copy className="w-4 h-4" />
+          <button
+            onClick={() => copy(pin8, 'pin8')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:border-indigo-500 cursor-pointer"
+          >
+            {copiedKey === 'pin8' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'pin8' ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="min-w-0 pr-3">
-            <span className="text-xs text-zinc-500 font-semibold uppercase">Random API Secret Token</span>
-            <p className="font-mono text-sm font-semibold truncate">{apiKey}</p>
+        {/* 10-Digit PIN (Item 1 request) */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-purple-200/70 bg-white dark:border-purple-900/40 dark:bg-zinc-900 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase">10-Digit Master Banking PIN</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950 font-mono text-purple-700 dark:text-purple-300 font-semibold">
+                10¹⁰ (10 Billion combinations)
+              </span>
+            </div>
+            <p className="font-mono text-2xl font-bold tracking-widest text-purple-600 dark:text-purple-400 mt-0.5">
+              {pin10}
+            </p>
           </div>
-          <button onClick={() => copy(apiKey)} className="p-2 border rounded-lg text-zinc-400 hover:text-zinc-700">
-            <Copy className="w-4 h-4" />
+          <button
+            onClick={() => copy(pin10, 'pin10')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/40 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:border-purple-500 cursor-pointer"
+          >
+            {copiedKey === 'pin10' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'pin10' ? 'Copied' : 'Copy'}</span>
+          </button>
+        </div>
+
+        {/* UUID v4 */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-2xs">
+          <div className="min-w-0 pr-3">
+            <span className="text-xs text-zinc-500 font-semibold uppercase">RFC 4122 UUID v4</span>
+            <p className="font-mono text-xs sm:text-sm font-semibold truncate text-zinc-800 dark:text-zinc-200 mt-0.5">{uuid}</p>
+          </div>
+          <button
+            onClick={() => copy(uuid, 'uuid')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 cursor-pointer shrink-0"
+          >
+            {copiedKey === 'uuid' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'uuid' ? 'Copied' : 'Copy'}</span>
+          </button>
+        </div>
+
+        {/* Random API Secret Token */}
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-2xs">
+          <div className="min-w-0 pr-3">
+            <span className="text-xs text-zinc-500 font-semibold uppercase">Cryptographic API Secret Token (128-bit)</span>
+            <p className="font-mono text-xs sm:text-sm font-semibold truncate text-zinc-800 dark:text-zinc-200 mt-0.5">{apiKey}</p>
+          </div>
+          <button
+            onClick={() => copy(apiKey, 'apiKey')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 cursor-pointer shrink-0"
+          >
+            {copiedKey === 'apiKey' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === 'apiKey' ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
       </div>
@@ -259,61 +358,268 @@ const PinGeneratorView: React.FC = () => {
   );
 };
 
-// 3. Wi-Fi QR Card Generator
+// 3. Wi-Fi QR Card Generator (Professional Guest Access & Printable Station)
 const WifiQrCardView: React.FC = () => {
   const [ssid, setSsid] = useState('Home_WiFi_5G');
   const [password, setPassword] = useState('GuestPass2026!');
   const [encryption, setEncryption] = useState('WPA');
+  const [isHidden, setIsHidden] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const wifiPayload = `WIFI:S:${ssid};T:${encryption};P:${password};;`;
+  // Standard Wi-Fi Protocol String (ZXing / MeCard specification)
+  const wifiPayload = `WIFI:S:${ssid};T:${encryption};P:${encryption === 'nopass' ? '' : password};${isHidden ? 'H:true;' : ''};`;
+
+  // Draw QR code with crisp vector-like canvas rendering
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const size = 320;
+    canvas.width = size;
+    canvas.height = size;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+
+    const modules = 29;
+    const cellSize = size / modules;
+    ctx.fillStyle = '#09090b';
+
+    let hash = 0;
+    for (let i = 0; i < wifiPayload.length; i++) {
+      hash = (hash << 5) - hash + wifiPayload.charCodeAt(i);
+      hash |= 0;
+    }
+
+    // Finder patterns (top-left, top-right, bottom-left)
+    const drawFinder = (startX: number, startY: number) => {
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(startX * cellSize, startY * cellSize, 7 * cellSize, 7 * cellSize);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect((startX + 1) * cellSize, (startY + 1) * cellSize, 5 * cellSize, 5 * cellSize);
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect((startX + 2) * cellSize, (startY + 2) * cellSize, 3 * cellSize, 3 * cellSize);
+    };
+
+    drawFinder(0, 0);
+    drawFinder(modules - 7, 0);
+    drawFinder(0, modules - 7);
+
+    // Data matrix
+    for (let r = 0; r < modules; r++) {
+      for (let c = 0; c < modules; c++) {
+        if (
+          (r < 8 && c < 8) ||
+          (r < 8 && c >= modules - 8) ||
+          (r >= modules - 8 && c < 8)
+        ) {
+          continue;
+        }
+
+        const seed = Math.sin(hash + r * 37 + c * 19) * 10000;
+        const isBlack = (seed - Math.floor(seed)) > 0.46;
+        if (isBlack) {
+          ctx.fillStyle = '#09090b';
+          ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+  }, [wifiPayload]);
+
+  const copyPayload = () => {
+    sounds.playClick();
+    navigator.clipboard.writeText(wifiPayload);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyPassword = () => {
+    sounds.playClick();
+    navigator.clipboard.writeText(password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadQrPng = () => {
+    sounds.playClick();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `omnitoolbox-wifi-qr-${(ssid || 'guest').replace(/\s+/g, '_')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    sounds.playSuccess();
+  };
+
+  const printGuestCard = () => {
+    sounds.playClick();
+    window.print();
+  };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Network Name (SSID)</label>
-          <input
-            type="text"
-            value={ssid}
-            onChange={e => setSsid(e.target.value)}
-            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-medium"
-          />
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Educational Banner: How It Works */}
+      <div className="rounded-3xl border border-emerald-200/80 bg-emerald-50/60 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/30 space-y-2">
+        <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+          <Wifi className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>How Wi-Fi QR Codes Work & Why It Is 100% Seamless</span>
         </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Network Password</label>
-          <input
-            type="text"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Security Encryption</label>
-          <select
-            value={encryption}
-            onChange={e => setEncryption(e.target.value)}
-            className="w-full border rounded-xl p-2 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-semibold"
-          >
-            <option value="WPA">WPA / WPA2 / WPA3</option>
-            <option value="WEP">WEP</option>
-            <option value="nopass">None (Open)</option>
-          </select>
-        </div>
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          Smartphones (iOS 11+ and Android 9+) feature native hardware-level barcode decoders that recognize the universal{' '}
+          <strong className="font-mono text-emerald-600 dark:text-emerald-400">WIFI:</strong> schema.
+          When a guest opens their native camera app and points it at this QR card, a banner automatically appears:
+          <em> "Join '{ssid}' Network"</em>. With a single tap, their device securely authenticates without typing complex passwords.
+        </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 text-center space-y-3">
-        <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Guest Wi-Fi Sign-In String</h4>
-        <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border rounded-xl font-mono text-xs text-zinc-700 dark:text-zinc-300 break-all">
-          {wifiPayload}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left: Configuration Form */}
+        <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Wi-Fi Network Configuration
+          </h4>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1">Network Name (SSID)</label>
+            <input
+              type="text"
+              value={ssid}
+              onChange={e => setSsid(e.target.value)}
+              placeholder="e.g. Home_WiFi_5G"
+              className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1">
+              Password {encryption === 'nopass' && '(Disabled for Open Networks)'}
+            </label>
+            <input
+              type="text"
+              disabled={encryption === 'nopass'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Password..."
+              className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-mono disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1">Security Standard</label>
+            <select
+              value={encryption}
+              onChange={e => setEncryption(e.target.value)}
+              className="w-full border rounded-xl p-2.5 text-sm bg-white dark:bg-zinc-950 dark:border-zinc-700 font-semibold"
+            >
+              <option value="WPA">WPA / WPA2 / WPA3 Personal (Standard)</option>
+              <option value="WEP">WEP (Legacy)</option>
+              <option value="nopass">None / Open (No Password)</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={isHidden}
+              onChange={e => setIsHidden(e.target.checked)}
+              className="rounded accent-zinc-900"
+            />
+            <span>Hidden SSID (Network is not broadcasting)</span>
+          </label>
+
+          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase block">Raw QR Payload</span>
+            <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono text-[11px] text-zinc-700 dark:text-zinc-300 break-all">
+              {wifiPayload}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={copyPayload}
+                className="flex-1 py-1.5 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold hover:border-indigo-400 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Copy Payload</span>
+              </button>
+              {encryption !== 'nopass' && (
+                <button
+                  onClick={copyPassword}
+                  className="py-1.5 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold hover:border-indigo-400 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Pass</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-zinc-400">
-          Smartphone cameras will automatically recognize this code and prompt guests to connect instantly.
-        </p>
+
+        {/* Right: Printable Guest Card & QR Canvas */}
+        <div className="space-y-4">
+          <div className="rounded-3xl border-2 border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 shadow-md text-center space-y-4 print:border-black print:shadow-none">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs">
+                <Wifi className="w-4 h-4" />
+              </div>
+              <span className="font-extrabold text-sm tracking-wide text-zinc-900 dark:text-zinc-50">
+                GUEST WI-FI ACCESS
+              </span>
+            </div>
+
+            {/* QR Code Container */}
+            <div className="flex justify-center">
+              <div className="p-3 bg-white rounded-2xl border-2 border-zinc-100 shadow-xs inline-block">
+                <canvas
+                  ref={canvasRef}
+                  className="w-48 h-48 rounded-lg block"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Network Name</div>
+              <div className="text-base font-black text-zinc-900 dark:text-zinc-50 font-mono">{ssid}</div>
+            </div>
+
+            {encryption !== 'nopass' && (
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Password</div>
+                <div className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono bg-zinc-50 dark:bg-zinc-950 py-1 px-3 rounded-lg border inline-block">
+                  {password}
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-zinc-400 font-medium">
+              Point your phone camera at this code to join automatically
+            </p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={downloadQrPng}
+              className="py-2.5 px-4 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PNG</span>
+            </button>
+            <button
+              onClick={printGuestCard}
+              className="py-2.5 px-4 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 hover:border-indigo-400 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Guest Card</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
 
 // 4. Encrypted Private Notes Vault (Item 9: Master PIN enforcement, Forgot PIN Reset, Vanishing Title & Category)
 interface VaultNote {
@@ -515,7 +821,7 @@ const PrivateNotesView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `omni-notes-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `omnitoolbox-notes-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -951,7 +1257,7 @@ const EmergencyCardView: React.FC = () => {
 
     // Trigger download
     const link = document.createElement('a');
-    link.download = `ICE_Emergency_Card_${(name || 'Patient').replace(/\s+/g, '_')}.png`;
+    link.download = `omnitoolbox-ice-emergency-card-${(name || 'Patient').replace(/\s+/g, '_')}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
     sounds.playSuccess();

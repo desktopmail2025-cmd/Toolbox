@@ -18,6 +18,13 @@ import { sounds } from './utils/audio';
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
+  const [lastOpenedToolId, setLastOpenedToolId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('omni_last_tool') || null;
+    } catch {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState<string>('categories');
   const [favorites, setFavorites] = useState<string[]>(getStoredFavorites);
   const [recents, setRecents] = useState<string[]>(getStoredRecents);
@@ -141,6 +148,12 @@ export default function App() {
       next.add(tool.categoryId);
       return next;
     });
+    setLastOpenedToolId(tool.id);
+    try {
+      localStorage.setItem('omni_last_tool', tool.id);
+    } catch {
+      // ignore
+    }
     setActiveTool(tool);
     setActiveTab('categories');
     addStoredRecent(tool.id);
@@ -374,10 +387,20 @@ export default function App() {
             onBack={handleBackToOverview}
             isFavorite={favorites.includes(activeTool.id)}
             onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
+            onSelectTool={handleSelectTool}
           />
         ) : (
           <CategoryExplorer
             onSelectTool={handleSelectTool}
+            selectedToolId={lastOpenedToolId}
+            onClearSelectedTool={() => {
+              setLastOpenedToolId(null);
+              try {
+                localStorage.removeItem('omni_last_tool');
+              } catch {
+                // ignore
+              }
+            }}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             recents={recents}

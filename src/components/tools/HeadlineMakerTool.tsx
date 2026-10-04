@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Flame, Tv, Newspaper, Share2, Download, Copy, Check, Sparkles,
   Upload, Image as ImageIcon, Sliders, RefreshCw, Volume2, Globe,
-  ShieldAlert, Clock, MapPin, Eye, Undo, ZoomIn, ZoomOut, AlertCircle
+  ShieldAlert, Clock, MapPin, Eye, Undo, ZoomIn, ZoomOut, AlertCircle, RotateCcw
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -112,6 +112,67 @@ export const HeadlineMakerTool: React.FC = () => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Movable overlay element offsets (Item 3: Moveable with touch or mouse)
+  const [stationOffset, setStationOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [locationOffset, setLocationOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [lowerThirdOffset, setLowerThirdOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [tickerOffset, setTickerOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const dragStartRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
+
+  const resetElementPositions = () => {
+    sounds.playClick();
+    setStationOffset({ x: 0, y: 0 });
+    setLocationOffset({ x: 0, y: 0 });
+    setLowerThirdOffset({ x: 0, y: 0 });
+    setTickerOffset({ x: 0, y: 0 });
+  };
+
+  const handlePointerDown = (id: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveDragId(id);
+    const cur = id === 'station' ? stationOffset
+      : id === 'location' ? locationOffset
+      : id === 'lowerThird' ? lowerThirdOffset
+      : tickerOffset;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: cur.x,
+      initY: cur.y,
+    };
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePointerMove = (id: string, e: React.PointerEvent) => {
+    if (activeDragId !== id || !dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.startX;
+    const dy = e.clientY - dragStartRef.current.startY;
+    const nx = dragStartRef.current.initX + dx;
+    const ny = dragStartRef.current.initY + dy;
+    if (id === 'station') setStationOffset({ x: nx, y: ny });
+    else if (id === 'location') setLocationOffset({ x: nx, y: ny });
+    else if (id === 'lowerThird') setLowerThirdOffset({ x: nx, y: ny });
+    else if (id === 'ticker') setTickerOffset({ x: nx, y: ny });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activeDragId) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      setActiveDragId(null);
+      dragStartRef.current = null;
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -267,35 +328,45 @@ export const HeadlineMakerTool: React.FC = () => {
 
     // Render Template Specific Overlays
     if (template === 'tv-breaking') {
+      const scale = width / (previewContainerRef.current?.clientWidth || 640);
+      const stX = stationOffset.x * scale;
+      const stY = stationOffset.y * scale;
+      const locX = locationOffset.x * scale;
+      const locY = locationOffset.y * scale;
+      const ltX = lowerThirdOffset.x * scale;
+      const ltY = lowerThirdOffset.y * scale;
+      const tkX = tickerOffset.x * scale;
+      const tkY = tickerOffset.y * scale;
+
       // 1. Top Station Bug / Live Stamp
       ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-      ctx.fillRect(50, 40, 240, 50);
+      ctx.fillRect(50 + stX, 40 + stY, 240, 50);
 
       ctx.fillStyle = customBadgeColor;
-      ctx.fillRect(50, 40, 70, 50);
+      ctx.fillRect(50 + stX, 40 + stY, 70, 50);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('LIVE', 85, 72);
+      ctx.fillText('LIVE', 85 + stX, 72 + stY);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(stationName, 135, 72);
+      ctx.fillText(stationName, 135 + stX, 72 + stY);
 
       // Top Right Location Bug
       if (locationTag) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(width - 320, 40, 270, 50);
+        ctx.fillRect(width - 320 + locX, 40 + locY, 270, 50);
         ctx.fillStyle = '#fbbf24';
         ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`📍 ${locationTag}`, width - 185, 72);
+        ctx.fillText(`📍 ${locationTag}`, width - 185 + locX, 72 + locY);
       }
 
       // Lower Third News Block
-      const lowerY = height - 260;
+      const lowerY = height - 260 + ltY;
       const lowerH = 180;
 
       // Dark shadow backdrop
@@ -308,38 +379,38 @@ export const HeadlineMakerTool: React.FC = () => {
 
       // Breaking Badge Box
       ctx.fillStyle = customBadgeColor;
-      ctx.fillRect(50, lowerY, 320, 44);
+      ctx.fillRect(50 + ltX, lowerY, 320, 44);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '900 22px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(badgeText.toUpperCase(), 210, lowerY + 30);
+      ctx.fillText(badgeText.toUpperCase(), 210 + ltX, lowerY + 30);
 
       // Main Headline Bar (Navy / Dark background)
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(50, lowerY + 44, width - 100, 76);
+      ctx.fillRect(50 + ltX, lowerY + 44, width - 100, 76);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '900 36px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(headline.toUpperCase(), 75, lowerY + 96);
+      ctx.fillText(headline.toUpperCase(), 75 + ltX, lowerY + 96);
 
       // Sub-headline Banner
       ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(50, lowerY + 120, width - 100, 44);
+      ctx.fillRect(50 + ltX, lowerY + 120, width - 100, 44);
 
       ctx.fillStyle = '#0f172a';
       ctx.font = '600 20px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(subHeadline, 75, lowerY + 150);
+      ctx.fillText(subHeadline, 75 + ltX, lowerY + 150);
 
       // Bottom News Ticker (Yellow / Gold)
-      const tickerY = height - 60;
+      const tickerY = height - 60 + tkY;
       ctx.fillStyle = '#eab308';
-      ctx.fillRect(0, tickerY, width, 60);
+      ctx.fillRect(0 + tkX, tickerY, width, 60);
 
       ctx.fillStyle = '#09090b';
       ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(tickerText, 50, tickerY + 38);
+      ctx.fillText(tickerText, 50 + tkX, tickerY + 38);
 
     } else if (template === 'newspaper') {
       // Vintage Newspaper Filter
@@ -527,7 +598,7 @@ export const HeadlineMakerTool: React.FC = () => {
       if (!canvas) return;
 
       const link = document.createElement('a');
-      link.download = `headline-${Date.now()}.png`;
+      link.download = `omnitoolbox-headline-news-${Date.now()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       sounds.playSuccess();
@@ -950,11 +1021,21 @@ export const HeadlineMakerTool: React.FC = () => {
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5" />
-                <span>Live Broadcast Preview</span>
+                <span>Live Broadcast Preview (Drag elements to reposition)</span>
               </span>
-              <span className="text-[10px] font-mono font-bold text-zinc-400">
-                Ratio: {aspectRatio}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetElementPositions}
+                  className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 flex items-center gap-1 cursor-pointer"
+                  title="Reset moved elements to default positions"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Layout</span>
+                </button>
+                <span className="text-[10px] font-mono font-bold text-zinc-400">
+                  Ratio: {aspectRatio}
+                </span>
+              </div>
             </div>
 
             {/* The Live Graphic Box */}
@@ -995,8 +1076,17 @@ export const HeadlineMakerTool: React.FC = () => {
               {template === 'tv-breaking' && (
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                   {/* Top Bar: Station Bug & Location */}
-                  <div className="flex items-center justify-between p-3 sm:p-5">
-                    <div className="flex items-center shadow-lg rounded-lg overflow-hidden border border-white/20">
+                  <div className="flex items-center justify-between p-3 sm:p-5 pointer-events-none">
+                    <div
+                      onPointerDown={e => handlePointerDown('station', e)}
+                      onPointerMove={e => handlePointerMove('station', e)}
+                      onPointerUp={handlePointerUp}
+                      style={{
+                        transform: `translate(${stationOffset.x}px, ${stationOffset.y}px)`,
+                      }}
+                      className="flex items-center shadow-lg rounded-lg overflow-hidden border border-white/20 cursor-grab active:cursor-grabbing pointer-events-auto touch-none select-none transition-shadow hover:ring-2 hover:ring-white/40"
+                      title="Drag with touch or mouse to reposition station bug"
+                    >
                       <div
                         style={{ backgroundColor: customBadgeColor }}
                         className="px-2.5 py-1 text-white text-[11px] sm:text-xs font-black tracking-widest flex items-center gap-1.5 animate-pulse"
@@ -1010,7 +1100,16 @@ export const HeadlineMakerTool: React.FC = () => {
                     </div>
 
                     {locationTag && (
-                      <div className="bg-black/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20 text-amber-400 text-[10px] sm:text-xs font-bold tracking-wider shadow-lg flex items-center gap-1">
+                      <div
+                        onPointerDown={e => handlePointerDown('location', e)}
+                        onPointerMove={e => handlePointerMove('location', e)}
+                        onPointerUp={handlePointerUp}
+                        style={{
+                          transform: `translate(${locationOffset.x}px, ${locationOffset.y}px)`,
+                        }}
+                        className="bg-black/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20 text-amber-400 text-[10px] sm:text-xs font-bold tracking-wider shadow-lg flex items-center gap-1 cursor-grab active:cursor-grabbing pointer-events-auto touch-none select-none transition-shadow hover:ring-2 hover:ring-amber-400/50"
+                        title="Drag with touch or mouse to reposition location stamp"
+                      >
                         <MapPin className="w-3 h-3" />
                         <span>{locationTag}</span>
                       </div>
@@ -1018,7 +1117,16 @@ export const HeadlineMakerTool: React.FC = () => {
                   </div>
 
                   {/* Lower Third News Block */}
-                  <div className="space-y-0 shadow-2xl">
+                  <div
+                    onPointerDown={e => handlePointerDown('lowerThird', e)}
+                    onPointerMove={e => handlePointerMove('lowerThird', e)}
+                    onPointerUp={handlePointerUp}
+                    style={{
+                      transform: `translate(${lowerThirdOffset.x}px, ${lowerThirdOffset.y}px)`,
+                    }}
+                    className="space-y-0 shadow-2xl cursor-grab active:cursor-grabbing pointer-events-auto touch-none select-none transition-shadow hover:ring-2 hover:ring-red-500/40"
+                    title="Drag with touch or mouse to reposition lower third headline"
+                  >
                     {/* Dark gradient behind lower third */}
                     <div className="bg-gradient-to-t from-black via-black/90 to-transparent pt-10 px-3 sm:px-6 pb-2">
                       {/* Alert Badge */}
@@ -1048,7 +1156,16 @@ export const HeadlineMakerTool: React.FC = () => {
                     </div>
 
                     {/* Scrolling Ticker Bar */}
-                    <div className="bg-amber-400 text-zinc-950 px-4 py-1.5 flex items-center gap-3 overflow-hidden border-t border-amber-300">
+                    <div
+                      onPointerDown={e => handlePointerDown('ticker', e)}
+                      onPointerMove={e => handlePointerMove('ticker', e)}
+                      onPointerUp={handlePointerUp}
+                      style={{
+                        transform: `translate(${tickerOffset.x}px, ${tickerOffset.y}px)`,
+                      }}
+                      className="bg-amber-400 text-zinc-950 px-4 py-1.5 flex items-center gap-3 overflow-hidden border-t border-amber-300 cursor-grab active:cursor-grabbing pointer-events-auto touch-none select-none hover:ring-2 hover:ring-amber-300"
+                      title="Drag with touch or mouse to reposition news ticker"
+                    >
                       <span className="font-mono text-[10px] sm:text-xs font-black uppercase shrink-0 bg-black text-amber-400 px-1.5 py-0.5 rounded">
                         UPDATE
                       </span>

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CATEGORIES, TOOLS } from '../../data/toolsRegistry';
 import { CategoryId, ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
-import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter } from 'lucide-react';
+import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter, CheckCircle2 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
+  selectedToolId?: string | null;
+  onClearSelectedTool?: () => void;
   favorites: string[];
   onToggleFavorite: (toolId: string) => void;
   recents: string[];
@@ -21,6 +23,8 @@ type SectionFilter = 'all' | 'offline' | 'online';
 
 export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onSelectTool,
+  selectedToolId,
+  onClearSelectedTool,
   favorites,
   onToggleFavorite,
   recents,
@@ -30,6 +34,19 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onCollapseAll,
 }) => {
   const [activeSection, setActiveSection] = useState<SectionFilter>('all');
+
+  // Auto-scroll to selected tool when returning to overview
+  useEffect(() => {
+    if (selectedToolId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`tool-card-${selectedToolId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedToolId]);
 
   const offlineToolsCount = TOOLS.filter(t => !t.isOnline).length;
   const onlineToolsCount = TOOLS.filter(t => t.isOnline).length;
@@ -206,31 +223,45 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
             <span>Recently Opened</span>
           </div>
           <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
-            {recentToolItems.map(tool => (
-              <div
-                key={tool.id}
-                onClick={() => {
-                  sounds.playClick();
-                  onSelectTool(tool);
-                }}
-                className="group flex items-center justify-between p-3 rounded-2xl border border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 cursor-pointer active:scale-[0.98] transition-all duration-200"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
-                    <IconRenderer name={tool.iconName} size={16} />
+            {recentToolItems.map(tool => {
+              const isSelected = tool.id === selectedToolId;
+              return (
+                <div
+                  key={tool.id}
+                  onClick={() => {
+                    sounds.playClick();
+                    onSelectTool(tool);
+                  }}
+                  className={`group flex items-center justify-between p-3 rounded-2xl border cursor-pointer active:scale-[0.98] transition-all duration-200 ${
+                    isSelected
+                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 dark:border-indigo-400 ring-2 ring-indigo-500/20 shadow-sm'
+                      : 'border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
+                      <IconRenderer name={tool.iconName} size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
+                          {tool.name}
+                        </span>
+                        {isSelected && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white shrink-0">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-zinc-400 block truncate">
+                        {CATEGORIES.find(c => c.id === tool.categoryId)?.name}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
-                      {tool.name}
-                    </span>
-                    <span className="text-[10px] text-zinc-400 block truncate">
-                      {CATEGORIES.find(c => c.id === tool.categoryId)?.name}
-                    </span>
-                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -298,29 +329,75 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               {/* Collapsible Content Area */}
               {isExpanded && (
                 <div className="p-3.5 sm:p-5 bg-zinc-50/40 dark:bg-zinc-950/30 animate-in fade-in duration-150">
+                  {/* Active Selection Banner if the selected tool is in this category */}
+                  {tools.some(t => t.id === selectedToolId) && (
+                    <div className="mb-4 px-4 py-3 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-900/60 flex items-center justify-between gap-3 text-xs text-indigo-950 dark:text-indigo-200 shadow-2xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white shrink-0 shadow-2xs">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-bold truncate block">
+                            Currently selected: {TOOLS.find(t => t.id === selectedToolId)?.name}
+                          </span>
+                          <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-normal">
+                            Click the selected card to reopen it, or click any other tool below to change your tool.
+                          </p>
+                        </div>
+                      </div>
+                      {onClearSelectedTool && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            sounds.playClick();
+                            onClearSelectedTool();
+                          }}
+                          className="px-2.5 py-1 rounded-xl bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[11px] font-semibold border border-indigo-200 dark:border-indigo-800 shadow-2xs cursor-pointer transition-colors shrink-0"
+                        >
+                          Clear selection
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);
+                      const isSelected = tool.id === selectedToolId;
                       const catTheme = getCategoryTheme(category.id);
                       const iconTheme = getToolIconTheme(tool.id, tool.iconName);
 
                       return (
                         <div
+                          id={`tool-card-${tool.id}`}
                           key={tool.id}
                           onClick={() => {
                             sounds.playClick();
                             onSelectTool(tool);
                           }}
                           style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
-                          className="group relative flex flex-col justify-between rounded-2xl border border-zinc-200/90 bg-white p-4.5 hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)] transition-all duration-200 cursor-pointer active:scale-[0.98] select-none"
+                          className={`group relative flex flex-col justify-between rounded-2xl p-4.5 transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+                            isSelected
+                              ? 'border-2 border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-4 ring-indigo-500/20 shadow-lg scale-[1.01] dark:border-indigo-400'
+                              : 'border border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)]'
+                          }`}
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} group-hover:scale-110 transition-transform shadow-2xs`}>
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} ${isSelected ? 'scale-110 ring-2 ring-indigo-500/40' : 'group-hover:scale-110'} transition-transform shadow-2xs`}>
                                 <IconRenderer name={tool.iconName} size={18} />
                               </div>
 
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                {/* Selected Badge */}
+                                {isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white shadow-xs animate-pulse">
+                                    <CheckCircle2 className="w-2.5 h-2.5" />
+                                    Selected
+                                  </span>
+                                )}
+
                                 {/* Online/Offline Badges */}
                                 {tool.isOnline ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
@@ -353,16 +430,33 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                               </div>
                             </div>
 
-                            <h3 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)] transition-colors">
-                              {tool.name}
-                            </h3>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <h3 className={`font-bold text-xs sm:text-sm transition-colors ${
+                                isSelected ? 'text-indigo-900 dark:text-indigo-200 font-extrabold' : 'text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)]'
+                              }`}>
+                                {tool.name}
+                              </h3>
+                            </div>
                             <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
                               {tool.description}
                             </p>
                           </div>
 
-                          <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-semibold text-zinc-400 group-hover:text-[var(--cat-accent)] transition-colors">
-                            <span className="font-mono">Launch Tool</span>
+                          <div className={`flex items-center justify-between pt-3 mt-3 border-t text-[10px] font-semibold transition-colors ${
+                            isSelected
+                              ? 'border-indigo-200 dark:border-indigo-800/80 text-indigo-600 dark:text-indigo-400 font-bold'
+                              : 'border-zinc-100 dark:border-zinc-800/80 text-zinc-400 group-hover:text-[var(--cat-accent)]'
+                          }`}>
+                            {isSelected ? (
+                              <span className="flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-indigo-500" />
+                                Selected · Reopen Tool
+                              </span>
+                            ) : (
+                              <span className="font-mono">
+                                {tools.some(t => t.id === selectedToolId) ? 'Change to this tool' : 'Launch Tool'}
+                              </span>
+                            )}
                             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>

@@ -843,7 +843,7 @@ const TallyCounterView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Multi-Tally-Report-${Date.now()}.csv`;
+    link.download = `omnitoolbox-multi-tally-report-${Date.now()}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };

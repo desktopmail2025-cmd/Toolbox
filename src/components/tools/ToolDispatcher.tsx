@@ -40,6 +40,7 @@ interface ToolDispatcherProps {
   onBack: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
+  onSelectTool?: (tool: ToolItem) => void;
 }
 
 export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
@@ -47,6 +48,7 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
   onBack,
   isFavorite,
   onToggleFavorite,
+  onSelectTool,
 }) => {
   const [resetKey, setResetKey] = useState<number>(0);
 
@@ -159,6 +161,7 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
         onReset={handleReset}
+        onSelectTool={onSelectTool}
       />
       {renderToolBody()}
     </div>

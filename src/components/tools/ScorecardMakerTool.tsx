@@ -546,7 +546,7 @@ export const ScorecardMakerTool: React.FC = () => {
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}_Scorecard.png`;
+    a.download = `omnitoolbox-scorecard-${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}.png`;
     a.click();
   };
 
@@ -572,7 +572,7 @@ export const ScorecardMakerTool: React.FC = () => {
     const imgH = 173;
     pdf.addImage(imgData, 'PNG', 10, 27, imgW, imgH);
 
-    pdf.save(`${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}_Scorecard.pdf`);
+    pdf.save(`omnitoolbox-scorecard-${teamAName.replace(/\s+/g, '_')}_vs_${teamBName.replace(/\s+/g, '_')}.pdf`);
   };
 
   const handleCopyReport = () => {

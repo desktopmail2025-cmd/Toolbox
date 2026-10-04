@@ -486,23 +486,25 @@ const TicTacToeView: React.FC = () => {
   );
 };
 
-// 3. Memory Match Cards Game (Item 10: Preview Recall Mode & Professional Memory Training)
+// 3. Memory Match Cards Game (Item 7: Start Game Button -> Random Preview Countdown -> Vanish & Guess Recall Mode)
 const THEMES: Record<string, string[]> = {
   Emojis: ['🚀', '🍕', '🎮', '💎', '🐶', '🔥', '🥑', '⚡'],
   Animals: ['🦁', '🐯', '🐼', '🐨', '🦊', '🐰', '🐙', '🦄'],
   Tech: ['💻', '📱', '🔋', '🔬', '🔭', '💡', '📡', '🤖'],
 };
 
+type MemoryGameState = 'idle' | 'preview' | 'playing' | 'won';
+
 const MemoryMatchView: React.FC = () => {
   const [theme, setTheme] = useState<'Emojis' | 'Animals' | 'Tech'>('Emojis');
+  const [previewDuration, setPreviewDuration] = useState<number>(3.5); // 3.5 seconds default
+  const [gameState, setGameState] = useState<MemoryGameState>('idle');
   const [cards, setCards] = useState<string[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(true);
-  const [previewRemaining, setPreviewRemaining] = useState(3.0);
+  const [previewRemaining, setPreviewRemaining] = useState(3.5);
   const [peeking, setPeeking] = useState(false);
   const [targetMode, setTargetMode] = useState(false);
   const [targetItem, setTargetItem] = useState<string | null>(null);
@@ -512,48 +514,64 @@ const MemoryMatchView: React.FC = () => {
 
   const previewTimerRef = useRef<any>(null);
 
-  const initGame = (selectedTheme = theme) => {
-    sounds.playClick();
-    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-
-    const source = THEMES[selectedTheme];
+  // Initialize placeholder deck on load/theme change
+  useEffect(() => {
+    const source = THEMES[theme];
     const deck = [...source, ...source].sort(() => Math.random() - 0.5);
     setCards(deck);
     setFlipped([]);
     setMatched([]);
     setMoves(0);
     setSeconds(0);
-    setIsPlaying(false);
-    setIsPreviewing(true);
-    setPreviewRemaining(3.0);
+    setGameState('idle');
+    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+  }, [theme]);
+
+  // Start Game Button Action: Shuffles deck, shows cards face-up for previewDuration, then vanishes and starts guessing
+  const handleStartGame = () => {
+    sounds.playClick();
+    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+
+    const source = THEMES[theme];
+    const deck = [...source, ...source].sort(() => Math.random() - 0.5);
+    setCards(deck);
+    setFlipped([]);
+    setMatched([]);
+    setMoves(0);
+    setSeconds(0);
     setPeeking(false);
 
-    // Pick random initial target
+    // Pick initial target item if target mode active
     const randomTarget = source[Math.floor(Math.random() * source.length)];
     setTargetItem(randomTarget);
 
-    // Run preview countdown: 3 seconds to memorize
-    const start = Date.now();
+    // Enter Preview Mode
+    setGameState('preview');
+    setPreviewRemaining(previewDuration);
+
+    const startTime = Date.now();
     previewTimerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
-      const rem = Math.max(0, 3.0 - elapsed);
+      const elapsed = (Date.now() - startTime) / 1000;
+      const rem = Math.max(0, previewDuration - elapsed);
       setPreviewRemaining(Number(rem.toFixed(1)));
+
       if (rem <= 0) {
         clearInterval(previewTimerRef.current);
-        setIsPreviewing(false);
-        sounds.playClick(350, 0.05);
+        // Vanish cards face down and enter playing mode!
+        setGameState('playing');
+        sounds.playTone(520, 0.15);
       }
     }, 100);
   };
 
   const skipPreview = () => {
     if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-    setIsPreviewing(false);
-    sounds.playClick(350, 0.05);
+    setGameState('playing');
+    sounds.playTone(520, 0.15);
   };
 
   const triggerPeek = () => {
-    if (isPreviewing || peeking || matched.length === cards.length) return;
+    if (gameState !== 'playing' || peeking || matched.length === cards.length) return;
     sounds.playClick();
     setPeeking(true);
     setTimeout(() => {
@@ -561,27 +579,19 @@ const MemoryMatchView: React.FC = () => {
     }, 2000);
   };
 
-  useEffect(() => {
-    initGame(theme);
-    return () => {
-      if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-    };
-  }, [theme]);
-
-  // Timer loop while actively playing
+  // Timer while playing
   useEffect(() => {
     let interval: any;
-    if (isPlaying && !isPreviewing && matched.length < cards.length) {
+    if (gameState === 'playing' && matched.length < cards.length) {
       interval = setInterval(() => {
         setSeconds(s => s + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, isPreviewing, matched.length, cards.length]);
+  }, [gameState, matched.length, cards.length]);
 
   const handleCardClick = (idx: number) => {
-    if (isPreviewing || peeking || flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
-    if (!isPlaying) setIsPlaying(true);
+    if (gameState !== 'playing' || peeking || flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
     sounds.playClick();
 
     const newFlipped = [...flipped, idx];
@@ -595,7 +605,8 @@ const MemoryMatchView: React.FC = () => {
         setMatched(m => {
           const next = [...m, first, second];
           if (next.length === cards.length) {
-            confetti({ particleCount: 70 });
+            setGameState('won');
+            confetti({ particleCount: 80 });
             if (bestMoves === 0 || moves + 1 < bestMoves) {
               setBestMoves(moves + 1);
               localStorage.setItem('omni_memory_best_moves', String(moves + 1));
@@ -621,20 +632,19 @@ const MemoryMatchView: React.FC = () => {
   };
 
   const accuracy = moves > 0 ? Math.round(((matched.length / 2) / moves) * 100) : 100;
-  const isWon = matched.length === cards.length && cards.length > 0;
-
-  // Star Rating
+  const isWon = gameState === 'won';
   const stars = moves <= 10 ? 3 : moves <= 16 ? 2 : 1;
 
   return (
     <div className="max-w-md mx-auto space-y-4 text-center">
-      {/* Theme & Actions Bar */}
+      {/* Theme & Options Header */}
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
           {(['Emojis', 'Animals', 'Tech'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTheme(t)}
+              disabled={gameState === 'preview'}
               className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                 theme === t
                   ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 font-bold shadow-xs'
@@ -657,14 +667,82 @@ const MemoryMatchView: React.FC = () => {
           >
             🎯 Target Mode
           </button>
-          <button
-            onClick={() => initGame()}
-            className="flex items-center gap-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Restart
-          </button>
+          {gameState !== 'idle' && (
+            <button
+              onClick={handleStartGame}
+              className="flex items-center gap-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Restart
+            </button>
+          )}
         </div>
       </div>
+
+      {/* START GAME BANNER & PREVIEW CONTROLS (Item 7 Request) */}
+      {gameState === 'idle' && (
+        <div className="p-5 rounded-3xl bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60 space-y-4 shadow-sm">
+          <div className="space-y-1">
+            <h3 className="text-base font-black text-indigo-900 dark:text-indigo-200 flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Memory Recall Challenge</span>
+            </h3>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm mx-auto">
+              Press <strong>Start Game</strong> to reveal all cards for <strong>{previewDuration} seconds</strong>. Memorize their locations before they vanish face-down, then test your visual recall!
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-1 text-xs">
+              <span className="font-semibold text-zinc-500">Preview Time:</span>
+              {[
+                { label: '2s', s: 2.0 },
+                { label: '3.5s', s: 3.5 },
+                { label: '5s', s: 5.0 },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  onClick={() => setPreviewDuration(opt.s)}
+                  className={`px-2 py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    previewDuration === opt.s
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs'
+                      : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleStartGame}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>Start Game</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ACTIVE PREVIEW COUNTDOWN BANNER */}
+      {gameState === 'preview' && (
+        <div className="p-4 rounded-3xl bg-indigo-600 text-white shadow-lg flex items-center justify-between animate-pulse">
+          <div className="text-left">
+            <span className="font-black text-sm block flex items-center gap-1.5">
+              <Eye className="w-4 h-4" /> Memorize Card Positions!
+            </span>
+            <span className="text-xs text-indigo-100 font-medium">
+              Vanish & flip face-down in <strong className="font-mono text-amber-300 text-sm">{previewRemaining}s</strong>...
+            </span>
+          </div>
+          <button
+            onClick={skipPreview}
+            className="px-4 py-1.5 rounded-xl bg-white text-indigo-900 font-extrabold text-xs hover:bg-indigo-50 cursor-pointer shadow-xs active:scale-95"
+          >
+            I'm Ready!
+          </button>
+        </div>
+      )}
 
       {/* Target Item Prompt if Target Mode enabled */}
       {targetMode && targetItem && !isWon && (
@@ -673,22 +751,6 @@ const MemoryMatchView: React.FC = () => {
             🎯 Target to Match: <span className="text-xl ml-1">{targetItem}</span>
           </span>
           <span className="text-[11px] text-amber-700 dark:text-amber-300">Remember where it was!</span>
-        </div>
-      )}
-
-      {/* Memorize Countdown Banner during Preview Phase */}
-      {isPreviewing && (
-        <div className="p-3.5 rounded-2xl bg-indigo-600 text-white shadow-md flex items-center justify-between animate-pulse">
-          <div className="text-left">
-            <span className="font-black text-sm block">👀 Memorize the Cards!</span>
-            <span className="text-xs text-indigo-100">Flipping face-down in {previewRemaining}s...</span>
-          </div>
-          <button
-            onClick={skipPreview}
-            className="px-3.5 py-1.5 rounded-xl bg-white text-indigo-900 font-bold text-xs hover:bg-indigo-50 cursor-pointer shadow-xs"
-          >
-            I'm Ready!
-          </button>
         </div>
       )}
 
@@ -719,21 +781,23 @@ const MemoryMatchView: React.FC = () => {
         {cards.map((item, idx) => {
           const isFlipped = flipped.includes(idx);
           const isMatched = matched.includes(idx);
-          const isRevealed = isPreviewing || peeking || isFlipped || isMatched;
+          const isRevealed = gameState === 'preview' || peeking || isFlipped || isMatched;
 
           return (
             <button
               key={idx}
               onClick={() => handleCardClick(idx)}
-              disabled={isPreviewing}
-              className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border cursor-pointer select-none active:scale-95 ${
-                isMatched
+              disabled={gameState === 'idle' || gameState === 'preview'}
+              className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border select-none active:scale-95 ${
+                gameState === 'idle'
+                  ? 'bg-zinc-200/80 dark:bg-zinc-800/60 border-zinc-300 dark:border-zinc-700 text-zinc-400 cursor-not-allowed opacity-75'
+                  : isMatched
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-xs'
                   : isFlipped
                   ? 'bg-white dark:bg-zinc-800 border-indigo-400 dark:border-indigo-600 shadow-md scale-102 ring-2 ring-indigo-400/40'
-                  : isPreviewing || peeking
-                  ? 'bg-white/80 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-700'
-                  : 'bg-zinc-900 text-transparent dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 border-transparent shadow-sm'
+                  : gameState === 'preview' || peeking
+                  ? 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 shadow-sm'
+                  : 'bg-zinc-900 text-transparent dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 border-transparent shadow-sm cursor-pointer'
               }`}
             >
               {isRevealed ? item : '✨'}
@@ -742,8 +806,8 @@ const MemoryMatchView: React.FC = () => {
         })}
       </div>
 
-      {/* Peek Hint Button */}
-      {!isPreviewing && !isWon && (
+      {/* Peek Hint Button while playing */}
+      {gameState === 'playing' && !isWon && (
         <div className="flex justify-center pt-1">
           <button
             onClick={triggerPeek}
@@ -751,26 +815,33 @@ const MemoryMatchView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs disabled:opacity-40"
           >
             <Eye className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Peek Cards (2s)</span>
+            <span>Peek Cards (2s Hint)</span>
           </button>
         </div>
       )}
 
+      {/* Victory Card */}
       {isWon && (
-        <div className="p-4 bg-emerald-600 text-white rounded-2xl text-sm font-bold shadow-md flex flex-col items-center justify-center gap-2">
+        <div className="p-5 bg-emerald-600 text-white rounded-3xl text-sm font-bold shadow-md flex flex-col items-center justify-center gap-3">
           <div className="flex gap-1 text-amber-300">
             {Array.from({ length: stars }).map((_, i) => (
               <Star key={i} className="w-5 h-5 fill-amber-300" />
             ))}
           </div>
-          <span>Flawless Recall! All Pairs Matched in {moves} moves ({seconds}s)</span>
+          <span className="text-base">Flawless Recall! All Pairs Matched in {moves} moves ({seconds}s)</span>
+          <button
+            onClick={handleStartGame}
+            className="px-5 py-2 bg-white text-emerald-900 font-extrabold text-xs rounded-xl shadow-xs cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all"
+          >
+            Play Again
+          </button>
         </div>
       )}
     </div>
   );
 };
 
-// 4. Minesweeper Classic (Item 10: Professional Edition with Chord Clicking, Rules, & High Scores)
+// 4. Minesweeper Classic (Item 7: What Is It, How to Play & Professional Logic Deduction Suite)
 const NUMBER_COLORS: Record<number, string> = {
   1: 'text-blue-600 dark:text-blue-400',
   2: 'text-emerald-600 dark:text-emerald-400',
@@ -1014,16 +1085,16 @@ const MinesweeperView: React.FC = () => {
       <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
         <div className="text-left">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Minesweeper Classic</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Minesweeper Classic Studio</h2>
             <button
               onClick={() => setShowHowTo(prev => !prev)}
-              title="How to Play Minesweeper"
-              className="text-zinc-400 hover:text-indigo-600 text-xs cursor-pointer"
+              className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center gap-1 hover:bg-indigo-100 dark:hover:bg-indigo-900 cursor-pointer"
             >
-              <HelpCircle className="w-3.5 h-3.5" />
+              <HelpCircle className="w-3 h-3" />
+              <span>{showHowTo ? 'Hide Guide' : 'What is this?'}</span>
             </button>
           </div>
-          <span className="text-[10px] text-zinc-400">Clear tiles safely without detonating mines</span>
+          <span className="text-[10px] text-zinc-400">Pure logic deduction: clear safe tiles without detonating hidden mines</span>
         </div>
 
         {bestTime > 0 && (
@@ -1033,16 +1104,46 @@ const MinesweeperView: React.FC = () => {
         )}
       </div>
 
-      {/* Rules Explanation Banner */}
+      {/* Comprehensive Professional Guide: What is it & How to Play */}
       {showHowTo && (
-        <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-left text-xs space-y-1">
-          <span className="font-bold text-indigo-700 dark:text-indigo-300 block">💡 How to Play Minesweeper:</span>
-          <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
-            1. Tap/click any tile to uncover it. Your first click is always guaranteed safe.<br />
-            2. The numbers indicate how many mines are touching that square.<br />
-            3. Right-click (or toggle the <strong>Flag</strong> button) to place a flag on suspected mines.<br />
-            4. Clicking a revealed number whose neighboring flags match will auto-reveal remaining tiles!
-          </p>
+        <div className="p-4 rounded-3xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 text-left text-xs space-y-3 shadow-xs">
+          <div>
+            <span className="font-extrabold text-indigo-950 dark:text-indigo-200 block text-xs mb-0.5">
+              🤔 What is Minesweeper?
+            </span>
+            <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
+              Minesweeper is the iconic logic deduction puzzle originally popularized by Windows in the 1990s. The objective is simple: <strong>uncover all safe squares</strong> on the minefield without detonating any hidden bombs.
+            </p>
+          </div>
+
+          <div>
+            <span className="font-extrabold text-indigo-950 dark:text-indigo-200 block text-xs mb-1">
+              🎮 How to Play in 3 Simple Steps:
+            </span>
+            <ol className="text-zinc-600 dark:text-zinc-300 text-[11px] space-y-1 list-decimal list-inside leading-relaxed">
+              <li>
+                <strong className="text-zinc-900 dark:text-zinc-100">Click any tile to begin:</strong> Your very first click is <strong>guaranteed 100% safe</strong> and will open a safe clearing.
+              </li>
+              <li>
+                <strong className="text-zinc-900 dark:text-zinc-100">Read the numbers:</strong> A revealed number (1 to 8) tells you <em>exactly how many mines</em> touch that tile in the 8 adjacent squares. If a tile says <span className="font-bold text-blue-600 dark:text-blue-400">"1"</span>, only 1 neighbor is a mine!
+              </li>
+              <li>
+                <strong className="text-zinc-900 dark:text-zinc-100">Flag the danger:</strong> Right-click (or toggle the <strong>Flag Mode</strong> button) to place a 🚩 flag on suspected mines so you don't accidentally click them.
+              </li>
+              <li>
+                <strong className="text-zinc-900 dark:text-zinc-100">Chord Quick-Clear:</strong> Once you have flagged all mines touching a number, click that number again to instantly reveal all its remaining safe neighbors!
+              </li>
+            </ol>
+          </div>
+
+          {/* Quick Color Reference */}
+          <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-[11px] font-mono">
+            <span className="text-zinc-400 font-bold uppercase text-[9px]">Tile Clues:</span>
+            <span className="text-blue-600 font-bold">1 = 1 Mine</span>
+            <span className="text-emerald-600 font-bold">2 = 2 Mines</span>
+            <span className="text-red-600 font-bold">3 = 3 Mines</span>
+            <span className="text-indigo-700 dark:text-indigo-300 font-bold">4 = 4 Mines</span>
+          </div>
         </div>
       )}
 

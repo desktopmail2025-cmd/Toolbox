@@ -1006,56 +1006,313 @@ const ReadabilityCalculatorView: React.FC = () => {
   );
 };
 
-// 5. Rhyme & Synonym Thesaurus
+// 5. Rhyme & Poetic Meter Thesaurus (Item 3: Creative Writing Workbench, Syllable Analyzer & Meter Scansion)
+const BUILT_IN_RHYMES: Record<string, { perfect: string[]; slant: string[]; syllables: number }> = {
+  bright: { perfect: ['light', 'night', 'sight', 'flight', 'might', 'white', 'tight', 'right', 'height', 'bite'], slant: ['blight', 'knight', 'quite', 'fight'], syllables: 1 },
+  light: { perfect: ['bright', 'night', 'sight', 'flight', 'might', 'white', 'tight', 'right', 'kite', 'bite'], slant: ['late', 'like', 'life', 'shine'], syllables: 1 },
+  time: { perfect: ['rhyme', 'chime', 'climb', 'prime', 'slime', 'dime', 'mime', 'grime'], slant: ['fine', 'line', 'mine', 'shine', 'sign'], syllables: 1 },
+  love: { perfect: ['dove', 'glove', 'shove', 'above'], slant: ['of', 'enough', 'rough', 'tough', 'alive', 'give'], syllables: 1 },
+  dream: { perfect: ['beam', 'cream', 'gleam', 'scheme', 'scream', 'seam', 'steam', 'stream', 'team', 'theme'], slant: ['clean', 'green', 'keen', 'queen', 'scene'], syllables: 1 },
+  heart: { perfect: ['art', 'cart', 'chart', 'dart', 'part', 'smart', 'start', 'tart', 'apart', 'depart'], slant: ['hard', 'card', 'dark', 'mark', 'park'], syllables: 1 },
+  fire: { perfect: ['dire', 'hire', 'liar', 'sire', 'tire', 'wire', 'desire', 'inspire', 'admire', 'aspire'], slant: ['higher', 'flyer', 'prior'], syllables: 2 },
+  sky: { perfect: ['by', 'cry', 'dry', 'fly', 'guy', 'high', 'lie', 'my', 'pie', 'sigh', 'spy', 'tie', 'why'], slant: ['shine', 'eyes', 'guide'], syllables: 1 },
+  rain: { perfect: ['brain', 'chain', 'drain', 'gain', 'grain', 'lane', 'main', 'pain', 'plain', 'stain', 'train', 'vain'], slant: ['came', 'game', 'fame', 'name', 'day'], syllables: 1 },
+  soul: { perfect: ['coal', 'goal', 'hole', 'mole', 'pole', 'role', 'toll', 'whole', 'control', 'patrol'], slant: ['bold', 'cold', 'gold', 'hold', 'told'], syllables: 1 },
+  night: { perfect: ['bright', 'flight', 'knight', 'light', 'might', 'right', 'sight', 'tight', 'white'], slant: ['late', 'wide', 'mind'], syllables: 1 },
+};
+
 const RhymeThesaurusView: React.FC = () => {
   const [query, setQuery] = useState('bright');
-  const [results, setResults] = useState<string[]>(['light', 'night', 'sight', 'flight', 'might', 'white', 'tight', 'right']);
+  const [activeSubTab, setActiveSubTab] = useState<'rhymes' | 'meter' | 'guide'>('rhymes');
+  const [perfectResults, setPerfectResults] = useState<string[]>(['light', 'night', 'sight', 'flight', 'might', 'white', 'tight', 'right']);
+  const [slantResults, setSlantResults] = useState<string[]>(['blight', 'knight', 'quite', 'fight']);
+  const [verseLine, setVerseLine] = useState('The curfew tolls the knell of parting day');
+  const [isSearching, setIsSearching] = useState(false);
 
-  const searchRhymes = async () => {
-    if (!query.trim()) return;
+  const searchRhymes = async (wordToSearch = query) => {
+    const q = wordToSearch.trim().toLowerCase();
+    if (!q) return;
+    sounds.playClick();
+    setIsSearching(true);
+
+    // 1. Check local rich dictionary first
+    if (BUILT_IN_RHYMES[q]) {
+      setPerfectResults(BUILT_IN_RHYMES[q].perfect);
+      setSlantResults(BUILT_IN_RHYMES[q].slant);
+    }
+
+    // 2. Fetch live from Datamuse for exhaustive linguistic list
     try {
-      const res = await fetch(`https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(query.trim())}&max=15`);
-      if (res.ok) {
-        const json = await res.json();
-        setResults(json.map((item: { word: string }) => item.word));
+      const [rhyRes, nryRes] = await Promise.all([
+        fetch(`https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(q)}&max=24`),
+        fetch(`https://api.datamuse.com/words?rel_nry=${encodeURIComponent(q)}&max=16`),
+      ]);
+
+      if (rhyRes.ok) {
+        const jsonRhy = await rhyRes.json();
+        const words = jsonRhy.map((item: { word: string }) => item.word);
+        if (words.length > 0) setPerfectResults(words);
+      }
+      if (nryRes.ok) {
+        const jsonNry = await nryRes.json();
+        const words = jsonNry.map((item: { word: string }) => item.word);
+        if (words.length > 0) setSlantResults(words);
       }
     } catch {
-      // Fallback
+      // Offline fallback maintained
+    } finally {
+      setIsSearching(false);
     }
   };
 
+  // Metrical Scansion analyzer
+  const countSyllables = (word: string): number => {
+    word = word.toLowerCase().replace(/[^a-z]/g, '');
+    if (!word) return 0;
+    if (word.length <= 3) return 1;
+    word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+    word = word.replace(/^y/, '');
+    const syllables = word.match(/[aeiouy]{1,2}/g);
+    return syllables ? syllables.length : 1;
+  };
+
+  const wordsInVerse = verseLine.trim().split(/\s+/).filter(Boolean);
+  const totalSyllables = wordsInVerse.reduce((acc, w) => acc + countSyllables(w), 0);
+
+  // Approximate scansion foot
+  const guessMeter = (syllables: number) => {
+    if (syllables === 10) return 'Iambic Pentameter (5 metrical feet, 10 syllables — Classic Shakespearean / Sonnet verse)';
+    if (syllables === 8) return 'Iambic / Trochaic Tetrameter (4 metrical feet, 8 syllables — Ballad / Hymn verse)';
+    if (syllables === 12) return 'Alexandrine / Hexameter (6 metrical feet, 12 syllables)';
+    if (syllables === 6) return 'Trimeter (3 metrical feet, 6 syllables)';
+    if (syllables === 14) return 'Fourteener / Heptameter (7 metrical feet, 14 syllables)';
+    return `${syllables} syllables across ${Math.round(syllables / 2)} rhythmic poetic feet`;
+  };
+
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Rhyme & Poetic Meter Thesaurus</h2>
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          className="flex-1 p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-bold text-sm"
-          placeholder="Enter a word to find rhymes..."
-        />
-        <button onClick={searchRhymes} className="px-5 rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold text-xs">
-          Find Rhymes
-        </button>
-      </div>
-
-      <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="text-xs font-bold uppercase text-zinc-400 mb-3">Words that rhyme with "{query}":</div>
-        <div className="flex flex-wrap gap-2">
-          {results.map(r => (
-            <span key={r} className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-semibold text-xs text-zinc-800 dark:text-zinc-200">
-              {r}
-            </span>
-          ))}
+    <div className="space-y-6 max-w-2xl mx-auto">
+      {/* Educational Header & What Is It Banner */}
+      <div className="rounded-3xl border border-indigo-200/80 bg-indigo-50/60 p-5 dark:border-indigo-900/50 dark:bg-indigo-950/30 space-y-2.5">
+        <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold text-sm">
+          <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span>What is Rhyme & Poetic Meter Thesaurus?</span>
         </div>
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          A dedicated creative suite for poets, lyricists, rappers, and verse writers.
+          Unlike a standard dictionary, it identifies{' '}
+          <strong className="text-indigo-600 dark:text-indigo-400">Perfect Rhymes</strong> (exact sound matches),{' '}
+          <strong className="text-indigo-600 dark:text-indigo-400">Slant / Near Rhymes</strong> (assonance/consonance echoes),
+          calculates <strong className="text-indigo-600 dark:text-indigo-400">syllable weights</strong>, and scans the{' '}
+          <strong className="text-indigo-600 dark:text-indigo-400">metrical rhythm</strong> of your verses to preserve poetic cadence.
+        </p>
       </div>
+
+      {/* Sub-Navigation Tabs */}
+      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl text-xs font-bold">
+        {[
+          { id: 'rhymes', label: '1. Rhyme & Near-Rhyme Finder' },
+          { id: 'meter', label: '2. Verse Scansion Analyzer' },
+          { id: 'guide', label: '3. Metrical Feet Guide' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => { sounds.playClick(); setActiveSubTab(t.id as any); }}
+            className={`flex-1 py-2 px-3 rounded-xl transition-all cursor-pointer ${
+              activeSubTab === t.id
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB 1: RHYME FINDER */}
+      {activeSubTab === 'rhymes' && (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchRhymes()}
+              className="flex-1 p-3.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-bold text-sm focus:outline-indigo-500 shadow-2xs"
+              placeholder="Enter word (e.g. bright, love, dream, fire)..."
+            />
+            <button
+              onClick={() => searchRhymes()}
+              disabled={isSearching}
+              className="px-6 rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold text-xs hover:opacity-90 disabled:opacity-40 cursor-pointer shadow-xs active:scale-95"
+            >
+              {isSearching ? 'Finding...' : 'Find Rhymes'}
+            </button>
+          </div>
+
+          {/* Quick preset word chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-zinc-400 mr-1">Quick Words:</span>
+            {['bright', 'love', 'dream', 'time', 'heart', 'sky', 'rain', 'fire', 'soul'].map(w => (
+              <button
+                key={w}
+                onClick={() => { setQuery(w); searchRhymes(w); }}
+                className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-indigo-400 text-zinc-700 dark:text-zinc-300 cursor-pointer transition-colors"
+              >
+                {w}
+              </button>
+            ))}
+          </div>
+
+          {/* Perfect Rhymes Box */}
+          <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                1. Perfect Rhymes with "{query}" ({perfectResults.length})
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Identical Vowel & Consonant Ending
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {perfectResults.map(r => (
+                <span
+                  key={r}
+                  onClick={() => { sounds.playClick(); setQuery(r); searchRhymes(r); }}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 cursor-pointer transition-colors"
+                  title="Click to rhyme this word"
+                >
+                  {r}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Slant / Half Rhymes Box */}
+          <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                2. Slant & Near Rhymes ({slantResults.length})
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                Assonance & Modern Half Rhyme
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {slantResults.map(r => (
+                <span
+                  key={r}
+                  onClick={() => { sounds.playClick(); setQuery(r); searchRhymes(r); }}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-semibold text-xs text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 cursor-pointer transition-colors"
+                >
+                  {r}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: VERSE SCANSION ANALYZER */}
+      {activeSubTab === 'meter' && (
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400">
+              Input Verse or Lyric Line
+            </label>
+            <input
+              type="text"
+              value={verseLine}
+              onChange={e => setVerseLine(e.target.value)}
+              className="w-full p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 font-serif text-base font-semibold focus:outline-indigo-500"
+              placeholder="Type or paste a poetic line..."
+            />
+
+            <div className="flex flex-wrap gap-2 pt-1 text-xs">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase mr-1">Classic Examples:</span>
+              {[
+                'Shall I compare thee to a summer\'s day?',
+                'The curfew tolls the knell of parting day',
+                'Once upon a midnight dreary, while I pondered weak and weary',
+                'Do not go gentle into that good night',
+              ].map(ex => (
+                <button
+                  key={ex}
+                  onClick={() => { sounds.playClick(); setVerseLine(ex); }}
+                  className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-[11px] text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                >
+                  {ex.slice(0, 32)}...
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scansion Output */}
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              <span>Rhythmic Scansion Breakdown</span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold font-mono">
+                {totalSyllables} Total Syllables
+              </span>
+            </div>
+
+            {/* Word-by-word Syllable Tiles */}
+            <div className="flex flex-wrap gap-2 py-2">
+              {wordsInVerse.map((w, idx) => {
+                const syl = countSyllables(w);
+                return (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center"
+                  >
+                    <div className="font-serif text-sm font-bold text-zinc-900 dark:text-zinc-100">{w}</div>
+                    <div className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold mt-0.5">
+                      {syl} {syl === 1 ? 'syllable' : 'syllables'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Metrical Classification Card */}
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+                Detected Poetic Meter Structure
+              </span>
+              <p className="font-bold text-sm text-zinc-800 dark:text-zinc-200">
+                {guessMeter(totalSyllables)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: POETIC METER REFERENCE GUIDE */}
+      {activeSubTab === 'guide' && (
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs text-xs">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Classical Metrical Feet & Scansion Reference Guide
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { name: 'Iamb (Iambic)', pattern: '˘ ¯ (unstressed / STRESSED)', cadence: 'da-DUM', example: 'a-BOVE, to-DAY, de-LIGHT' },
+              { name: 'Trochee (Trochaic)', pattern: '¯ ˘ (STRESSED / unstressed)', cadence: 'DUM-da', example: 'PEO-ple, TI-ger, WA-ter' },
+              { name: 'Spondee (Spondaic)', pattern: '¯ ¯ (STRESSED / STRESSED)', cadence: 'DUM-DUM', example: 'HEART-BREAK, TRUE BLUE' },
+              { name: 'Anapest (Anapestic)', pattern: '˘ ˘ ¯ (unstressed / unstressed / STRESSED)', cadence: 'da-da-DUM', example: 'un-der-STAND, in-ter-RUPT' },
+              { name: 'Dactyl (Dactylic)', pattern: '¯ ˘ ˘ (STRESSED / unstressed / unstressed)', cadence: 'DUM-da-da', example: 'PO-e-try, EL-e-phant' },
+            ].map(f => (
+              <div key={f.name} className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1">
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 block">{f.name}</span>
+                <div className="font-mono text-zinc-700 dark:text-zinc-300 font-semibold">{f.pattern} ({f.cadence})</div>
+                <div className="text-[11px] text-zinc-500">Examples: {f.example}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 // 6. Have I Been Pwned / Breach Verifier (Item 10: Multi-Layer Verification Basis with k-Anonymity & Verified Breach Index)
 interface BreachIncident {
@@ -1697,29 +1954,199 @@ const PhishingScannerView: React.FC = () => {
   );
 };
 
-// 8. User-Agent String Parser
+// 8. Hardware & Browser Agent Telemetry (Item 2: In-depth Hardware, GPU, Battery, Network & Environment Diagnostics)
 const UserAgentParserView: React.FC = () => {
   const ua = navigator.userAgent;
-  const platform = navigator.platform;
+  const platform = (navigator as any).userAgentData?.platform || navigator.platform || 'Unknown OS';
   const language = navigator.language;
+  const languages = navigator.languages ? navigator.languages.join(', ') : language;
   const screenRes = `${window.screen.width} × ${window.screen.height} (DPR: ${window.devicePixelRatio})`;
+  const viewportRes = `${window.innerWidth} × ${window.innerHeight}`;
+  const colorDepth = `${window.screen.colorDepth}-bit`;
+
+  // Battery status
+  const [batteryInfo, setBatteryInfo] = useState<{
+    charging: boolean;
+    level: number;
+    chargingTime: number;
+    dischargingTime: number;
+    supported: boolean;
+  }>({ charging: true, level: 100, chargingTime: 0, dischargingTime: 0, supported: false });
+
+  // Network connection
+  const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+  const networkInfo = {
+    effectiveType: conn?.effectiveType || 'N/A',
+    downlink: conn?.downlink ? `${conn.downlink} Mbps` : 'N/A',
+    rtt: conn?.rtt ? `${conn.rtt} ms` : 'N/A',
+    saveData: conn?.saveData ? 'Enabled' : 'Disabled',
+  };
+
+  // WebGL & GPU Unmasked Renderer
+  const [gpuInfo, setGpuInfo] = useState<{ vendor: string; renderer: string; glVersion: string }>({
+    vendor: 'Detecting...',
+    renderer: 'Detecting...',
+    glVersion: 'Detecting...',
+  });
+
+  // Storage quota
+  const [storageEstimate, setStorageEstimate] = useState<string>('Querying...');
+
+  useEffect(() => {
+    // Battery API check
+    if ('getBattery' in navigator) {
+      (navigator as any).getBattery().then((battery: any) => {
+        setBatteryInfo({
+          charging: battery.charging,
+          level: Math.round(battery.level * 100),
+          chargingTime: battery.chargingTime,
+          dischargingTime: battery.dischargingTime,
+          supported: true,
+        });
+
+        const updateBattery = () => {
+          setBatteryInfo({
+            charging: battery.charging,
+            level: Math.round(battery.level * 100),
+            chargingTime: battery.chargingTime,
+            dischargingTime: battery.dischargingTime,
+            supported: true,
+          });
+        };
+
+        battery.addEventListener('chargingchange', updateBattery);
+        battery.addEventListener('levelchange', updateBattery);
+      }).catch(() => {
+        setBatteryInfo(prev => ({ ...prev, supported: false }));
+      });
+    }
+
+    // WebGL GPU Extraction
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as any;
+      if (gl) {
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+        setGpuInfo({
+          vendor: String(vendor || 'Standard GPU Vendor'),
+          renderer: String(renderer || 'Standard Graphics Acceleration'),
+          glVersion: String(gl.getParameter(gl.VERSION) || 'WebGL 1.0'),
+        });
+      } else {
+        setGpuInfo({ vendor: 'Software fallback', renderer: 'No WebGL context', glVersion: 'Disabled' });
+      }
+    } catch {
+      setGpuInfo({ vendor: 'Hardware protected', renderer: 'Generic Display Driver', glVersion: 'WebGL Available' });
+    }
+
+    // Storage Estimate
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(est => {
+        const usedMB = est.usage ? (est.usage / (1024 * 1024)).toFixed(1) : '0';
+        const quotaMB = est.quota ? (est.quota / (1024 * 1024 * 1024)).toFixed(1) : '0';
+        setStorageEstimate(`${usedMB} MB used of ~${quotaMB} GB allocated`);
+      }).catch(() => {
+        setStorageEstimate('Unrestricted Local Storage');
+      });
+    } else {
+      setStorageEstimate('LocalStorage / IndexedDB Available');
+    }
+  }, []);
+
+  // HDR check
+  const isHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
+  const isP3 = window.matchMedia && window.matchMedia('(color-gamut: p3)').matches;
+  const touchPoints = navigator.maxTouchPoints || 0;
+  const memoryGB = (navigator as any).deviceMemory ? `${(navigator as any).deviceMemory} GB` : 'Protected (≥4 GB)';
 
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Hardware & Browser Agent Telemetry</h2>
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Hardware & Browser Agent Telemetry
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Real-time client diagnostics, hardware concurrency, display metrics & network parameters
+          </span>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+          Live Telemetry Active
+        </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <ResultCard label="Platform" value={platform || 'Web Client'} />
-        <ResultCard label="Display Resolution" value={screenRes} />
-        <ResultCard label="Primary Locale" value={language} />
-        <ResultCard label="Hardware Concurrency" value={`${navigator.hardwareConcurrency || 8} CPU Cores`} />
+      {/* Hardware & CPU Cluster */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          1. Processor & Device Architecture
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+          <ResultCard label="CPU Logical Cores" value={`${navigator.hardwareConcurrency || 8} Threads`} highlight />
+          <ResultCard label="Device RAM" value={memoryGB} />
+          <ResultCard label="Operating Platform" value={platform} />
+          <ResultCard label="Touch Support" value={touchPoints > 0 ? `${touchPoints} Points` : 'Mouse Only'} />
+        </div>
       </div>
 
-      <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-1">
-        <div className="text-[10px] font-bold uppercase text-zinc-400">Full Raw User-Agent String</div>
-        <div className="font-mono text-xs text-zinc-600 dark:text-zinc-400 break-words">{ua}</div>
+      {/* GPU & Graphics Acceleration */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          2. Graphics & GPU Accelerator
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+          <ResultCard label="GPU Renderer" value={gpuInfo.renderer} />
+          <ResultCard label="GPU Vendor" value={gpuInfo.vendor} />
+          <ResultCard label="Graphics Engine" value={gpuInfo.glVersion} />
+        </div>
+      </div>
+
+      {/* Display & Color Profile */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          3. Display & Viewport Diagnostics
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+          <ResultCard label="Screen Native Res" value={screenRes} />
+          <ResultCard label="Current Viewport" value={viewportRes} />
+          <ResultCard label="Color Space" value={colorDepth} />
+          <ResultCard label="Dynamic Range / Gamut" value={isHDR ? 'High Dynamic (HDR)' : isP3 ? 'Wide Color P3' : 'Standard sRGB'} />
+        </div>
+      </div>
+
+      {/* Battery & Network Telemetry */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          4. Power & Connectivity Diagnostics
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+          <ResultCard
+            label="Battery Level"
+            value={batteryInfo.supported ? `${batteryInfo.level}% ${batteryInfo.charging ? '⚡' : ''}` : 'AC Powered / Hidden'}
+            subtext={batteryInfo.supported ? (batteryInfo.charging ? 'Charging now' : 'On battery') : 'Battery API restricted'}
+          />
+          <ResultCard label="Network Link" value={networkInfo.effectiveType.toUpperCase()} subtext={`RTT: ${networkInfo.rtt}`} />
+          <ResultCard label="Downlink Bandwidth" value={networkInfo.downlink} />
+          <ResultCard label="Data Saver" value={networkInfo.saveData} />
+        </div>
+      </div>
+
+      {/* Storage & Environment */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          5. Storage Quota & Locale
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+          <ResultCard label="Persistent Storage" value={storageEstimate} />
+          <ResultCard label="Supported Languages" value={languages} />
+        </div>
+      </div>
+
+      {/* Full Raw User-Agent */}
+      <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-1 shadow-2xs">
+        <div className="text-[10px] font-bold uppercase text-zinc-400">Full Raw User-Agent Identifier</div>
+        <div className="font-mono text-xs text-zinc-600 dark:text-zinc-400 break-words select-all">{ua}</div>
       </div>
     </div>
   );
@@ -3249,35 +3676,254 @@ const Sha256HasherView: React.FC = () => {
   );
 };
 
-// 27. Caesar Cipher Wheel
-const CaesarCipherView: React.FC = () => {
-  const [text, setText] = useState('ATTACK AT DAWN');
-  const [shift, setShift] = useState(13); // ROT13 default
+// 27. Caesar & ROT13 Shift Cipher (Item 2: Professional Cryptanalysis, Dual-Ring Wheel & 25-Shift Brute-Force Cracker)
+const COMMON_WORDS = ['THE', 'AND', 'OF', 'TO', 'IN', 'IS', 'YOU', 'THAT', 'IT', 'HE', 'WAS', 'FOR', 'ON', 'ARE', 'AS', 'WITH', 'HIS', 'THEY', 'AT', 'BE', 'THIS', 'HAVE', 'FROM', 'OR', 'ONE', 'HAD', 'BY', 'WORD', 'BUT', 'NOT', 'WHAT', 'ALL', 'WERE', 'WE', 'WHEN', 'YOUR', 'CAN', 'SAID', 'THERE', 'USE', 'AN', 'EACH', 'WHICH', 'SHE', 'DO', 'HOW', 'THEIR', 'IF', 'WILL'];
 
-  const cipher = text.replace(/[a-zA-Z]/g, c => {
-    const base = c <= 'Z' ? 65 : 97;
-    return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
-  });
+const CaesarCipherView: React.FC = () => {
+  const [text, setText] = useState('ATTACK AT DAWN ON THE NORTHERN RIDGE');
+  const [shift, setShift] = useState(13); // ROT13 default
+  const [mode, setMode] = useState<'encode' | 'decode'>('encode');
+  const [preserveCase, setPreserveCase] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [showBruteForce, setShowBruteForce] = useState(false);
+
+  const effectiveShift = mode === 'encode' ? shift : (26 - (shift % 26)) % 26;
+
+  const transform = (input: string, s: number) => {
+    return input.replace(/[a-zA-Z]/g, c => {
+      const isUpper = c <= 'Z';
+      const base = isUpper ? 65 : 97;
+      const charCode = ((c.charCodeAt(0) - base + s) % 26 + 26) % 26 + base;
+      const resChar = String.fromCharCode(charCode);
+      return preserveCase ? resChar : resChar.toUpperCase();
+    });
+  };
+
+  const output = transform(text, effectiveShift);
+
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const shiftedAlphabet = alphabet.map((_, i) => alphabet[(i + effectiveShift) % 26]);
+
+  // Brute force all 25 shifts to crack intercepted ciphers
+  const allShifts = Array.from({ length: 25 }, (_, i) => {
+    const s = i + 1;
+    const decoded = transform(text, 26 - s);
+    const upperDecoded = decoded.toUpperCase();
+    let score = 0;
+    COMMON_WORDS.forEach(w => {
+      if (upperDecoded.includes(` ${w} `) || upperDecoded.startsWith(`${w} `) || upperDecoded.endsWith(` ${w}`)) {
+        score += 2;
+      } else if (upperDecoded.includes(w)) {
+        score += 1;
+      }
+    });
+    return { shift: s, decoded, score };
+  }).sort((a, b) => b.score - a.score);
+
+  const copyOutput = () => {
+    sounds.playClick();
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const swapText = () => {
+    sounds.playClick();
+    setText(output);
+  };
 
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Caesar & ROT13 Shift Cipher</h2>
-      </div>
-
-      <div>
-        <div className="flex justify-between text-xs font-semibold text-zinc-500 mb-1">
-          <span>Alphabet Shift Offset</span>
-          <span className="font-mono">{shift}</span>
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Caesar & ROT13 Shift Cipher Studio
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Classical substitution cipher with alphabet mapping, automatic frequency cracking & ROT-13 preset
+          </span>
         </div>
-        <input type="range" min={1} max={25} value={shift} onChange={e => setShift(Number(e.target.value))} className="w-full" />
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => { sounds.playClick(); setMode(m => (m === 'encode' ? 'decode' : 'encode')); }}
+            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer"
+          >
+            Mode: {mode.toUpperCase()}
+          </button>
+        </div>
       </div>
 
-      <textarea rows={4} value={text} onChange={e => setText(e.target.value)} className="w-full p-3 rounded-2xl border font-mono text-xs uppercase" />
-      <ResultCard label="Cipher Output" value={cipher} highlight />
+      {/* Shift Controls & Presets */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+        <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+          <span>ALPHABET SHIFT OFFSET</span>
+          <span className="font-mono text-base text-indigo-600 dark:text-indigo-400 font-black">
+            +{shift} {shift === 13 ? '(ROT13)' : shift === 3 ? '(Caesar Original)' : ''}
+          </span>
+        </div>
+
+        <input
+          type="range"
+          min={1}
+          max={25}
+          value={shift}
+          onChange={e => setShift(Number(e.target.value))}
+          className="w-full accent-indigo-600 cursor-pointer"
+        />
+
+        {/* Quick Shift Presets */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase text-zinc-400 mr-1">Presets:</span>
+          {[
+            { label: 'ROT-13 (+13)', s: 13 },
+            { label: 'Caesar Classic (+3)', s: 3 },
+            { label: 'Augustus (+1)', s: 1 },
+            { label: 'Shift +5', s: 5 },
+            { label: 'Shift +7', s: 7 },
+            { label: 'Shift +25', s: 25 },
+          ].map(p => (
+            <button
+              key={p.label}
+              onClick={() => { sounds.playClick(); setShift(p.s); }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-all ${
+                shift === p.s
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100'
+                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Dual-Row Alphabet Mapping Strip */}
+        <div className="space-y-1 pt-2 border-t border-zinc-100 dark:border-zinc-800 overflow-x-auto scrollbar-none">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            Cipher Alphabet Mapping Matrix
+          </div>
+          <div className="font-mono text-[10px] flex gap-1 min-w-[500px]">
+            <span className="w-12 text-zinc-400 font-bold shrink-0">PLAIN:</span>
+            {alphabet.map((char, i) => (
+              <span key={i} className="w-5 text-center font-bold text-zinc-600 dark:text-zinc-400">
+                {char}
+              </span>
+            ))}
+          </div>
+          <div className="font-mono text-[10px] flex gap-1 min-w-[500px]">
+            <span className="w-12 text-indigo-500 font-bold shrink-0">CIPHER:</span>
+            {shiftedAlphabet.map((char, i) => (
+              <span key={i} className="w-5 text-center font-black text-indigo-600 dark:text-indigo-400">
+                {char}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Input / Output Workspace */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Input Card */}
+        <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-2 shadow-xs">
+          <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+            <span>INPUT TEXT ({mode.toUpperCase()})</span>
+            <span className="text-[10px] text-zinc-400 font-mono">{text.length} chars</span>
+          </div>
+          <textarea
+            rows={5}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Enter message to encode or decode..."
+            className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 font-mono text-xs focus:outline-indigo-500"
+          />
+        </div>
+
+        {/* Output Card */}
+        <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 space-y-2 shadow-xs flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+              <span className="text-indigo-600 dark:text-indigo-400">TRANSFORMED RESULT</span>
+              <span className="text-[10px] text-zinc-400 font-mono">{output.length} chars</span>
+            </div>
+            <div className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 font-mono text-xs font-bold break-all min-h-[108px] text-zinc-900 dark:text-zinc-50">
+              {output || '...'}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={copyOutput}
+              className="flex-1 py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 cursor-pointer shadow-xs active:scale-95"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied!' : 'Copy Result'}</span>
+            </button>
+            <button
+              onClick={swapText}
+              className="py-2 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:border-indigo-400 cursor-pointer flex items-center gap-1 text-zinc-700 dark:text-zinc-300"
+              title="Send output back into input"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Swap</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Brute Force 25-Shift Cracker Drawer */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+        <div className="flex justify-between items-center">
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Automatic 25-Shift Brute-Force Cracker
+            </h4>
+            <p className="text-[11px] text-zinc-400">
+              Recover intercepted secret messages by inspecting all 25 possible rotations ranked by English dictionary scoring
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBruteForce(b => !b)}
+            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:border-indigo-400 cursor-pointer"
+          >
+            {showBruteForce ? 'Hide Cracker' : 'Reveal All 25 Shifts'}
+          </button>
+        </div>
+
+        {showBruteForce && (
+          <div className="space-y-1.5 max-h-80 overflow-y-auto pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            {allShifts.map(s => (
+              <div
+                key={s.shift}
+                onClick={() => {
+                  sounds.playClick();
+                  setShift(s.shift);
+                  setMode('decode');
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-mono flex items-center justify-between cursor-pointer transition-colors ${
+                  s.score > 0
+                    ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100'
+                    : 'bg-zinc-50/50 border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-indigo-400'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate mr-2">
+                  <span className="font-bold px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-[10px] shrink-0">
+                    Shift -{s.shift}
+                  </span>
+                  <span className="truncate">{s.decoded}</span>
+                </div>
+                {s.score > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-sans text-[10px] font-bold shrink-0">
+                    Likely Plaintext ({s.score} matches)
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 
 // 28. Vigenère Cipher Machine
 const VigenereCipherView: React.FC = () => {
@@ -4300,7 +4946,7 @@ const MemeGeneratorView: React.FC = () => {
     if (!canvas) return;
     sounds.playSuccess();
     const link = document.createElement('a');
-    link.download = `meme-${Date.now()}.png`;
+    link.download = `omnitoolbox-meme-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
@@ -4485,20 +5131,39 @@ const MemeGeneratorView: React.FC = () => {
             Add Sticker / Reaction Badge
           </label>
           <div className="flex flex-wrap gap-1.5">
-            {['', '🔥', '😂', '💀', '💯', '🚀', '🧢', '🤡', '⭐', '👀', '🤯'].map(emoji => (
-              <button
-                key={emoji || 'none'}
-                type="button"
-                onClick={() => setSelectedSticker(emoji)}
-                className={`px-3 py-1 rounded-xl text-base cursor-pointer border ${
-                  selectedSticker === emoji
-                    ? 'bg-indigo-50 border-indigo-500 shadow-2xs'
-                    : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
-                }`}
-              >
-                {emoji || 'None'}
-              </button>
-            ))}
+            {['', '🔥', '😂', '💀', '💯', '🚀', '🧢', '🤡', '⭐', '👀', '🤯'].map(emoji => {
+              const isNone = emoji === '';
+              const isSelected = selectedSticker === emoji;
+              return (
+                <button
+                  key={emoji || 'none'}
+                  type="button"
+                  onClick={() => {
+                    sounds.playClick();
+                    setSelectedSticker(emoji);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer border transition-all flex items-center gap-1.5 ${
+                    isNone ? 'text-xs uppercase tracking-wider' : 'text-base'
+                  } ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-700 dark:bg-indigo-500 dark:text-white dark:border-indigo-400 shadow-sm ring-2 ring-indigo-400/40'
+                      : isNone
+                      ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600 shadow-2xs'
+                      : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100'
+                  }`}
+                >
+                  {isNone ? (
+                    <>
+                      <span className="text-[11px] opacity-75">🚫</span>
+                      <span>None (No Effect)</span>
+                      {isSelected && <span className="text-[10px] ml-1 bg-white/20 px-1 rounded">✓</span>}
+                    </>
+                  ) : (
+                    emoji
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

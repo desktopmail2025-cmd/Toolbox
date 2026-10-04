@@ -271,137 +271,446 @@ const ImageCompressorView: React.FC = () => {
   );
 };
 
-// 3. Image Resizer & Cropper
+// 3. Image Resizer & Cropper (Professional Edition with Cropping, Format Conversion & Live Preview)
+type CropPreset = 'free' | '1:1' | '4:3' | '16:9' | '9:16' | '3:2';
+type ImageFormat = 'image/png' | 'image/jpeg' | 'image/webp';
+
 const ImageResizerView: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [origW, setOrigW] = useState(0);
   const [origH, setOrigH] = useState(0);
+
+  // Resize settings
   const [targetW, setTargetW] = useState(800);
   const [targetH, setTargetH] = useState(600);
   const [lockAspect, setLockAspect] = useState(true);
-  const [resizedUrl, setResizedUrl] = useState<string | null>(null);
+  const [outputFormat, setOutputFormat] = useState<ImageFormat>('image/png');
+  const [quality, setQuality] = useState(90); // 90%
+
+  // Crop settings
+  const [cropPreset, setCropPreset] = useState<CropPreset>('free');
+  const [cropX, setCropX] = useState(0); // in percent
+  const [cropY, setCropY] = useState(0);
+  const [cropW, setCropW] = useState(100);
+  const [cropH, setCropH] = useState(100);
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fileSizeKB, setFileSizeKB] = useState<string>('0');
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     sounds.playClick();
-    setFile(f);
+
     const reader = new FileReader();
     reader.onload = ev => {
+      const src = ev.target?.result as string;
+      setImageSrc(src);
+
       const img = new Image();
       img.onload = () => {
+        imageElementRef.current = img;
         setOrigW(img.width);
         setOrigH(img.height);
-        setTargetW(Math.round(img.width * 0.75));
-        setTargetH(Math.round(img.height * 0.75));
+        setTargetW(img.width);
+        setTargetH(img.height);
+        setCropX(0);
+        setCropY(0);
+        setCropW(100);
+        setCropH(100);
+        renderOutput(img, img.width, img.height, 0, 0, 100, 100, outputFormat, quality);
       };
-      img.src = ev.target?.result as string;
+      img.src = src;
     };
     reader.readAsDataURL(f);
   };
 
+  const renderOutput = (
+    img: HTMLImageElement,
+    w: number,
+    h: number,
+    cx: number,
+    cy: number,
+    cw: number,
+    ch: number,
+    fmt: ImageFormat,
+    q: number
+  ) => {
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvas.width = Math.max(1, w);
+    canvas.height = Math.max(1, h);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Calculate source rect
+    const sx = (cx / 100) * img.width;
+    const sy = (cy / 100) * img.height;
+    const sw = (cw / 100) * img.width;
+    const sh = (ch / 100) * img.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+
+    const dataUrl = canvas.toDataURL(fmt, q / 100);
+    setPreviewUrl(dataUrl);
+
+    // Approximate size in KB
+    const head = `data:${fmt};base64,`;
+    const byteSize = Math.round(((dataUrl.length - head.length) * 3) / 4);
+    setFileSizeKB((byteSize / 1024).toFixed(1));
+  };
+
+  const applyCropPreset = (preset: CropPreset) => {
+    sounds.playClick();
+    setCropPreset(preset);
+    if (!imageElementRef.current) return;
+    const img = imageElementRef.current;
+
+    if (preset === 'free') {
+      setCropX(0);
+      setCropY(0);
+      setCropW(100);
+      setCropH(100);
+      updateRender(targetW, targetH, 0, 0, 100, 100);
+      return;
+    }
+
+    let aspect = 1;
+    if (preset === '1:1') aspect = 1;
+    else if (preset === '4:3') aspect = 4 / 3;
+    else if (preset === '16:9') aspect = 16 / 9;
+    else if (preset === '9:16') aspect = 9 / 16;
+    else if (preset === '3:2') aspect = 3 / 2;
+
+    const imgAspect = img.width / img.height;
+    let newCw = 100;
+    let newCh = 100;
+    let newCx = 0;
+    let newCy = 0;
+
+    if (imgAspect > aspect) {
+      // Wider than desired aspect: crop width
+      newCw = (aspect / imgAspect) * 100;
+      newCx = (100 - newCw) / 2;
+    } else {
+      // Taller than desired aspect: crop height
+      newCh = (imgAspect / aspect) * 100;
+      newCy = (100 - newCh) / 2;
+    }
+
+    setCropX(Math.round(newCx));
+    setCropY(Math.round(newCy));
+    setCropW(Math.round(newCw));
+    setCropH(Math.round(newCh));
+
+    const newH = Math.round(targetW / aspect);
+    setTargetH(newH);
+    updateRender(targetW, newH, newCx, newCy, newCw, newCh);
+  };
+
+  const updateRender = (
+    w = targetW,
+    h = targetH,
+    cx = cropX,
+    cy = cropY,
+    cw = cropW,
+    ch = cropH,
+    fmt = outputFormat,
+    q = quality
+  ) => {
+    if (!imageElementRef.current) return;
+    renderOutput(imageElementRef.current, w, h, cx, cy, cw, ch, fmt, q);
+  };
+
   const handleWidthChange = (w: number) => {
     setTargetW(w);
+    let h = targetH;
     if (lockAspect && origW > 0) {
-      setTargetH(Math.round((w * origH) / origW));
+      h = Math.round((w * origH) / origW);
+      setTargetH(h);
+    }
+    updateRender(w, h);
+  };
+
+  const handleHeightChange = (h: number) => {
+    setTargetH(h);
+    let w = targetW;
+    if (lockAspect && origH > 0) {
+      w = Math.round((h * origW) / origH);
+      setTargetW(w);
+    }
+    updateRender(w, h);
+  };
+
+  const applyScalePreset = (percent: number) => {
+    sounds.playClick();
+    if (origW > 0) {
+      const w = Math.round((origW * percent) / 100);
+      const h = Math.round((origH * percent) / 100);
+      setTargetW(w);
+      setTargetH(h);
+      updateRender(w, h);
     }
   };
 
-  const handleResize = () => {
-    if (!file) return;
+  const downloadResized = () => {
+    if (!previewUrl) return;
     sounds.playSuccess();
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0, targetW, targetH);
-        setResizedUrl(canvas.toDataURL('image/png'));
-      };
-      img.src = ev.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    const ext = outputFormat === 'image/png' ? 'png' : outputFormat === 'image/jpeg' ? 'jpg' : 'webp';
+    const link = document.createElement('a');
+    link.download = `omnitoolbox-resized-${targetW}x${targetH}.${ext}`;
+    link.href = previewUrl;
+    link.click();
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Upload Image to Resize
-        </label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleUpload}
-          className="text-xs text-zinc-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white dark:file:bg-zinc-100 dark:file:text-zinc-950"
-        />
-
-        {origW > 0 && (
-          <div className="space-y-4 pt-2">
-            <div className="text-xs text-zinc-500">
-              Original Dimensions: <span className="font-mono font-bold">{origW} × {origH} px</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Target Width (px)</label>
-                <input
-                  type="number"
-                  value={targetW}
-                  onChange={e => handleWidthChange(parseInt(e.target.value) || 1)}
-                  className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Target Height (px)</label>
-                <input
-                  type="number"
-                  value={targetH}
-                  onChange={e => setTargetH(parseInt(e.target.value) || 1)}
-                  className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-                />
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={lockAspect}
-                onChange={e => setLockAspect(e.target.checked)}
-                className="rounded accent-zinc-900"
-              />
-              <span>Lock Aspect Ratio</span>
-            </label>
-
-            <button
-              onClick={handleResize}
-              className="w-full py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold rounded-xl hover:opacity-90"
-            >
-              Resize Image
-            </button>
-          </div>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Image Resizer & Cropper Studio
+          </h2>
+          <span className="text-xs text-zinc-400">
+            Crop aspect presets, pixel dimension scaler, format compressor & live side-by-side preview
+          </span>
+        </div>
+        {previewUrl && (
+          <button
+            onClick={downloadResized}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Resized Image</span>
+          </button>
         )}
       </div>
 
-      {resizedUrl && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 text-center space-y-3">
-          <img src={resizedUrl} alt="Resized" className="max-h-64 mx-auto rounded-lg shadow-sm" />
-          <a
-            href={resizedUrl}
-            download={`resized-${targetW}x${targetH}.png`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl"
-          >
-            <Download className="w-4 h-4" /> Download Resized Image
-          </a>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Controls (5 Cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+              1. Upload Photo / Artwork
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleUpload}
+              className="text-xs text-zinc-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white dark:file:bg-zinc-100 dark:file:text-zinc-950 cursor-pointer w-full"
+            />
+
+            {origW > 0 && (
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-mono space-y-1">
+                <div className="text-zinc-500 font-bold uppercase text-[10px]">Source Geometry</div>
+                <div className="text-zinc-800 dark:text-zinc-200 font-bold">
+                  {origW} × {origH} px ({((origW * origH) / 1000000).toFixed(2)} MP)
+                </div>
+              </div>
+            )}
+          </div>
+
+          {origW > 0 && (
+            <>
+              {/* Crop Presets */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+                <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  2. Crop Aspect Ratio
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'free', label: 'Full Image' },
+                    { id: '1:1', label: '1:1 Square' },
+                    { id: '4:3', label: '4:3 Standard' },
+                    { id: '16:9', label: '16:9 Banner' },
+                    { id: '9:16', label: '9:16 Story' },
+                    { id: '3:2', label: '3:2 Classic' },
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => applyCropPreset(p.id as CropPreset)}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                        cropPreset === p.id
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-900 shadow-2xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target Dimensions */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+                <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  3. Resize Dimensions (px)
+                </span>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">WIDTH</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={targetW}
+                      onChange={e => handleWidthChange(parseInt(e.target.value) || 1)}
+                      className="w-full border rounded-xl p-2.5 font-mono font-bold text-sm bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">HEIGHT</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={targetH}
+                      onChange={e => handleHeightChange(parseInt(e.target.value) || 1)}
+                      className="w-full border rounded-xl p-2.5 font-mono font-bold text-sm bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={lockAspect}
+                      onChange={e => setLockAspect(e.target.checked)}
+                      className="rounded accent-zinc-900"
+                    />
+                    <span>Lock Aspect Ratio</span>
+                  </label>
+
+                  <div className="flex gap-1">
+                    {[25, 50, 75, 100].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => applyScalePreset(pct)}
+                        className="px-2 py-0.5 rounded-lg border text-[10px] font-bold bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-indigo-400 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Format & Compression */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+                <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  4. Export Format & Compression
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'image/png', label: 'PNG (Lossless)' },
+                    { id: 'image/jpeg', label: 'JPEG (Photo)' },
+                    { id: 'image/webp', label: 'WebP (Modern)' },
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        sounds.playClick();
+                        setOutputFormat(f.id as ImageFormat);
+                        updateRender(targetW, targetH, cropX, cropY, cropW, cropH, f.id as ImageFormat, quality);
+                      }}
+                      className={`p-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer text-center ${
+                        outputFormat === f.id
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-900 shadow-2xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {outputFormat !== 'image/png' && (
+                  <div className="space-y-1 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <div className="flex justify-between text-xs font-bold text-zinc-400">
+                      <span>Compression Quality:</span>
+                      <span className="font-mono text-zinc-800 dark:text-zinc-200">{quality}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={100}
+                      value={quality}
+                      onChange={e => {
+                        const q = parseInt(e.target.value, 10);
+                        setQuality(q);
+                        updateRender(targetW, targetH, cropX, cropY, cropW, cropH, outputFormat, q);
+                      }}
+                      className="w-full accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
-      )}
+
+        {/* Right Column: Live Side-by-Side Preview (7 Cols) */}
+        <div className="lg:col-span-7 flex flex-col items-center">
+          <div className="w-full sticky top-20 space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" />
+                <span>Real-Time Output Preview</span>
+              </span>
+              {previewUrl && (
+                <div className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-500">
+                  <span>Output: {targetW} × {targetH} px</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px]">
+                    ~{fileSizeKB} KB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {previewUrl ? (
+              <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-950 p-4 shadow-xl flex flex-col items-center justify-center min-h-[360px] overflow-hidden">
+                <img
+                  src={previewUrl}
+                  alt="Resized Live Output"
+                  className="max-h-[460px] w-auto max-w-full rounded-2xl object-contain shadow-md"
+                />
+              </div>
+            ) : (
+              <div className="rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 p-12 text-center space-y-3 min-h-[360px] flex flex-col items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
+                  <ImageIcon className="w-7 h-7" />
+                </div>
+                <h3 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
+                  No Image Selected
+                </h3>
+                <p className="text-xs text-zinc-400 max-w-xs">
+                  Upload any photo or graphic on the left to see the live rendered preview, crop aspect ratios, and instant downloads.
+                </p>
+              </div>
+            )}
+
+            {previewUrl && (
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={downloadResized}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Resized {outputFormat === 'image/png' ? 'PNG' : outputFormat === 'image/jpeg' ? 'JPEG' : 'WebP'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
 
 // 4. Photo Metadata & EXIF Viewer
 const ExifViewerView: React.FC = () => {
@@ -700,7 +1009,7 @@ export const ImageBgRemoverView: React.FC = () => {
     sounds.playClick();
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename || 'transparent_cutout.png';
+    a.download = filename ? `omnitoolbox-${filename}` : 'omnitoolbox-transparent-cutout.png';
     a.click();
   };
 

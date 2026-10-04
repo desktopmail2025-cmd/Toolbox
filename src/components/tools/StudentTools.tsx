@@ -996,7 +996,7 @@ const StudyWhiteboardView: React.FC = () => {
     if (!canvas) return;
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = `study-whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
+    a.download = `omnitoolbox-study-whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
     a.click();
   };
 
@@ -2151,7 +2151,7 @@ const WorkStudySchedulerView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `work_study_schedule_${new Date().toISOString().slice(0, 10)}.ics`;
+    a.download = `omnitoolbox-study-schedule-${new Date().toISOString().slice(0, 10)}.ics`;
     a.click();
     URL.revokeObjectURL(url);
   };

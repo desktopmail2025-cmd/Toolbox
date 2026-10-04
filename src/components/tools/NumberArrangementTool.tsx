@@ -292,7 +292,7 @@ export const NumberArrangementTool: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `number-arrangements-${inputValue.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+    link.download = `omnitoolbox-number-arrangements-${inputValue.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };

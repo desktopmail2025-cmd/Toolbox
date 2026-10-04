@@ -223,7 +223,7 @@ export const ImageBgRemoverView: React.FC = () => {
     sounds.playSuccess();
     const a = document.createElement('a');
     a.href = processedUrl;
-    a.download = `nobg_${fileName.replace(/\.[^/.]+$/, '')}.png`;
+    a.download = `omnitoolbox-bg-removed-${fileName.replace(/\.[^/.]+$/, '')}.png`;
     a.click();
   };
 
@@ -598,7 +598,7 @@ export const VideoToAudioView: React.FC = () => {
     sounds.playSuccess();
     const a = document.createElement('a');
     a.href = audioUrl;
-    a.download = `${videoFileName.replace(/\.[^/.]+$/, '')}_audio.${outputFormat}`;
+    a.download = `omnitoolbox-audio-extract-${videoFileName.replace(/\.[^/.]+$/, '')}.${outputFormat}`;
     a.click();
   };
 

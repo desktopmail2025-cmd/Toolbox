@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Globe, Search, Clock, Sun, Moon, Sparkles } from 'lucide-react';
+import { Globe, Search, Clock, Sun, Moon, Sparkles, Navigation } from 'lucide-react';
 import { PublicHolidayDirectoryView } from './LiveDataTools';
 
 interface ToolComponentProps {
@@ -176,71 +176,435 @@ const TripCostCalcView: React.FC = () => {
   );
 };
 
-// 3. Speed, Distance & Time Solver
+// 3. Speed, Distance & Time Solver (Professional Physics & Kinematics Suite)
+type SolveTarget = 'time' | 'speed' | 'distance';
+type DistUnit = 'km' | 'miles' | 'meters' | 'feet' | 'nautical_miles';
+type SpeedUnit = 'km/h' | 'mph' | 'm/s' | 'knots' | 'ft/s';
+type TimeUnit = 'hours' | 'minutes' | 'seconds' | 'hms';
+
+const DIST_TO_METERS: Record<DistUnit, number> = {
+  km: 1000,
+  miles: 1609.344,
+  meters: 1,
+  feet: 0.3048,
+  nautical_miles: 1852,
+};
+
+const SPEED_TO_MPS: Record<SpeedUnit, number> = {
+  'km/h': 1000 / 3600,
+  mph: 1609.344 / 3600,
+  'm/s': 1,
+  knots: 1852 / 3600,
+  'ft/s': 0.3048,
+};
+
 const SpeedDistTimeView: React.FC = () => {
-  const [speed, setSpeed] = useState<string>('65');
-  const [distance, setDistance] = useState<string>('260');
-  const [timeHrs, setTimeHrs] = useState<string>('');
+  const [solveTarget, setSolveTarget] = useState<SolveTarget>('time');
 
-  const solve = () => {
-    const s = parseFloat(speed);
-    const d = parseFloat(distance);
-    const t = parseFloat(timeHrs);
+  // Input states
+  const [distanceVal, setDistanceVal] = useState<number | ''>(260);
+  const [distUnit, setDistUnit] = useState<DistUnit>('miles');
 
-    if (s && d && !t) {
-      const calcT = d / s;
-      const h = Math.floor(calcT);
-      const m = Math.round((calcT - h) * 60);
-      return `${h}h ${m}m (${calcT.toFixed(2)} hrs)`;
+  const [speedVal, setSpeedVal] = useState<number | ''>(65);
+  const [speedUnit, setSpeedUnit] = useState<SpeedUnit>('mph');
+
+  const [timeHours, setTimeHours] = useState<number | ''>(4);
+  const [timeMinutes, setTimeMinutes] = useState<number | ''>(0);
+  const [timeSeconds, setTimeSeconds] = useState<number | ''>(0);
+
+  // Conversion calculations
+  const totalInputSeconds =
+    (typeof timeHours === 'number' ? timeHours * 3600 : 0) +
+    (typeof timeMinutes === 'number' ? timeMinutes * 60 : 0) +
+    (typeof timeSeconds === 'number' ? timeSeconds : 0);
+
+  const inputDistMeters =
+    typeof distanceVal === 'number' ? distanceVal * DIST_TO_METERS[distUnit] : 0;
+
+  const inputSpeedMps =
+    typeof speedVal === 'number' ? speedVal * SPEED_TO_MPS[speedUnit] : 0;
+
+  // Compute based on target
+  let computedSeconds = 0;
+  let computedDistMeters = 0;
+  let computedSpeedMps = 0;
+
+  if (solveTarget === 'time') {
+    if (inputDistMeters > 0 && inputSpeedMps > 0) {
+      computedSeconds = inputDistMeters / inputSpeedMps;
+      computedDistMeters = inputDistMeters;
+      computedSpeedMps = inputSpeedMps;
     }
-    if (s && t && !d) {
-      return `${(s * t).toFixed(1)} miles / km`;
+  } else if (solveTarget === 'distance') {
+    if (inputSpeedMps > 0 && totalInputSeconds > 0) {
+      computedDistMeters = inputSpeedMps * totalInputSeconds;
+      computedSeconds = totalInputSeconds;
+      computedSpeedMps = inputSpeedMps;
     }
-    if (d && t && !s) {
-      return `${(d / t).toFixed(1)} mph / km/h`;
+  } else if (solveTarget === 'speed') {
+    if (inputDistMeters > 0 && totalInputSeconds > 0) {
+      computedSpeedMps = inputDistMeters / totalInputSeconds;
+      computedSeconds = totalInputSeconds;
+      computedDistMeters = inputDistMeters;
     }
-    return 'Provide any 2 values';
+  }
+
+  // Format Time Output
+  const formatTimeHMS = (secs: number) => {
+    if (!secs || isNaN(secs) || !isFinite(secs)) return '0s';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.round(secs % 60);
+    const parts = [];
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0 || h > 0) parts.push(`${m}m`);
+    parts.push(`${s}s`);
+    return `${parts.join(' ')} (${(secs / 3600).toFixed(2)} hrs)`;
+  };
+
+  // Pace calculations (running / walking)
+  const paceSecPerKm = computedSpeedMps > 0 ? 1000 / computedSpeedMps : 0;
+  const paceSecPerMile = computedSpeedMps > 0 ? 1609.344 / computedSpeedMps : 0;
+
+  const formatPace = (secs: number) => {
+    if (!secs || isNaN(secs) || !isFinite(secs)) return '--:--';
+    const m = Math.floor(secs / 60);
+    const s = Math.round(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const applyPreset = (presetSpeedKmh: number, presetLabel: string) => {
+    sounds.playClick();
+    if (solveTarget === 'speed') {
+      setSolveTarget('time');
+    }
+    setSpeedVal(presetSpeedKmh);
+    setSpeedUnit('km/h');
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Average Speed</label>
-          <input
-            type="number"
-            placeholder="e.g. 65"
-            value={speed}
-            onChange={e => setSpeed(e.target.value)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Educational Header & What are we doing here banner */}
+      <div className="rounded-3xl border border-indigo-200/80 bg-indigo-50/60 p-5 dark:border-indigo-900/50 dark:bg-indigo-950/30 space-y-2.5">
+        <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold text-sm">
+          <Navigation className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span>What We Are Doing Here: Kinematic Motion Analysis</span>
         </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Distance</label>
-          <input
-            type="number"
-            placeholder="e.g. 260"
-            value={distance}
-            onChange={e => setDistance(e.target.value)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Time (Hours)</label>
-          <input
-            type="number"
-            placeholder="Calculated"
-            value={timeHrs}
-            onChange={e => setTimeHrs(e.target.value)}
-            className="w-full border rounded-xl p-2 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          We use the fundamental kinematic equation of uniform motion{' '}
+          <strong className="font-mono text-indigo-600 dark:text-indigo-400">Distance = Speed × Time</strong> ($d = v \cdot t$).
+          All entered values are normalized into International System of Units (SI) meters and seconds,
+          algebraically solved for your chosen unknown variable, and converted across imperial, metric, nautical,
+          and athletic pace metrics.
+        </p>
+        <div className="flex flex-wrap gap-2 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 pt-1">
+          <span className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800">
+            Time Formula: t = d / v
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800">
+            Distance Formula: d = v × t
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800">
+            Speed Formula: v = d / t
+          </span>
         </div>
       </div>
 
-      <ResultCard label="Calculated Travel Output" value={solve()} highlight />
+      {/* Target Selector Tabs */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 px-2 py-1 mb-1">
+          Select Variable To Calculate:
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { id: 'time', label: '1. Calculate Time (t)', desc: 'From Distance & Speed' },
+            { id: 'distance', label: '2. Calculate Distance (d)', desc: 'From Speed & Time' },
+            { id: 'speed', label: '3. Calculate Speed (v)', desc: 'From Distance & Time' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                sounds.playClick();
+                setSolveTarget(tab.id as SolveTarget);
+              }}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer ${
+                solveTarget === tab.id
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold shadow-md'
+                  : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100'
+              }`}
+            >
+              <div className="text-xs font-bold">{tab.label}</div>
+              <div className="text-[10px] opacity-75">{tab.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Inputs Section */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Enter Known Journey Parameters
+        </h4>
+
+        {/* Distance Input (if not solving for distance) */}
+        {solveTarget !== 'distance' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Total Distance</label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="e.g. 260"
+                value={distanceVal}
+                onChange={e => setDistanceVal(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Unit</label>
+              <select
+                value={distUnit}
+                onChange={e => setDistUnit(e.target.value as DistUnit)}
+                className="w-full border rounded-xl p-2.5 text-sm font-semibold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              >
+                <option value="miles">Miles (mi)</option>
+                <option value="km">Kilometers (km)</option>
+                <option value="meters">Meters (m)</option>
+                <option value="feet">Feet (ft)</option>
+                <option value="nautical_miles">Nautical Miles (NM)</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Speed Input (if not solving for speed) */}
+        {solveTarget !== 'speed' && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-zinc-500 mb-1">Average Speed</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="e.g. 65"
+                  value={speedVal}
+                  onChange={e => setSpeedVal(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                  className="w-full border rounded-xl p-2.5 font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1">Unit</label>
+                <select
+                  value={speedUnit}
+                  onChange={e => setSpeedUnit(e.target.value as SpeedUnit)}
+                  className="w-full border rounded-xl p-2.5 text-sm font-semibold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+                >
+                  <option value="mph">Miles per Hour (mph)</option>
+                  <option value="km/h">Kilometers per Hour (km/h)</option>
+                  <option value="m/s">Meters per Second (m/s)</option>
+                  <option value="knots">Knots (kn)</option>
+                  <option value="ft/s">Feet per Second (ft/s)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Speed Benchmark Presets */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-400 mr-1">Presets:</span>
+              {[
+                { label: 'Walk (5 km/h)', val: 5 },
+                { label: 'Run (12 km/h)', val: 12 },
+                { label: 'Bicycle (20 km/h)', val: 20 },
+                { label: 'Car (100 km/h)', val: 100 },
+                { label: 'Train (250 km/h)', val: 250 },
+                { label: 'Airliner (900 km/h)', val: 900 },
+              ].map(p => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => applyPreset(p.val, p.label)}
+                  className="px-2 py-0.5 rounded-lg border text-[11px] font-semibold bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Time Input (if not solving for time) */}
+        {solveTarget !== 'time' && (
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-zinc-500">Duration (Time Elapsed)</label>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <span className="block text-[10px] text-zinc-400 mb-0.5">Hours</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={timeHours}
+                  onChange={e => setTimeHours(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+                />
+              </div>
+              <div>
+                <span className="block text-[10px] text-zinc-400 mb-0.5">Minutes</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  placeholder="0"
+                  value={timeMinutes}
+                  onChange={e => setTimeMinutes(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+                />
+              </div>
+              <div>
+                <span className="block text-[10px] text-zinc-400 mb-0.5">Seconds</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  placeholder="0"
+                  value={timeSeconds}
+                  onChange={e => setTimeSeconds(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Primary Solved Output Card */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-sm">
+        <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center justify-between">
+          <span>Primary Solution</span>
+          <span className="text-indigo-600 dark:text-indigo-400 font-bold">Physics Engine Output</span>
+        </div>
+
+        {solveTarget === 'time' && (
+          <div className="text-center py-2">
+            <span className="text-xs font-bold text-zinc-400 block mb-1">Total Travel Time Required</span>
+            <div className="text-3xl sm:text-4xl font-black text-indigo-600 dark:text-indigo-400 font-mono tracking-tight">
+              {formatTimeHMS(computedSeconds)}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              At an average rate of {speedVal || 0} {speedUnit}, traversing {distanceVal || 0} {distUnit}.
+            </p>
+          </div>
+        )}
+
+        {solveTarget === 'distance' && (
+          <div className="text-center py-2">
+            <span className="text-xs font-bold text-zinc-400 block mb-1">Total Distance Traveled</span>
+            <div className="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
+              {(computedDistMeters / 1000).toFixed(2)} km / {(computedDistMeters / 1609.344).toFixed(2)} mi
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Covered in {formatTimeHMS(totalInputSeconds)} at {speedVal || 0} {speedUnit}.
+            </p>
+          </div>
+        )}
+
+        {solveTarget === 'speed' && (
+          <div className="text-center py-2">
+            <span className="text-xs font-bold text-zinc-400 block mb-1">Required Average Speed</span>
+            <div className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-blue-400 font-mono tracking-tight">
+              {(computedSpeedMps * 3.6).toFixed(1)} km/h / {(computedSpeedMps * 2.23694).toFixed(1)} mph
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              To cross {distanceVal || 0} {distUnit} within {formatTimeHMS(totalInputSeconds)}.
+            </p>
+          </div>
+        )}
+
+        {/* Step-by-Step Derivation Breakdown */}
+        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2 text-xs">
+          <span className="font-bold text-zinc-700 dark:text-zinc-300 block">
+            Step-by-Step Solution Breakdown:
+          </span>
+          <div className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 space-y-1">
+            <div>
+              1. Base Distance: {(computedDistMeters / 1000).toFixed(3)} km ({(computedDistMeters / 1609.344).toFixed(3)} miles = {Math.round(computedDistMeters).toLocaleString()} meters)
+            </div>
+            <div>
+              2. Base Velocity: {(computedSpeedMps * 3.6).toFixed(2)} km/h ({(computedSpeedMps * 2.23694).toFixed(2)} mph = {computedSpeedMps.toFixed(3)} m/s)
+            </div>
+            <div>
+              3. Kinematic Formula Applied:{' '}
+              {solveTarget === 'time'
+                ? `t = ${Math.round(computedDistMeters)}m / ${computedSpeedMps.toFixed(2)}m/s = ${Math.round(computedSeconds)} seconds`
+                : solveTarget === 'distance'
+                ? `d = ${computedSpeedMps.toFixed(2)}m/s × ${Math.round(computedSeconds)}s = ${Math.round(computedDistMeters)} meters`
+                : `v = ${Math.round(computedDistMeters)}m / ${Math.round(computedSeconds)}s = ${computedSpeedMps.toFixed(2)} m/s`}
+            </div>
+          </div>
+        </div>
+
+        {/* Multi-Unit Comparative Matrix */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
+            <span className="text-[10px] text-zinc-400 uppercase font-bold block">Speed (Knots)</span>
+            <span className="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              {(computedSpeedMps * 1.94384).toFixed(2)} kn
+            </span>
+          </div>
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
+            <span className="text-[10px] text-zinc-400 uppercase font-bold block">Speed (ft/s)</span>
+            <span className="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              {(computedSpeedMps * 3.28084).toFixed(2)} ft/s
+            </span>
+          </div>
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
+            <span className="text-[10px] text-zinc-400 uppercase font-bold block">Pace (/km)</span>
+            <span className="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              {formatPace(paceSecPerKm)} min/km
+            </span>
+          </div>
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
+            <span className="text-[10px] text-zinc-400 uppercase font-bold block">Pace (/mile)</span>
+            <span className="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              {formatPace(paceSecPerMile)} min/mi
+            </span>
+          </div>
+        </div>
+
+        {/* Journey Progress Milestones Bar */}
+        {computedSeconds > 0 && (
+          <div className="space-y-2 pt-2">
+            <div className="flex justify-between text-[11px] font-bold text-zinc-400">
+              <span>Journey Milestones & Splits</span>
+              <span>100% Arrival</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1 text-[10px] font-mono text-center">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
+                <div className="font-bold">25% (1/4)</div>
+                <div>{formatTimeHMS(computedSeconds * 0.25)}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
+                <div className="font-bold">50% (Half)</div>
+                <div>{formatTimeHMS(computedSeconds * 0.5)}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
+                <div className="font-bold">75% (3/4)</div>
+                <div>{formatTimeHMS(computedSeconds * 0.75)}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300">
+                <div className="font-bold">100% Goal</div>
+                <div>{formatTimeHMS(computedSeconds)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 
 // 4. World Clock & Time Zones (Item 26: Live Real-Time + Global World Capitals)
 interface WorldCapital {

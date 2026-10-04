@@ -96,7 +96,7 @@ const ImagesToPdfView: React.FC = () => {
       pdf.addImage(img.dataUrl, 'JPEG', margin, margin, availWidth, availHeight, undefined, 'FAST');
     });
 
-    pdf.save('omni-converted-document.pdf');
+    pdf.save('omnitoolbox-converted-document.pdf');
   };
 
   return (
@@ -193,7 +193,7 @@ const TextToPdfView: React.FC = () => {
     const splitText = pdf.splitTextToSize(docBody, 180);
     pdf.text(splitText, 15, 32);
 
-    pdf.save(`${docTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+    pdf.save(`omnitoolbox-${docTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
   };
 
   return (
@@ -389,7 +389,7 @@ const SignaturePadView: React.FC = () => {
     sounds.playSuccess();
     const canvas = getRenderedCanvas();
     const link = document.createElement('a');
-    link.download = `signature-${Date.now()}.png`;
+    link.download = `omnitoolbox-signature-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
@@ -440,7 +440,7 @@ const SignaturePadView: React.FC = () => {
     pdf.text(`Signatory: ${signerName.trim() || 'Authorized Signatory'}`, 14, 86);
     pdf.text(`Timestamp: ${dateStr}`, 95, 86);
 
-    pdf.save(`Digital-Signature-${signerName.trim() ? signerName.trim().replace(/\s+/g, '-') : 'Pad'}.pdf`);
+    pdf.save(`omnitoolbox-digital-signature-${signerName.trim() ? signerName.trim().replace(/\s+/g, '-') : 'pad'}.pdf`);
   };
 
   const copyToClipboard = async () => {
@@ -923,7 +923,7 @@ const PdfViewerInfoView: React.FC = () => {
     sounds.playSuccess();
     const a = document.createElement('a');
     a.href = fileUrl;
-    a.download = fileName;
+    a.download = `omnitoolbox-${fileName}`;
     a.click();
   };
 
@@ -1405,7 +1405,7 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
     sounds.playClick();
     const a = document.createElement('a');
     a.href = item.convertedBlobUrl;
-    a.download = item.convertedFileName;
+    a.download = item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`;
     a.click();
   };
 

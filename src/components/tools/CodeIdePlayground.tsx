@@ -476,7 +476,7 @@ export const CodeIdePlayground: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `my-project.${ext}`;
+    a.download = `omnitoolbox-code-project.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };

@@ -857,7 +857,7 @@ export const TeamFormationBuilder: React.FC = () => {
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${teamName.replace(/\s+/g, '_')}_Formation_${formationKey}.png`;
+    a.download = `omnitoolbox-formation-${teamName.replace(/\s+/g, '_')}_${formationKey}.png`;
     a.click();
   };
 
@@ -924,7 +924,7 @@ export const TeamFormationBuilder: React.FC = () => {
       pdf.text('SUBSTITUTES BENCH: ' + bench.map(b => `${b.number}. ${b.name} (${b.position})`).join(', '), 15, benchY);
     }
 
-    pdf.save(`${teamName.replace(/\s+/g, '_')}_Formation_${formationKey}.pdf`);
+    pdf.save(`omnitoolbox-formation-${teamName.replace(/\s+/g, '_')}_${formationKey}.pdf`);
   };
 
   // Export Squad JSON file
@@ -946,7 +946,7 @@ export const TeamFormationBuilder: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${teamName.replace(/\s+/g, '_')}_Squad.json`;
+    a.download = `omnitoolbox-squad-${teamName.replace(/\s+/g, '_')}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
