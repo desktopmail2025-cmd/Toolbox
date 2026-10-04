@@ -7,7 +7,7 @@ import { PdfDocumentTools } from './PdfDocumentTools';
 import {
   Plus, Trash2, Play, Pause, RotateCcw, Shuffle, Copy, Check,
   Download, Undo2, Redo2, Square, Circle, Minus, ArrowRight,
-  Eraser, Highlighter, Pen, Grid, Type, Paintbrush,
+  Eraser, Highlighter, Pen, Grid, Type, Paintbrush, Edit2, X, Move, StickyNote,
   BookOpen, Bookmark, Star, Calendar, Clock, MapPin, CheckCircle2, Heart, Sparkles, Bell, ExternalLink, Filter,
   Image as ImageIcon, Upload, Camera, Eye
 } from 'lucide-react';
@@ -165,55 +165,371 @@ const GpaCalcView: React.FC = () => {
   );
 };
 
-// 2. Target Grade & Final Exam Calculator
+// 2. Target Grade & Final Exam Calculator (Comprehensive Suite)
+interface CourseComponent {
+  id: string;
+  name: string;
+  weight: number;
+  score: number;
+}
+
+const GRADE_PRESETS = [
+  { letter: 'A', percent: 93, color: 'bg-emerald-500 text-white' },
+  { letter: 'A-', percent: 90, color: 'bg-emerald-400 text-white' },
+  { letter: 'B+', percent: 87, color: 'bg-blue-500 text-white' },
+  { letter: 'B', percent: 83, color: 'bg-blue-400 text-white' },
+  { letter: 'B-', percent: 80, color: 'bg-sky-500 text-white' },
+  { letter: 'C+', percent: 77, color: 'bg-amber-500 text-white' },
+  { letter: 'C', percent: 73, color: 'bg-amber-400 text-white' },
+  { letter: 'Pass', percent: 60, color: 'bg-zinc-600 text-white' },
+];
+
+const getLetterForScore = (score: number) => {
+  if (score >= 93) return 'A';
+  if (score >= 90) return 'A-';
+  if (score >= 87) return 'B+';
+  if (score >= 83) return 'B';
+  if (score >= 80) return 'B-';
+  if (score >= 77) return 'C+';
+  if (score >= 73) return 'C';
+  if (score >= 70) return 'C-';
+  if (score >= 60) return 'D';
+  return 'F';
+};
+
 const TargetGradeCalcView: React.FC = () => {
+  const [mode, setMode] = useState<'simple' | 'components'>('simple');
   const [currentGrade, setCurrentGrade] = useState(82);
   const [targetGrade, setTargetGrade] = useState(85);
   const [finalExamWeight, setFinalExamWeight] = useState(30);
+  const [passingThreshold, setPassingThreshold] = useState(60);
+  const [extraCredit, setExtraCredit] = useState(0);
 
-  // Target = Current * (1 - Weight) + Final * Weight
-  // Final = (Target - Current * (1 - Weight)) / Weight
-  const w = finalExamWeight / 100;
-  const neededScore = (targetGrade - currentGrade * (1 - w)) / (w || 0.01);
+  // Components breakdown mode
+  const [components, setComponents] = useState<CourseComponent[]>([
+    { id: '1', name: 'Assignments / Homework', weight: 20, score: 92 },
+    { id: '2', name: 'Quizzes & Labs', weight: 15, score: 85 },
+    { id: '3', name: 'Midterm Exam', weight: 25, score: 78 },
+  ]);
+  const [finalWeightInComponents, setFinalWeightInComponents] = useState(40);
+
+  // Calculations for Simple Mode
+  const w = Math.max(0.001, finalExamWeight / 100);
+  // (Target - Current * (1 - w)) / w
+  const effectiveTarget = targetGrade - extraCredit;
+  const neededScore = (effectiveTarget - currentGrade * (1 - w)) / w;
+
+  // Passing score calculation
+  const passingNeeded = (passingThreshold - currentGrade * (1 - w)) / w;
+
+  // Scenario Simulator
+  const scenarioScores = [50, 60, 70, 80, 90, 100];
+  const scenarios = scenarioScores.map(score => {
+    const finalCourseGrade = currentGrade * (1 - w) + (score + extraCredit) * w;
+    return {
+      examScore: score,
+      finalGrade: finalCourseGrade,
+      letter: getLetterForScore(finalCourseGrade),
+    };
+  });
+
+  // Calculations for Components Mode
+  const totalCompletedWeight = components.reduce((acc, c) => acc + c.weight, 0);
+  const weightedSum = components.reduce((acc, c) => acc + (c.score * c.weight) / 100, 0);
+  const compCurrentGrade = totalCompletedWeight > 0 ? (weightedSum / totalCompletedWeight) * 100 : 0;
+  const compFinalWeight = Math.max(1, 100 - totalCompletedWeight);
+  const compNeeded = ((effectiveTarget - weightedSum) / compFinalWeight) * 100;
+
+  const handleAddComponent = () => {
+    sounds.playClick();
+    const newComp: CourseComponent = {
+      id: String(Date.now()),
+      name: `Component ${components.length + 1}`,
+      weight: 10,
+      score: 85,
+    };
+    setComponents([...components, newComp]);
+  };
+
+  const handleRemoveComponent = (id: string) => {
+    sounds.playClick();
+    setComponents(components.filter(c => c.id !== id));
+  };
+
+  const handleUpdateComponent = (id: string, field: 'name' | 'weight' | 'score', value: any) => {
+    setComponents(components.map(c => (c.id === id ? { ...c, [field]: value } : c)));
+  };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Current Grade (%)</label>
-          <input
-            type="number"
-            value={currentGrade}
-            onChange={e => setCurrentGrade(parseFloat(e.target.value) || 0)}
-            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Mode Switcher */}
+      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => { sounds.playClick(); setMode('simple'); }}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            mode === 'simple'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+          }`}
+        >
+          Simple Target & Final Exam
+        </button>
+        <button
+          type="button"
+          onClick={() => { sounds.playClick(); setMode('components'); }}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            mode === 'components'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+          }`}
+        >
+          Weighted Syllabus Breakdown ({components.length} Items)
+        </button>
+      </div>
+
+      {/* Target Letter Grade Quick Presets */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Target Grade Goal: {targetGrade}% ({getLetterForScore(targetGrade)})
+          </span>
+          <span className="text-[11px] text-zinc-400">Click any preset to apply</span>
         </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Desired Target (%)</label>
-          <input
-            type="number"
-            value={targetGrade}
-            onChange={e => setTargetGrade(parseFloat(e.target.value) || 0)}
-            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Final Exam Weight (%)</label>
-          <input
-            type="number"
-            value={finalExamWeight}
-            onChange={e => setFinalExamWeight(parseFloat(e.target.value) || 1)}
-            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-          />
+        <div className="flex flex-wrap gap-2">
+          {GRADE_PRESETS.map(p => (
+            <button
+              key={p.letter}
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setTargetGrade(p.percent);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                targetGrade === p.percent
+                  ? `${p.color} ring-2 ring-indigo-500/40 scale-105`
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              {p.letter} ({p.percent}%)
+            </button>
+          ))}
         </div>
       </div>
 
-      <ResultCard
-        label="Score Required on Final Exam"
-        value={`${neededScore.toFixed(1)}%`}
-        subtext={neededScore > 100 ? 'Requires extra credit' : neededScore <= 0 ? 'Already guaranteed target!' : 'Achievable with study!'}
-        highlight
-      />
+      {mode === 'simple' ? (
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Course Performance Parameters
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Current Grade (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={currentGrade}
+                onChange={e => setCurrentGrade(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+              <span className="text-[10px] text-zinc-400 mt-1 block">Current Letter: {getLetterForScore(currentGrade)}</span>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Target Desired Grade (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={targetGrade}
+                onChange={e => setTargetGrade(parseFloat(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2.5 font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+              <span className="text-[10px] text-zinc-400 mt-1 block">Target Letter: {getLetterForScore(targetGrade)}</span>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Final Exam Weight (%)</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={finalExamWeight}
+                onChange={e => setFinalExamWeight(parseFloat(e.target.value) || 1)}
+                className="w-full border rounded-xl p-2.5 font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+              <span className="text-[10px] text-zinc-400 mt-1 block">Worth {finalExamWeight}% of overall grade</span>
+            </div>
+          </div>
+
+          {/* Extra Credit & Passing Threshold */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Anticipated Extra Credit (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={extraCredit}
+                onChange={e => setExtraCredit(parseFloat(e.target.value) || 0)}
+                placeholder="e.g. 5"
+                className="w-full border rounded-xl p-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700"
+              />
+              <span className="text-[10px] text-zinc-400">Bonus points added directly to final grade</span>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Minimum Passing Threshold (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={passingThreshold}
+                onChange={e => setPassingThreshold(parseFloat(e.target.value) || 60)}
+                className="w-full border rounded-xl p-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700"
+              />
+              <span className="text-[10px] text-zinc-400">Score required to maintain passing status (C or D)</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Components Breakdown Mode */
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Syllabus Components Breakdown
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Current weighted score: <strong className="text-zinc-900 dark:text-zinc-100">{compCurrentGrade.toFixed(1)}%</strong> ({getLetterForScore(compCurrentGrade)})
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddComponent}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Category
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {components.map(c => (
+              <div key={c.id} className="flex items-center gap-2 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800">
+                <input
+                  type="text"
+                  value={c.name}
+                  onChange={e => handleUpdateComponent(c.id, 'name', e.target.value)}
+                  className="flex-1 text-xs font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1"
+                />
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-zinc-400">Weight:</span>
+                  <input
+                    type="number"
+                    value={c.weight}
+                    onChange={e => handleUpdateComponent(c.id, 'weight', parseFloat(e.target.value) || 0)}
+                    className="w-14 p-1 rounded-lg border text-center font-mono font-bold bg-white dark:bg-zinc-900 dark:border-zinc-700"
+                  />
+                  <span className="text-zinc-400">%</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-zinc-400">Score:</span>
+                  <input
+                    type="number"
+                    value={c.score}
+                    onChange={e => handleUpdateComponent(c.id, 'score', parseFloat(e.target.value) || 0)}
+                    className="w-14 p-1 rounded-lg border text-center font-mono font-bold bg-white dark:bg-zinc-900 dark:border-zinc-700"
+                  />
+                  <span className="text-zinc-400">%</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveComponent(c.id)}
+                  className="p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs flex justify-between items-center">
+            <span className="font-semibold text-indigo-900 dark:text-indigo-200">
+              Remaining Weight Assigned to Final Exam:
+            </span>
+            <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">
+              {compFinalWeight}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Primary Result Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <ResultCard
+          label={`Score Needed for Target ${targetGrade}% (${getLetterForScore(targetGrade)})`}
+          value={`${(mode === 'simple' ? neededScore : compNeeded).toFixed(1)}%`}
+          subtext={
+            (mode === 'simple' ? neededScore : compNeeded) > 100
+              ? 'Impossible without extra credit'
+              : (mode === 'simple' ? neededScore : compNeeded) <= 0
+              ? 'Target already guaranteed even with 0%!'
+              : (mode === 'simple' ? neededScore : compNeeded) > 90
+              ? 'Demanding: High study focus needed'
+              : 'Very achievable with standard prep'
+          }
+          highlight
+        />
+
+        <ResultCard
+          label={`Minimum Score to Pass Course (${passingThreshold}%)`}
+          value={`${Math.max(0, passingNeeded).toFixed(1)}%`}
+          subtext={
+            passingNeeded <= 0
+              ? 'Passing is already 100% mathematically locked in!'
+              : `Must score at least ${passingNeeded.toFixed(1)}% to avoid retaking`
+          }
+        />
+      </div>
+
+      {/* Scenario Simulator Matrix */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Final Exam Outcome Simulator Matrix
+          </h4>
+          <span className="text-[11px] text-zinc-400">What if scenarios</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center">
+          {scenarios.map(s => {
+            const isTargetMet = s.finalGrade >= targetGrade;
+            return (
+              <div
+                key={s.examScore}
+                className={`p-3 rounded-2xl border transition-all ${
+                  isTargetMet
+                    ? 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/30'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40'
+                }`}
+              >
+                <span className="text-[10px] font-bold text-zinc-400 block uppercase">
+                  If you score
+                </span>
+                <span className="font-mono text-base font-extrabold text-zinc-900 dark:text-zinc-50 block">
+                  {s.examScore}%
+                </span>
+                <div className="mt-1 pt-1 border-t border-zinc-200/60 dark:border-zinc-800">
+                  <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 block">
+                    {s.finalGrade.toFixed(1)}%
+                  </span>
+                  <span className={`text-[10px] font-extrabold ${isTargetMet ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                    Grade: {s.letter}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
@@ -432,24 +748,69 @@ interface ExamItem {
 }
 
 const ExamCountdownView: React.FC = () => {
-  const [exams, setExams] = useState<ExamItem[]>([
-    { id: '1', name: 'Calculus Final Exam', date: '2026-10-15T09:00' },
-    { id: '2', name: 'Software Project Deadline', date: '2026-10-25T23:59' },
-  ]);
+  const [exams, setExams] = useState<ExamItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_student_exams');
+      return saved ? JSON.parse(saved) : [
+        { id: '1', name: 'Calculus Final Exam', date: '2026-10-15T09:00' },
+        { id: '2', name: 'Software Project Deadline', date: '2026-10-25T23:59' },
+      ];
+    } catch {
+      return [
+        { id: '1', name: 'Calculus Final Exam', date: '2026-10-15T09:00' },
+        { id: '2', name: 'Software Project Deadline', date: '2026-10-25T23:59' },
+      ];
+    }
+  });
 
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState('2026-11-01T10:00');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDate, setEditDate] = useState('');
+
+  const saveExamsToStorage = (updated: ExamItem[]) => {
+    setExams(updated);
+    try {
+      localStorage.setItem('omni_student_exams', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
 
   const addExam = () => {
     if (!newName.trim() || !newDate) return;
-    sounds.playClick();
-    setExams([...exams, { id: String(Date.now()), name: newName.trim(), date: newDate }]);
+    sounds.playSuccess();
+    const updated = [...exams, { id: String(Date.now()), name: newName.trim(), date: newDate }];
+    saveExamsToStorage(updated);
     setNewName('');
   };
 
   const removeExam = (id: string) => {
     sounds.playClick();
-    setExams(exams.filter(e => e.id !== id));
+    const updated = exams.filter(e => e.id !== id);
+    saveExamsToStorage(updated);
+    if (editingId === id) setEditingId(null);
+  };
+
+  const startEdit = (e: ExamItem) => {
+    sounds.playClick();
+    setEditingId(e.id);
+    setEditName(e.name);
+    setEditDate(e.date);
+  };
+
+  const saveEdit = (id: string) => {
+    if (!editName.trim() || !editDate) return;
+    sounds.playSuccess();
+    const updated = exams.map(e => (e.id === id ? { ...e, name: editName.trim(), date: editDate } : e));
+    saveExamsToStorage(updated);
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => {
+    sounds.playClick();
+    setEditingId(null);
   };
 
   const getRemainingTime = (dateStr: string) => {
@@ -463,7 +824,7 @@ const ExamCountdownView: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Add Upcoming Exam / Deadline</h4>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -481,7 +842,7 @@ const ExamCountdownView: React.FC = () => {
           />
           <button
             onClick={addExam}
-            className="px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold rounded-xl hover:opacity-90"
+            className="px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold rounded-xl hover:opacity-90 cursor-pointer shadow-xs active:scale-95"
           >
             Add
           </button>
@@ -489,20 +850,82 @@ const ExamCountdownView: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        {exams.map(e => (
-          <div key={e.id} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{e.name}</h4>
-              <p className="text-xs text-zinc-400 font-mono mt-0.5">{new Date(e.date).toLocaleString()}</p>
-              <span className="inline-block mt-1 font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                {getRemainingTime(e.date)}
-              </span>
+        {exams.map(e => {
+          const isEditing = editingId === e.id;
+          return (
+            <div key={e.id} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 transition-all shadow-xs">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-zinc-500">
+                    <span>Edit Exam Countdown</span>
+                    <button onClick={cancelEdit} className="text-zinc-400 hover:text-zinc-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={ev => setEditName(ev.target.value)}
+                      className="flex-1 border rounded-xl px-3 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 font-semibold"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={editDate}
+                      onChange={ev => setEditDate(ev.target.value)}
+                      className="border rounded-xl px-3 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 font-mono"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={cancelEdit}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => saveEdit(e.id)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Save Changes
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{e.name}</h4>
+                    <p className="text-xs text-zinc-400 font-mono mt-0.5">{new Date(e.date).toLocaleString()}</p>
+                    <span className="inline-block mt-1 font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                      {getRemainingTime(e.date)}
+                    </span>
+                  </div>
+                  {/* Edit button beside delete button! */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(e)}
+                      className="p-2 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                      title="Edit exam details"
+                      aria-label="Edit exam details"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeExam(e.id)}
+                      className="p-2 text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                      title="Delete exam"
+                      aria-label="Delete exam"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <button onClick={() => removeExam(e.id)} className="p-2 text-zinc-400 hover:text-red-500">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -692,8 +1115,19 @@ const GroupGeneratorView: React.FC = () => {
 };
 
 // 8. Interactive Study Whiteboard (Item 19: Full Whiteboard with Drawing, Shapes, Highlighter, Grids & Export)
-type WhiteboardTool = 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'circle' | 'text';
+type WhiteboardTool = 'select' | 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'circle' | 'text' | 'sticky';
 type GridStyle = 'plain' | 'dots' | 'ruled' | 'grid' | 'blackboard';
+
+interface MovableObject {
+  id: string;
+  type: 'text' | 'sticky';
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  text: string;
+  color: string;
+  bg?: string;
+  isEditing?: boolean;
+}
 
 const PRESET_COLORS = [
   '#0f172a', // Slate / Black
@@ -709,6 +1143,7 @@ const PRESET_COLORS = [
 
 const StudyWhiteboardView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [tool, setTool] = useState<WhiteboardTool>('pen');
   const [color, setColor] = useState('#2563eb');
   const [strokeWidth, setStrokeWidth] = useState(3);
@@ -720,6 +1155,31 @@ const StudyWhiteboardView: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
 
+  // Movable Objects State
+  const [objects, setObjects] = useState<MovableObject[]>([
+    {
+      id: '1',
+      type: 'sticky',
+      x: 10,
+      y: 12,
+      text: '📌 Formula:\nE = mc²\nF = ma',
+      color: '#854d0e',
+      bg: '#fef08a',
+    },
+    {
+      id: '2',
+      type: 'text',
+      x: 48,
+      y: 15,
+      text: 'Final Exam Review Topics',
+      color: '#2563eb',
+    },
+  ]);
+
+  // Object dragging state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragStartRef = useRef<{ clientX: number; clientY: number; objX: number; objY: number } | null>(null);
+
   // Initialize Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -727,16 +1187,13 @@ const StudyWhiteboardView: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set internal resolution matching display aspect ratio
     const width = 1000;
     const height = 620;
     canvas.width = width;
     canvas.height = height;
 
-    // Fill initial background
     redrawBackground(ctx, width, height, gridStyle);
 
-    // Save initial blank state to history
     const initialSnap = ctx.getImageData(0, 0, width, height);
     setHistory([initialSnap]);
     setHistoryIndex(0);
@@ -748,7 +1205,6 @@ const StudyWhiteboardView: React.FC = () => {
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, width, height);
 
-      // Fine blackboard texture/dots
       ctx.fillStyle = '#334155';
       for (let x = 20; x < width; x += 25) {
         for (let y = 20; y < height; y += 25) {
@@ -758,7 +1214,6 @@ const StudyWhiteboardView: React.FC = () => {
       return;
     }
 
-    // Default light white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
@@ -778,7 +1233,6 @@ const StudyWhiteboardView: React.FC = () => {
         ctx.lineTo(width, y);
         ctx.stroke();
       }
-      // Red margin line
       ctx.strokeStyle = '#fca5a5';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -839,31 +1293,70 @@ const StudyWhiteboardView: React.FC = () => {
   };
 
   const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (tool === 'select') return;
+
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const coords = getCanvasCoords(e);
+    const rect = container.getBoundingClientRect();
+    let clientX = 0;
+    let clientY = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const relX = Math.min(85, Math.max(5, ((clientX - rect.left) / rect.width) * 100));
+    const relY = Math.min(85, Math.max(5, ((clientY - rect.top) / rect.height) * 100));
+
+    // Handle Text or Sticky note creation directly without broken prompt()
+    if (tool === 'text') {
+      sounds.playClick();
+      const newObj: MovableObject = {
+        id: String(Date.now()),
+        type: 'text',
+        x: relX,
+        y: relY,
+        text: 'Type note here...',
+        color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+        isEditing: true,
+      };
+      setObjects(prev => [...prev, newObj]);
+      setTool('select');
+      return;
+    }
+
+    if (tool === 'sticky') {
+      sounds.playClick();
+      const newObj: MovableObject = {
+        id: String(Date.now()),
+        type: 'sticky',
+        x: relX,
+        y: relY,
+        text: 'Sticky Note\n- Important concept\n- Drag anywhere!',
+        color: '#854d0e',
+        bg: '#fef08a',
+        isEditing: true,
+      };
+      setObjects(prev => [...prev, newObj]);
+      setTool('select');
+      return;
+    }
+
     setIsDrawing(true);
     setStartPos(coords);
-
-    // Save snapshot for shape drag preview
     setSnapshot(ctx.getImageData(0, 0, canvas.width, canvas.height));
 
     if (tool === 'pen' || tool === 'highlighter' || tool === 'eraser') {
       ctx.beginPath();
       ctx.moveTo(coords.x, coords.y);
-    } else if (tool === 'text') {
-      const text = prompt('Enter text for whiteboard:');
-      if (text) {
-        sounds.playClick();
-        ctx.font = `bold ${strokeWidth * 6 + 12}px 'Plus Jakarta Sans', sans-serif`;
-        ctx.fillStyle = gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color;
-        ctx.fillText(text, coords.x, coords.y);
-        saveHistoryStep();
-      }
-      setIsDrawing(false);
     }
   };
 
@@ -901,7 +1394,6 @@ const StudyWhiteboardView: React.FC = () => {
       ctx.lineTo(coords.x, coords.y);
       ctx.stroke();
     } else if (snapshot) {
-      // Shape live drag preview using snapshot restoration
       ctx.putImageData(snapshot, 0, 0);
       ctx.strokeStyle = gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color;
       ctx.lineWidth = strokeWidth;
@@ -914,13 +1406,11 @@ const StudyWhiteboardView: React.FC = () => {
         ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
       } else if (tool === 'arrow') {
-        // Draw straight line
         ctx.beginPath();
         ctx.moveTo(startPos.x, startPos.y);
         ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
 
-        // Arrow head
         const angle = Math.atan2(coords.y - startPos.y, coords.x - startPos.x);
         const headLen = Math.max(10, strokeWidth * 3);
         ctx.beginPath();
@@ -952,6 +1442,120 @@ const StudyWhiteboardView: React.FC = () => {
     saveHistoryStep();
   };
 
+  // Object Drag Handlers with Mouse & Touch
+  const handleObjectDragStart = (id: string, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    const container = containerRef.current;
+    if (!container) return;
+
+    let clientX = 0;
+    let clientY = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const obj = objects.find(o => o.id === id);
+    if (!obj) return;
+
+    setDraggingId(id);
+    dragStartRef.current = {
+      clientX,
+      clientY,
+      objX: obj.x,
+      objY: obj.y,
+    };
+  };
+
+  useEffect(() => {
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      if (!draggingId || !dragStartRef.current || !containerRef.current) return;
+
+      let clientX = 0;
+      let clientY = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = (e as MouseEvent).clientX;
+        clientY = (e as MouseEvent).clientY;
+      }
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const deltaX = ((clientX - dragStartRef.current.clientX) / rect.width) * 100;
+      const deltaY = ((clientY - dragStartRef.current.clientY) / rect.height) * 100;
+
+      const newX = Math.min(92, Math.max(0, dragStartRef.current.objX + deltaX));
+      const newY = Math.min(92, Math.max(0, dragStartRef.current.objY + deltaY));
+
+      setObjects(prev =>
+        prev.map(o => (o.id === draggingId ? { ...o, x: newX, y: newY } : o))
+      );
+    };
+
+    const handlePointerUp = () => {
+      if (draggingId) {
+        setDraggingId(null);
+        dragStartRef.current = null;
+      }
+    };
+
+    if (draggingId) {
+      window.addEventListener('mousemove', handlePointerMove);
+      window.addEventListener('mouseup', handlePointerUp);
+      window.addEventListener('touchmove', handlePointerMove, { passive: false });
+      window.addEventListener('touchend', handlePointerUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove);
+      window.removeEventListener('touchend', handlePointerUp);
+    };
+  }, [draggingId]);
+
+  const handleUpdateObjectText = (id: string, text: string) => {
+    setObjects(prev => prev.map(o => (o.id === id ? { ...o, text } : o)));
+  };
+
+  const handleRemoveObject = (id: string) => {
+    sounds.playClick();
+    setObjects(prev => prev.filter(o => o.id !== id));
+  };
+
+  const handleAddStickyQuick = () => {
+    sounds.playClick();
+    const newObj: MovableObject = {
+      id: String(Date.now()),
+      type: 'sticky',
+      x: 35 + Math.random() * 20,
+      y: 30 + Math.random() * 20,
+      text: 'New Sticky Note',
+      color: '#854d0e',
+      bg: '#fef08a',
+      isEditing: true,
+    };
+    setObjects(prev => [...prev, newObj]);
+  };
+
+  const handleAddTextQuick = () => {
+    sounds.playClick();
+    const newObj: MovableObject = {
+      id: String(Date.now()),
+      type: 'text',
+      x: 35 + Math.random() * 20,
+      y: 30 + Math.random() * 20,
+      text: 'Key Exam Note',
+      color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+      isEditing: true,
+    };
+    setObjects(prev => [...prev, newObj]);
+  };
+
   const handleUndo = () => {
     if (historyIndex > 0) {
       sounds.playClick();
@@ -979,32 +1583,80 @@ const StudyWhiteboardView: React.FC = () => {
   };
 
   const handleClear = () => {
-    if (window.confirm('Clear whiteboard contents? This will create a fresh blank board.')) {
+    if (window.confirm('Clear whiteboard drawings and movable notes?')) {
       sounds.playClick();
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       redrawBackground(ctx, canvas.width, canvas.height, gridStyle);
+      setObjects([]);
       saveHistoryStep();
     }
   };
 
+  // Render combined high-res canvas with drawings AND movable objects
+  const getCombinedCanvas = (): HTMLCanvasElement | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    // 1. Draw canvas background and strokes
+    ctx.drawImage(canvas, 0, 0);
+
+    // 2. Draw movable objects over the top
+    objects.forEach(obj => {
+      const pxX = (obj.x / 100) * exportCanvas.width;
+      const pxY = (obj.y / 100) * exportCanvas.height;
+
+      if (obj.type === 'sticky') {
+        ctx.fillStyle = obj.bg || '#fef08a';
+        ctx.strokeStyle = '#eab308';
+        ctx.lineWidth = 2;
+        const boxW = 220;
+        const boxH = 140;
+        ctx.fillRect(pxX, pxY, boxW, boxH);
+        ctx.strokeRect(pxX, pxY, boxW, boxH);
+
+        ctx.fillStyle = obj.color;
+        ctx.font = 'bold 15px Plus Jakarta Sans, sans-serif';
+        const lines = obj.text.split('\n');
+        lines.forEach((line, lIdx) => {
+          ctx.fillText(line, pxX + 15, pxY + 28 + lIdx * 20);
+        });
+      } else {
+        ctx.fillStyle = obj.color;
+        ctx.font = 'bold 18px Plus Jakarta Sans, sans-serif';
+        const lines = obj.text.split('\n');
+        lines.forEach((line, lIdx) => {
+          ctx.fillText(line, pxX, pxY + 22 + lIdx * 22);
+        });
+      }
+    });
+
+    return exportCanvas;
+  };
+
   const handleDownload = () => {
     sounds.playSuccess();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const exportCanvas = getCombinedCanvas();
+    if (!exportCanvas) return;
     const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
+    a.href = exportCanvas.toDataURL('image/png');
     a.download = `omnitoolbox-study-whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
     a.click();
   };
 
   const handleCopyImage = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const exportCanvas = getCombinedCanvas();
+    if (!exportCanvas) return;
     try {
-      canvas.toBlob(blob => {
+      exportCanvas.toBlob(blob => {
         if (!blob) return;
         navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         sounds.playSuccess();
@@ -1017,15 +1669,15 @@ const StudyWhiteboardView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4 max-w-4xl mx-auto select-none">
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Interactive Study Whiteboard & Scratchpad
+            Interactive Study Whiteboard & Movable Scratchpad
           </h2>
           <span className="text-[11px] text-zinc-400">
-            Full-featured digital canvas for diagrams, mathematical scratch work, notes & problem-solving
+            Drag movable notes & text anywhere with mouse or touch. Sketch freely with pens, highlighters & shapes.
           </span>
         </div>
         <div className="flex items-center gap-1.5 self-end sm:self-center">
@@ -1062,8 +1714,8 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
           <button
             onClick={handleDownload}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-            title="Download full resolution image"
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
+            title="Download full resolution image with notes"
           >
             <Download className="w-3.5 h-3.5" /> Export
           </button>
@@ -1072,11 +1724,20 @@ const StudyWhiteboardView: React.FC = () => {
 
       {/* Control Toolbar */}
       <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        {/* Drawing Tools Selection */}
+        {/* Drawing & Object Tools */}
         <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl">
           <button
+            onClick={() => { sounds.playClick(); setTool('select'); }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              tool === 'select' ? 'bg-white dark:bg-zinc-950 text-indigo-600 dark:text-indigo-400 shadow-2xs ring-1 ring-indigo-500/30' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+            }`}
+            title="Move & Drag Objects (Mouse or Touch)"
+          >
+            <Move className="w-3.5 h-3.5" /> Move
+          </button>
+          <button
             onClick={() => { sounds.playClick(); setTool('pen'); }}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
               tool === 'pen' ? 'bg-white dark:bg-zinc-950 text-indigo-600 dark:text-indigo-400 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
             }`}
             title="Pen Tool"
@@ -1085,7 +1746,7 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('highlighter'); }}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
               tool === 'highlighter' ? 'bg-white dark:bg-zinc-950 text-amber-500 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
             }`}
             title="Translucent Highlighter"
@@ -1094,7 +1755,7 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('eraser'); }}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
               tool === 'eraser' ? 'bg-white dark:bg-zinc-950 text-rose-500 shadow-2xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
             }`}
             title="Eraser Tool"
@@ -1103,38 +1764,65 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('line'); }}
-            className={`p-1.5 rounded-lg transition-all ${tool === 'line' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${tool === 'line' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
             title="Straight Line"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('arrow'); }}
-            className={`p-1.5 rounded-lg transition-all ${tool === 'arrow' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${tool === 'arrow' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
             title="Arrow"
           >
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('rect'); }}
-            className={`p-1.5 rounded-lg transition-all ${tool === 'rect' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${tool === 'rect' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
             title="Rectangle"
           >
             <Square className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('circle'); }}
-            className={`p-1.5 rounded-lg transition-all ${tool === 'circle' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${tool === 'circle' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
             title="Circle"
           >
             <Circle className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => { sounds.playClick(); setTool('text'); }}
-            className={`p-1.5 rounded-lg transition-all ${tool === 'text' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs' : 'text-zinc-500'}`}
-            title="Text Tool"
+            className={`px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              tool === 'text' ? 'bg-white dark:bg-zinc-950 text-indigo-600 shadow-2xs ring-1 ring-indigo-500/40' : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+            title="Click on canvas to add movable Text"
           >
-            <Type className="w-3.5 h-3.5" />
+            <Type className="w-3.5 h-3.5" /> Text
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setTool('sticky'); }}
+            className={`px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              tool === 'sticky' ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 shadow-2xs ring-1 ring-amber-500/40' : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+            title="Click on canvas to add movable Sticky Note"
+          >
+            <StickyNote className="w-3.5 h-3.5 text-amber-500" /> Sticky
+          </button>
+        </div>
+
+        {/* Quick Add Buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleAddTextQuick}
+            className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:border-indigo-400 cursor-pointer flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3 text-indigo-500" /> Text
+          </button>
+          <button
+            onClick={handleAddStickyQuick}
+            className="px-2.5 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-[11px] font-bold text-amber-800 dark:text-amber-200 hover:border-amber-500 cursor-pointer flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3 text-amber-600" /> Sticky
           </button>
         </div>
 
@@ -1189,7 +1877,6 @@ const StudyWhiteboardView: React.FC = () => {
               if (canvas) {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                  // Redraw background without destroying drawn strokes if possible, or redraw
                   redrawBackground(ctx, canvas.width, canvas.height, newStyle);
                   saveHistoryStep();
                 }
@@ -1206,8 +1893,11 @@ const StudyWhiteboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Canvas Drawing Area */}
-      <div className="rounded-3xl border border-zinc-300 dark:border-zinc-800 overflow-hidden shadow-lg bg-zinc-100 dark:bg-zinc-950 flex justify-center items-center p-1 sm:p-2">
+      {/* Main Canvas & Movable Interactive Objects Stage */}
+      <div
+        ref={containerRef}
+        className="relative rounded-3xl border border-zinc-300 dark:border-zinc-800 overflow-hidden shadow-lg bg-zinc-100 dark:bg-zinc-950 flex justify-center items-center p-1 sm:p-2 select-none"
+      >
         <canvas
           ref={canvasRef}
           onMouseDown={handleStart}
@@ -1223,13 +1913,70 @@ const StudyWhiteboardView: React.FC = () => {
             handleMove(e);
           }}
           onTouchEnd={handleEnd}
-          className="w-full h-auto aspect-[1000/620] max-h-[640px] rounded-2xl shadow-inner cursor-crosshair touch-none"
+          className={`w-full h-auto aspect-[1000/620] max-h-[640px] rounded-2xl shadow-inner touch-none ${
+            tool === 'select' ? 'cursor-default' : 'cursor-crosshair'
+          }`}
         />
+
+        {/* Movable Objects Overlay Layer (Movable via Mouse or Touch) */}
+        {objects.map(obj => {
+          const isDraggingThis = draggingId === obj.id;
+          return (
+            <div
+              key={obj.id}
+              style={{
+                left: `${obj.x}%`,
+                top: `${obj.y}%`,
+                backgroundColor: obj.bg,
+              }}
+              onMouseDown={e => handleObjectDragStart(obj.id, e)}
+              onTouchStart={e => handleObjectDragStart(obj.id, e)}
+              className={`absolute group z-20 transition-shadow ${
+                isDraggingThis ? 'scale-105 shadow-2xl opacity-90 ring-2 ring-indigo-500 cursor-grabbing' : 'cursor-grab'
+              } ${
+                obj.type === 'sticky'
+                  ? 'p-3 rounded-2xl border-2 border-amber-300/80 shadow-lg min-w-[140px] max-w-[220px]'
+                  : 'p-2 rounded-xl bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xs border border-zinc-300 dark:border-zinc-700 shadow-md min-w-[120px] max-w-[240px]'
+              }`}
+            >
+              {/* Drag Handle & Delete Bar */}
+              <div className="flex items-center justify-between gap-1 mb-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-zinc-600 dark:text-zinc-400">
+                  <Move className="w-3 h-3" />
+                  <span>Drag</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleRemoveObject(obj.id);
+                  }}
+                  className="p-1 rounded text-zinc-400 hover:text-rose-600 cursor-pointer"
+                  title="Remove this object"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Editable Text Area (Direct typing without prompt!) */}
+              <textarea
+                value={obj.text}
+                onChange={e => handleUpdateObjectText(obj.id, e.target.value)}
+                rows={obj.type === 'sticky' ? 3 : 2}
+                className="w-full bg-transparent resize-none border-0 p-0 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-400/50 rounded leading-snug"
+                style={{ color: obj.color }}
+                placeholder="Type text..."
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Instructions / Shortcuts Hint */}
+      {/* Helpful Hint */}
       <div className="flex flex-wrap items-center justify-between text-[11px] text-zinc-400 px-2">
-        <span>💡 Use stylus, touch, or mouse to sketch. Switch to Highlighter for translucent notes or Shapes for diagrams.</span>
+        <span>💡 Click <strong>Text</strong> or <strong>Sticky</strong> to place cards. Drag them freely across the board with mouse or touch!</span>
         <span>Resolution: 1000 × 620 HD Canvas</span>
       </div>
     </div>

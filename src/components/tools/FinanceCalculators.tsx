@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Plus, Trash2, ArrowRight, RefreshCw, Globe, Copy, Check, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, RefreshCw, Globe, Copy, Check, Edit2, X, Bookmark, Save } from 'lucide-react';
+import { RetirementPlannerView, CryptoMiningCalcView } from './ExtendedUtilities';
 
 interface ToolComponentProps {
   toolId: string;
@@ -11,6 +12,10 @@ export const FinanceCalculators: React.FC<ToolComponentProps> = ({ toolId }) => 
   switch (toolId) {
     case 'loan-emi-calc':
       return <LoanEmiCalcView />;
+    case 'retirement-planner':
+      return <RetirementPlannerView />;
+    case 'crypto-mining-calc':
+      return <CryptoMiningCalcView />;
     case 'simple-interest-calc':
       return <SimpleInterestCalcView />;
     case 'compound-interest-calc':
@@ -1115,8 +1120,11 @@ const ExpenseSplitterView: React.FC = () => {
   const [amt, setAmt] = useState('');
   const [payer, setPayer] = useState('Alice');
 
-  const [editingMember, setEditingMember] = useState<string | null>(null);
-  const [editMemberName, setEditMemberName] = useState<string>('');
+  // Edit Expense State (beside divided expenses name holder)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState('');
+  const [editAmt, setEditAmt] = useState('');
+  const [editPayer, setEditPayer] = useState('');
 
   const addExpense = () => {
     if (!amt || parseFloat(amt) <= 0) return;
@@ -1137,6 +1145,28 @@ const ExpenseSplitterView: React.FC = () => {
   const removeExpense = (id: string) => {
     sounds.playClick();
     setExpenses(expenses.filter(e => e.id !== id));
+    if (editingExpenseId === id) setEditingExpenseId(null);
+  };
+
+  const startEditExpense = (item: ExpenseItem) => {
+    sounds.playClick();
+    setEditingExpenseId(item.id);
+    setEditDesc(item.description);
+    setEditAmt(String(item.amount));
+    setEditPayer(item.payer);
+  };
+
+  const saveEditExpense = (id: string) => {
+    const parsedAmt = parseFloat(editAmt);
+    if (!parsedAmt || parsedAmt <= 0) return;
+    sounds.playClick();
+    setExpenses(expenses.map(e => e.id === id ? {
+      ...e,
+      description: editDesc.trim() || 'Expense',
+      amount: parsedAmt,
+      payer: editPayer || members[0]
+    } : e));
+    setEditingExpenseId(null);
   };
 
   const addMember = () => {
@@ -1144,28 +1174,6 @@ const ExpenseSplitterView: React.FC = () => {
     sounds.playClick();
     setMembers([...members, newMember.trim()]);
     setNewMember('');
-  };
-
-  const startEditMember = (name: string) => {
-    sounds.playClick();
-    setEditingMember(name);
-    setEditMemberName(name);
-  };
-
-  const saveEditMember = (oldName: string) => {
-    const trimmed = editMemberName.trim();
-    if (!trimmed || (trimmed !== oldName && members.includes(trimmed))) {
-      setEditingMember(null);
-      return;
-    }
-    sounds.playClick();
-    setMembers(members.map(m => (m === oldName ? trimmed : m)));
-    // Update any expenses paid by this person
-    setExpenses(expenses.map(e => (e.payer === oldName ? { ...e, payer: trimmed } : e)));
-    if (payer === oldName) {
-      setPayer(trimmed);
-    }
-    setEditingMember(null);
   };
 
   const removeMember = (name: string) => {
@@ -1198,61 +1206,17 @@ const ExpenseSplitterView: React.FC = () => {
         <div className="flex flex-wrap gap-2 mb-3">
           {members.map(m => (
             <span key={m} className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-2xs">
-              {editingMember === m ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={editMemberName}
-                    onChange={e => setEditMemberName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveEditMember(m);
-                      if (e.key === 'Escape') setEditingMember(null);
-                    }}
-                    autoFocus
-                    className="w-24 px-1.5 py-0.5 text-xs font-semibold bg-white dark:bg-zinc-900 border border-indigo-400 rounded-md outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => saveEditMember(m)}
-                    className="p-1 text-emerald-600 hover:text-emerald-500 cursor-pointer"
-                    title="Save name"
-                  >
-                    <Check className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingMember(null)}
-                    className="p-1 text-zinc-400 hover:text-zinc-600 cursor-pointer"
-                    title="Cancel"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <span>{m}</span>
-                  {/* Edit Person Button beside Delete */}
-                  <button
-                    type="button"
-                    onClick={() => startEditMember(m)}
-                    className="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded p-0.5 transition-colors cursor-pointer"
-                    title={`Edit ${m}`}
-                    aria-label={`Edit ${m}`}
-                  >
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                  {members.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeMember(m)}
-                      className="text-zinc-400 hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
-                      title={`Remove ${m}`}
-                      aria-label={`Remove ${m}`}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </>
+              <span>{m}</span>
+              {members.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeMember(m)}
+                  className="text-zinc-400 hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
+                  title={`Remove ${m}`}
+                  aria-label={`Remove ${m}`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               )}
             </span>
           ))}
@@ -1304,26 +1268,95 @@ const ExpenseSplitterView: React.FC = () => {
         </div>
         <button
           onClick={addExpense}
-          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Add Expense
         </button>
       </div>
 
-      {/* Expense List */}
+      {/* Expense List with Edit Button beside each divided expense name holder */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Expenses ({expenses.length})</h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="space-y-2 max-h-60 overflow-y-auto">
             {expenses.map(e => (
-              <div key={e.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-950 text-xs">
-                <div>
-                  <span className="font-semibold">{e.payer}</span> paid <span className="font-mono font-bold">${e.amount.toFixed(2)}</span>
-                  <p className="text-zinc-500 text-[11px]">{e.description}</p>
-                </div>
-                <button onClick={() => removeExpense(e.id)} className="text-zinc-400 hover:text-red-500 p-1">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+              <div key={e.id} className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 text-xs border border-zinc-100 dark:border-zinc-800/80">
+                {editingExpenseId === e.id ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editDesc}
+                        onChange={ev => setEditDesc(ev.target.value)}
+                        placeholder="Description"
+                        className="px-2 py-1 border rounded-lg bg-white dark:bg-zinc-900 text-xs"
+                      />
+                      <input
+                        type="number"
+                        value={editAmt}
+                        onChange={ev => setEditAmt(ev.target.value)}
+                        placeholder="Amount"
+                        className="px-2 py-1 border rounded-lg bg-white dark:bg-zinc-900 text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <select
+                        value={editPayer}
+                        onChange={ev => setEditPayer(ev.target.value)}
+                        className="px-2 py-1 border rounded-lg bg-white dark:bg-zinc-900 text-xs flex-1"
+                      >
+                        {members.map(m => (
+                          <option key={m} value={m}>{m} paid</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => saveEditExpense(e.id)}
+                        className="p-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer"
+                        title="Save Changes"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingExpenseId(null)}
+                        className="p-1.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">{e.payer}</span> paid{' '}
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">${e.amount.toFixed(2)}</span>
+                      <p className="text-zinc-500 text-[11px] truncate max-w-[170px]">{e.description}</p>
+                    </div>
+                    {/* Edit button beside the divided expenses name holder! */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEditExpense(e)}
+                        className="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-md transition-colors cursor-pointer"
+                        title="Edit this expense"
+                        aria-label="Edit this expense"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeExpense(e.id)}
+                        className="text-zinc-400 hover:text-red-500 p-1 rounded-md transition-colors cursor-pointer"
+                        title="Delete expense"
+                        aria-label="Delete expense"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1351,12 +1384,40 @@ const ExpenseSplitterView: React.FC = () => {
   );
 };
 
-// 11. 50/30/20 Budget Calculator (With Editable Percentages & Presets)
+// 11. 50/30/20 Budget Calculator (With Editable Percentages & Custom Presets)
+interface CustomBudgetPreset {
+  id: string;
+  name: string;
+  needs: number;
+  wants: number;
+  savings: number;
+}
+
+const DEFAULT_PRESETS = [
+  { name: '50/30/20 Standard', needs: 50, wants: 30, savings: 20 },
+  { name: '60/20/20 High-Cost Living', needs: 60, wants: 20, savings: 20 },
+  { name: '70/20/10 Tight Margin', needs: 70, wants: 20, savings: 10 },
+  { name: '80/20 Simple (Needs+Wants / Save)', needs: 50, wants: 30, savings: 20 },
+  { name: '40/30/30 FIRE Saver', needs: 40, wants: 30, savings: 30 },
+];
+
 const BudgetCalcView: React.FC = () => {
   const [monthlyIncome, setMonthlyIncome] = useState(4500);
   const [needsPct, setNeedsPct] = useState(50);
   const [wantsPct, setWantsPct] = useState(30);
   const [savingsPct, setSavingsPct] = useState(20);
+
+  // Custom User Presets
+  const [customPresets, setCustomPresets] = useState<CustomBudgetPreset[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_custom_budget_presets');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+  const [showAddPreset, setShowAddPreset] = useState(false);
 
   const totalPct = needsPct + wantsPct + savingsPct;
   const needs = (monthlyIncome * needsPct) / 100;
@@ -1368,6 +1429,39 @@ const BudgetCalcView: React.FC = () => {
     setNeedsPct(n);
     setWantsPct(w);
     setSavingsPct(s);
+  };
+
+  const handleSaveCustomPreset = () => {
+    if (!newPresetName.trim()) return;
+    sounds.playSuccess();
+    const newPreset: CustomBudgetPreset = {
+      id: String(Date.now()),
+      name: newPresetName.trim(),
+      needs: needsPct,
+      wants: wantsPct,
+      savings: savingsPct,
+    };
+    const updated = [...customPresets, newPreset];
+    setCustomPresets(updated);
+    try {
+      localStorage.setItem('omni_custom_budget_presets', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    setNewPresetName('');
+    setShowAddPreset(false);
+  };
+
+  const handleDeleteCustomPreset = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    sounds.playClick();
+    const updated = customPresets.filter(p => p.id !== id);
+    setCustomPresets(updated);
+    try {
+      localStorage.setItem('omni_custom_budget_presets', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
   };
 
   return (
@@ -1383,42 +1477,88 @@ const BudgetCalcView: React.FC = () => {
           />
         </div>
 
-        {/* Quick Presets */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-            Budget Allocation Presets
-          </label>
+        {/* Budget Allocation Presets & Custom Presets */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+              Budget Allocation Presets
+            </label>
+            <button
+              type="button"
+              onClick={() => { sounds.playClick(); setShowAddPreset(!showAddPreset); }}
+              className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>{showAddPreset ? 'Cancel' : '+ Save Custom Preset'}</span>
+            </button>
+          </div>
+
+          {/* Form to save current split as a custom preset */}
+          {showAddPreset && (
+            <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 flex items-center gap-2">
+              <input
+                type="text"
+                value={newPresetName}
+                onChange={e => setNewPresetName(e.target.value)}
+                placeholder={`e.g. My ${needsPct}/${wantsPct}/${savingsPct} Plan`}
+                className="flex-1 px-3 py-1.5 text-xs rounded-lg border bg-white dark:bg-zinc-900 dark:border-zinc-700 font-medium"
+              />
+              <button
+                type="button"
+                onClick={handleSaveCustomPreset}
+                disabled={!newPresetName.trim()}
+                className="px-3 py-1.5 bg-indigo-600 text-white font-semibold text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50 cursor-pointer flex items-center gap-1 shrink-0"
+              >
+                <Save className="w-3.5 h-3.5" /> Save
+              </button>
+            </div>
+          )}
+
+          {/* Preset Buttons */}
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setPreset(50, 30, 20)}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
-                needsPct === 50 && wantsPct === 30 && savingsPct === 20
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
-              }`}
-            >
-              50/30/20 Standard
-            </button>
-            <button
-              onClick={() => setPreset(60, 20, 20)}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
-                needsPct === 60 && wantsPct === 20 && savingsPct === 20
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
-              }`}
-            >
-              60/20/20 High-Cost Living
-            </button>
-            <button
-              onClick={() => setPreset(70, 20, 10)}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer border ${
-                needsPct === 70 && wantsPct === 20 && savingsPct === 10
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
-              }`}
-            >
-              70/20/10 Tight Margin
-            </button>
+            {DEFAULT_PRESETS.map(p => {
+              const isActive = needsPct === p.needs && wantsPct === p.wants && savingsPct === p.savings;
+              return (
+                <button
+                  key={p.name}
+                  onClick={() => setPreset(p.needs, p.wants, p.savings)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-all ${
+                    isActive
+                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent shadow-xs'
+                      : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              );
+            })}
+
+            {/* User Custom Saved Presets */}
+            {customPresets.map(cp => {
+              const isActive = needsPct === cp.needs && wantsPct === cp.wants && savingsPct === cp.savings;
+              return (
+                <div
+                  key={cp.id}
+                  onClick={() => setPreset(cp.needs, cp.wants, cp.savings)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-all ${
+                    isActive
+                      ? 'bg-indigo-600 text-white border-transparent shadow-xs'
+                      : 'bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 hover:border-indigo-400'
+                  }`}
+                >
+                  <Bookmark className="w-3 h-3" />
+                  <span>{cp.name} ({cp.needs}/{cp.wants}/{cp.savings})</span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteCustomPreset(cp.id, e)}
+                    className="p-0.5 rounded text-zinc-400 hover:text-red-500 cursor-pointer"
+                    title="Delete preset"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 

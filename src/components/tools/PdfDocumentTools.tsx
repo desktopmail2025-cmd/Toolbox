@@ -5,7 +5,7 @@ import { sounds } from '../../utils/audio';
 import {
   Download, Upload, Trash2, PenTool, Eye, FileText,
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Copy, Check, Printer, RefreshCw, Sparkles,
-  FileSpreadsheet, Presentation, FileCode, Layers, Split, Plus, ArrowRightLeft, FileCheck, CheckCircle2, ArrowRight
+  FileSpreadsheet, Presentation, FileCode, Layers, Split, Plus, ArrowRightLeft, FileCheck, CheckCircle2, ArrowRight, FolderOpen, ExternalLink
 } from 'lucide-react';
 
 // Configure pdfjs worker
@@ -1399,7 +1399,7 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
     }
   };
 
-  // Download converted file
+  // Download converted file directly to default downloads folder
   const downloadConverted = (item: QueuedFileItem) => {
     if (!item.convertedBlobUrl || !item.convertedFileName) return;
     sounds.playClick();
@@ -1407,6 +1407,39 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
     a.href = item.convertedBlobUrl;
     a.download = item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`;
     a.click();
+  };
+
+  // Modern File System Access API: lets user choose the exact folder/location on their disk
+  const saveAsWithPicker = async (item: QueuedFileItem) => {
+    if (!item.convertedBlobUrl || !item.convertedFileName) return;
+    sounds.playClick();
+    const filename = item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`;
+
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: filename,
+        });
+        const writable = await handle.createWritable();
+        const response = await fetch(item.convertedBlobUrl);
+        const blob = await response.blob();
+        await writable.write(blob);
+        await writable.close();
+        sounds.playSuccess();
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // User cancelled picker
+      }
+    }
+    // Fallback if browser doesn't support showSaveFilePicker
+    downloadConverted(item);
+  };
+
+  // Open converted file directly in a new tab/viewer
+  const openInTab = (item: QueuedFileItem) => {
+    if (!item.convertedBlobUrl) return;
+    sounds.playClick();
+    window.open(item.convertedBlobUrl, '_blank');
   };
 
   return (
@@ -1576,36 +1609,64 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ADD and DELETE Buttons Beside EACH File Item (Item 2 Requirement) */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                {/* Actions: Save to Folder, Open, Download, Add, Delete beside EACH item */}
+                <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-center shrink-0">
                   {item.status === 'done' && (
-                    <button
-                      onClick={() => downloadConverted(item)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download</span>
-                    </button>
+                    <>
+                      {/* Save to Chosen Folder (File System Access Picker) */}
+                      <button
+                        type="button"
+                        onClick={() => saveAsWithPicker(item)}
+                        className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
+                        title="Choose exact folder location on your computer to save this file"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>Save to Folder...</span>
+                      </button>
+
+                      {/* Open / Preview immediately */}
+                      <button
+                        type="button"
+                        onClick={() => openInTab(item)}
+                        className="px-2.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Open file directly in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Open File</span>
+                      </button>
+
+                      {/* Fast direct download */}
+                      <button
+                        type="button"
+                        onClick={() => downloadConverted(item)}
+                        className="p-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Download file to default downloads"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
 
                   {/* Add File Beside Item Button */}
                   <button
+                    type="button"
                     onClick={handleBrowseFiles}
-                    className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
                     title="Add another file next to this"
                   >
                     <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span className="hidden md:inline">Add</span>
+                    <span className="hidden lg:inline">Add</span>
                   </button>
 
                   {/* Delete File Beside Item Button */}
                   <button
+                    type="button"
                     onClick={() => removeFile(item.id)}
-                    className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                     title="Delete this file from queue"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="hidden md:inline">Delete</span>
+                    <span className="hidden lg:inline">Delete</span>
                   </button>
                 </div>
               </div>

@@ -398,11 +398,11 @@ export const TOOLS: ToolItem[] = [
   },
   {
     id: 'medicine-reminder',
-    name: 'Medicine & Pill Reminder',
+    name: 'Medicine Reminder & Prescription Log',
     categoryId: 'health',
-    description: 'Scheduled medication and pill organizer with audio alerts, browser notifications, and dose tracking',
+    description: 'Scheduled medication, vitamins, and pill organizer with audio alerts, dose tracking, food instructions, and prescription inventory',
     iconName: 'Pill',
-    keywords: ['medicine', 'pill', 'reminder', 'dose', 'medication', 'alarm', 'notification', 'health'],
+    keywords: ['medicine', 'pill', 'reminder', 'dose', 'medication', 'alarm', 'notification', 'prescription', 'health tracker'],
   },
 
   // 4. Study & Student
@@ -1443,15 +1443,6 @@ export const TOOLS: ToolItem[] = [
     description: 'Real-time calculation of money saved, cigarettes avoided, and smoke-free days',
     iconName: 'CigaretteOff',
     keywords: ['quit smoking', 'smoke free', 'cigarettes', 'savings', 'smoking cessation'],
-    isOnline: false,
-  },
-  {
-    id: 'medicine-reminder',
-    name: 'Medicine Reminder & Prescription Log',
-    categoryId: 'health',
-    description: 'Track daily medications, vitamins, dosage times, food instructions and taken status',
-    iconName: 'Pill',
-    keywords: ['medicine reminder', 'medication log', 'vitamins', 'prescriptions', 'health tracker', 'pill reminder', 'pills'],
     isOnline: false,
   },
   {

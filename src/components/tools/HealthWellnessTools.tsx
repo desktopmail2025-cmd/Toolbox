@@ -491,45 +491,57 @@ const CalorieTdeeView: React.FC = () => {
   );
 };
 
-// 4. Sleep Cycle & Bedtime Wake-Up Calculator
+// 4. Sleep Cycle & Bedtime Wake-Up Calculator (Professional Suite)
 const SleepCycleView: React.FC = () => {
-  const [mode, setMode] = useState<'wake' | 'bed'>('wake');
+  const [mode, setMode] = useState<'wake' | 'bed' | 'now'>('wake');
   const [targetTime, setTargetTime] = useState('07:00');
+  const [copiedTime, setCopiedTime] = useState<string | null>(null);
 
-  // 90 minute sleep cycles + 14 minutes average to fall asleep
+  // Helper to format minutes past midnight to 12-hr time string
+  const formatMinutes = (totalMins: number) => {
+    const norm = (totalMins + 1440 * 2) % 1440;
+    const h = Math.floor(norm / 60);
+    const m = norm % 60;
+    return `${h % 12 || 12}:${m < 10 ? '0' : ''}${m} ${h >= 12 ? 'PM' : 'AM'}`;
+  };
+
+  // 90 minute sleep cycles + 14 minutes average sleep latency
   const calculateCycles = () => {
-    const [h, m] = targetTime.split(':').map(Number);
-    const targetMinutes = h * 60 + m;
+    let baseMinutes = 0;
+    if (mode === 'now') {
+      const now = new Date();
+      baseMinutes = now.getHours() * 60 + now.getMinutes();
+    } else {
+      const [h, m] = targetTime.split(':').map(Number);
+      baseMinutes = h * 60 + m;
+    }
 
     if (mode === 'wake') {
-      // User specifies when they need to wake up. Calculate when to go to sleep.
+      // User specifies when they need to wake up. Calculate when to go to bed.
       // Cycles: 6 cycles (9h), 5 cycles (7.5h), 4 cycles (6h), 3 cycles (4.5h)
       return [6, 5, 4, 3].map(cycles => {
         const sleepDuration = cycles * 90 + 14;
-        let bedMinutes = (targetMinutes - sleepDuration + 1440 * 2) % 1440;
-        const bh = Math.floor(bedMinutes / 60);
-        const bm = bedMinutes % 60;
-        const timeStr = `${bh % 12 || 12}:${bm < 10 ? '0' : ''}${bm} ${bh >= 12 ? 'PM' : 'AM'}`;
+        const bedMinutes = baseMinutes - sleepDuration;
         return {
           cycles,
           hours: (cycles * 1.5).toFixed(1),
-          time: timeStr,
-          recommended: cycles === 5 || cycles === 6,
+          time: formatMinutes(bedMinutes),
+          tier: cycles === 5 || cycles === 6 ? 'optimal' : cycles === 4 ? 'moderate' : 'short',
+          desc: cycles === 6 ? '9.0 hrs · Peak Muscle & Cognitive Repair' : cycles === 5 ? '7.5 hrs · Recommended for Most Adults' : cycles === 4 ? '6.0 hrs · Minimum Sustainable Buffer' : '4.5 hrs · Short Nap / Emergency Sprint',
         };
       });
     } else {
-      // User specifies when they go to bed. Calculate when to wake up.
+      // mode === 'bed' or mode === 'now'
+      // Calculate optimal wake up times from bedtime
       return [3, 4, 5, 6].map(cycles => {
         const sleepDuration = cycles * 90 + 14;
-        let wakeMinutes = (targetMinutes + sleepDuration) % 1440;
-        const wh = Math.floor(wakeMinutes / 60);
-        const wm = wakeMinutes % 60;
-        const timeStr = `${wh % 12 || 12}:${wm < 10 ? '0' : ''}${wm} ${wh >= 12 ? 'PM' : 'AM'}`;
+        const wakeMinutes = baseMinutes + sleepDuration;
         return {
           cycles,
           hours: (cycles * 1.5).toFixed(1),
-          time: timeStr,
-          recommended: cycles === 5 || cycles === 6,
+          time: formatMinutes(wakeMinutes),
+          tier: cycles === 5 || cycles === 6 ? 'optimal' : cycles === 4 ? 'moderate' : 'short',
+          desc: cycles === 6 ? '9.0 hrs · Complete REM Restoration' : cycles === 5 ? '7.5 hrs · Standard Recommended Awakening' : cycles === 4 ? '6.0 hrs · Light Alarm Awakening' : '4.5 hrs · Fast Power Rest Cycle',
         };
       });
     }
@@ -537,89 +549,167 @@ const SleepCycleView: React.FC = () => {
 
   const results = calculateCycles();
 
+  const handleCopy = (timeStr: string) => {
+    sounds.playSuccess();
+    navigator.clipboard.writeText(timeStr);
+    setCopiedTime(timeStr);
+    setTimeout(() => setCopiedTime(null), 1500);
+  };
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
-        <Moon className="w-5 h-5 text-indigo-500" />
-        <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-          Sleep Cycle & Optimal Bedtime Planner
-        </h2>
+    <div className="space-y-6 max-w-2xl mx-auto select-none">
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <div className="flex items-center gap-2">
+          <Moon className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+            Sleep Cycle & Optimal Bedtime Planner
+          </h2>
+        </div>
+        <span className="text-[11px] font-mono text-zinc-400">90-min REM Intervals</span>
       </div>
 
-      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl max-w-md">
+      {/* 3-Way Mode Switcher: Wake At / Bed At / Sleep Right Now */}
+      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl">
         <button
-          onClick={() => {
-            sounds.playClick();
-            setMode('wake');
-          }}
-          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+          onClick={() => { sounds.playClick(); setMode('wake'); }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
             mode === 'wake'
-              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
-              : 'text-zinc-500'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
           }`}
         >
-          I want to wake up at...
+          I have to wake up at...
         </button>
         <button
-          onClick={() => {
-            sounds.playClick();
-            setMode('bed');
-          }}
-          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+          onClick={() => { sounds.playClick(); setMode('bed'); }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
             mode === 'bed'
-              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
-              : 'text-zinc-500'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
           }`}
         >
           I am going to bed at...
         </button>
+        <button
+          onClick={() => { sounds.playClick(); setMode('now'); }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            mode === 'now'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700'
+          }`}
+        >
+          💤 Sleep Right Now!
+        </button>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          {mode === 'wake' ? 'Target Wake-Up Time' : 'Bedtime'}
-        </label>
-        <input
-          type="time"
-          value={targetTime}
-          onChange={e => setTargetTime(e.target.value)}
-          className="w-full sm:w-48 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 py-2.5 text-base font-bold font-mono focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
-        />
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-          {mode === 'wake' ? 'Optimal Times to Fall Asleep:' : 'Optimal Times to Wake Up Refreshed:'}
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {results.map((r, i) => (
-            <div
-              key={i}
-              className={`p-4 rounded-2xl border transition-all ${
-                r.recommended
-                  ? 'border-indigo-300 bg-indigo-50/50 dark:border-indigo-900 dark:bg-indigo-950/20'
-                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 font-medium">
-                  {r.cycles} REM Cycles ({r.hours} hours sleep)
-                </span>
-                {r.recommended && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">
-                    Recommended
-                  </span>
-                )}
-              </div>
-              <div className="text-2xl font-black font-mono text-zinc-900 dark:text-zinc-50 mt-1">
-                {r.time}
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Includes ~14 mins natural time to drift into sleep.
-              </p>
-            </div>
-          ))}
+      {/* Time Picker (Hidden if Sleep Right Now) */}
+      {mode !== 'now' ? (
+        <div className="p-5 rounded-3xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">
+              {mode === 'wake' ? 'Target Wake-Up Time' : 'Planned Bedtime'}
+            </label>
+            <p className="text-xs text-zinc-400">
+              {mode === 'wake'
+                ? 'We calculate backward so you wake up between sleep cycles, feeling energized.'
+                : 'We calculate forward to identify natural awakening windows.'}
+            </p>
+          </div>
+          <input
+            type="time"
+            value={targetTime}
+            onChange={e => setTargetTime(e.target.value)}
+            className="w-full sm:w-44 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 px-4 py-2.5 text-lg font-black font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🌙</span>
+            <div>
+              <div className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                Heading to bed right now?
+              </div>
+              <div className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                Current Time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Factoring 14m latency to fall asleep.
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">Live</span>
+        </div>
+      )}
+
+      {/* Sleep Results Cards */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            {mode === 'wake' ? 'Suggested Bedtimes (Fall Asleep At):' : 'Suggested Alarm Times (Wake Up Fresh):'}
+          </h3>
+          <span className="text-[11px] text-zinc-400">Avoid mid-cycle grogginess</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {results.map((r, i) => {
+            const isOptimal = r.tier === 'optimal';
+            const isModerate = r.tier === 'moderate';
+            return (
+              <div
+                key={i}
+                className={`p-4 rounded-3xl border transition-all shadow-xs ${
+                  isOptimal
+                    ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20'
+                    : isModerate
+                    ? 'border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {r.cycles} Cycles · {r.hours} Hours
+                  </span>
+                  {isOptimal ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                      Recommended
+                    </span>
+                  ) : isModerate ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">
+                      Moderate
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                      Short Buffer
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-3xl font-black font-mono text-zinc-950 dark:text-zinc-50 tracking-tight">
+                    {r.time}
+                  </div>
+                  <button
+                    onClick={() => handleCopy(r.time)}
+                    className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+                    title="Copy time"
+                  >
+                    {copiedTime === r.time ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">
+                  {r.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Science Explanation Box */}
+      <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-xs text-zinc-500 dark:text-zinc-400 space-y-1.5 leading-relaxed">
+        <strong className="text-zinc-900 dark:text-zinc-100 block">🧠 Why do sleep cycles matter?</strong>
+        <p>
+          A full sleep cycle takes approximately 90 minutes, cycling through Light Sleep, Deep Slow-Wave Sleep, and REM Dreaming. Waking up <em>in the middle</em> of a deep cycle triggers <strong>sleep inertia</strong>, causing hours of grogginess. Waking up at the end of a cycle lets you feel fresh and alert immediately.
+        </p>
       </div>
     </div>
   );
@@ -731,16 +821,46 @@ const StepDistanceView: React.FC = () => {
   );
 };
 
-// 6. HIIT & Workout Interval Timer (Item 8)
+// 6. HIIT & Workout Interval Timer (Professional Suite)
+interface HiitPreset {
+  id: string;
+  name: string;
+  work: number;
+  rest: number;
+  rounds: number;
+  tag: string;
+}
+
+const HIIT_PRESETS: HiitPreset[] = [
+  { id: 'tabata', name: 'Tabata Standard', work: 20, rest: 10, rounds: 8, tag: '4 min · High Burn' },
+  { id: 'emom', name: 'EMOM Power', work: 50, rest: 10, rounds: 10, tag: '10 min · Endurance' },
+  { id: 'gibala', name: 'Gibala Sprint', work: 30, rest: 60, rounds: 5, tag: '7.5 min · VO2 Max' },
+  { id: 'boxing', name: 'Boxing 3-Min Rounds', work: 180, rest: 60, rounds: 3, tag: '12 min · Combat' },
+];
+
 const HiitWorkoutTimerView: React.FC = () => {
-  const [workSecs, setWorkSecs] = useState(30);
-  const [restSecs, setRestSecs] = useState(15);
+  const [activePreset, setActivePreset] = useState<string>('tabata');
+  const [workSecs, setWorkSecs] = useState(20);
+  const [restSecs, setRestSecs] = useState(10);
   const [totalRounds, setTotalRounds] = useState(8);
   const [currentRound, setCurrentRound] = useState(1);
   const [phase, setPhase] = useState<'prepare' | 'work' | 'rest' | 'complete'>('prepare');
-  const [timeLeft, setTimeLeft] = useState(5); // 5s prep
+  const [timeLeft, setTimeLeft] = useState(5); // 5s preparation
   const [isActive, setIsActive] = useState(false);
   const intervalRef = useRef<number | null>(null);
+
+  // Apply a preset
+  const applyPreset = (preset: HiitPreset) => {
+    sounds.playClick();
+    setActivePreset(preset.id);
+    setIsActive(false);
+    setWorkSecs(preset.work);
+    setRestSecs(preset.rest);
+    setTotalRounds(preset.rounds);
+    setPhase('prepare');
+    setCurrentRound(1);
+    setTimeLeft(5);
+  };
 
   useEffect(() => {
     if (isActive) {
@@ -802,27 +922,113 @@ const HiitWorkoutTimerView: React.FC = () => {
 
   const totalWorkoutTimeSecs = 5 + (workSecs + restSecs) * totalRounds - restSecs;
   const totalMins = Math.floor(totalWorkoutTimeSecs / 60);
+  const totalSecsRem = totalWorkoutTimeSecs % 60;
+
+  // Approximate calorie burn for intense HIIT ~ 12-14 kcal/min
+  const estCalories = Math.round((totalWorkoutTimeSecs / 60) * 12.5);
+
+  const phaseMaxTime = phase === 'prepare' ? 5 : phase === 'work' ? workSecs : restSecs;
+  const progressPercent = Math.max(0, Math.min(100, (1 - timeLeft / (phaseMaxTime || 1)) * 100));
 
   return (
-    <div className="max-w-md mx-auto space-y-6 text-center">
-      {/* Visual Round Banner */}
-      <div className={`p-8 rounded-3xl border transition-all ${
-        phase === 'work'
-          ? 'bg-rose-500 text-white border-rose-600 shadow-xl'
-          : phase === 'rest'
-          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xl'
-          : phase === 'complete'
-          ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl'
-          : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50'
-      }`}>
-        <span className="text-xs font-bold uppercase tracking-widest block opacity-80 mb-1">
-          {phase === 'prepare' ? 'Get Ready' : phase === 'work' ? 'WORK HARD' : phase === 'rest' ? 'REST & RECOVER' : 'WORKOUT COMPLETE'}
-        </span>
-        <div className="text-7xl font-mono font-extrabold my-2">
-          {timeLeft}s
+    <div className="max-w-lg mx-auto space-y-5 text-center select-none">
+      {/* 1-Click HIIT Routines Bar */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 shadow-xs space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Workout Protocols & Presets
+          </span>
+          <span className="text-[11px] text-zinc-400">1-Tap Apply</span>
         </div>
-        <div className="text-sm font-semibold opacity-90">
-          Round {currentRound} of {totalRounds}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {HIIT_PRESETS.map(preset => {
+            const isSel = activePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  isSel
+                    ? 'border-indigo-600 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 hover:border-zinc-300'
+                }`}
+              >
+                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-50 truncate">
+                  {preset.name}
+                </div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">
+                  {preset.work}s / {preset.rest}s × {preset.rounds}R
+                </div>
+                <span className="inline-block mt-1 text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                  {preset.tag}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Round Indicators Shelf */}
+      <div className="flex items-center justify-center gap-1.5 flex-wrap px-2">
+        {Array.from({ length: totalRounds }, (_, i) => {
+          const rNum = i + 1;
+          const isDone = rNum < currentRound || phase === 'complete';
+          const isCurrent = rNum === currentRound && phase !== 'complete';
+          return (
+            <div
+              key={rNum}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                isDone
+                  ? 'w-6 bg-emerald-500'
+                  : isCurrent
+                  ? 'w-10 bg-indigo-600 animate-pulse ring-2 ring-indigo-400/40'
+                  : 'w-4 bg-zinc-200 dark:bg-zinc-800'
+              }`}
+              title={`Round ${rNum}`}
+            />
+          );
+        })}
+      </div>
+
+      {/* Main Interval Stage Screen */}
+      <div
+        className={`relative overflow-hidden p-8 sm:p-10 rounded-3xl border transition-all duration-300 shadow-xl ${
+          phase === 'work'
+            ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20'
+            : phase === 'rest'
+            ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/20'
+            : phase === 'complete'
+            ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-600/20'
+            : 'bg-amber-500 text-white border-amber-600 shadow-amber-500/20'
+        }`}
+      >
+        {/* Progress Fill Line */}
+        <div
+          className="absolute bottom-0 left-0 top-0 bg-black/10 transition-all duration-1000 ease-linear pointer-events-none"
+          style={{ width: `${progressPercent}%` }}
+        />
+
+        <div className="relative z-10 space-y-1">
+          <span className="text-xs font-black uppercase tracking-widest block opacity-90">
+            {phase === 'prepare'
+              ? '⏳ GET READY'
+              : phase === 'work'
+              ? '🔥 WORK INTERVAL — GO HARD!'
+              : phase === 'rest'
+              ? '🌿 REST & DEEP BREATH'
+              : '🏆 WORKOUT COMPLETED!'}
+          </span>
+
+          <div className="text-8xl font-mono font-black my-2 tracking-tight tabular-nums">
+            {timeLeft}s
+          </div>
+
+          <div className="flex items-center justify-center gap-3 text-xs font-bold opacity-90 pt-1">
+            <span>Round {currentRound} of {totalRounds}</span>
+            <span>·</span>
+            <span>Est. Burn: ~{estCalories} kcal</span>
+          </div>
         </div>
       </div>
 
@@ -830,60 +1036,70 @@ const HiitWorkoutTimerView: React.FC = () => {
       <div className="flex justify-center gap-3">
         <button
           onClick={toggleStart}
-          className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm cursor-pointer shadow-md active:scale-95 transition-all ${
+          className={`flex items-center gap-2 px-8 py-3.5 rounded-2xl font-bold text-sm cursor-pointer shadow-lg active:scale-95 transition-all ${
             isActive
-              ? 'bg-amber-500 hover:bg-amber-600 text-white'
-              : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900'
+              ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+              : 'bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 shadow-md'
           }`}
         >
           {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          <span>{isActive ? 'Pause Interval' : phase === 'complete' ? 'Restart' : 'Start HIIT'}</span>
+          <span>{isActive ? 'Pause Timer' : phase === 'complete' ? 'Restart Protocol' : 'Start HIIT Interval'}</span>
         </button>
         <button
           onClick={handleReset}
-          className="flex items-center gap-1.5 px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold text-sm cursor-pointer"
+          className="flex items-center gap-1.5 px-5 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-sm cursor-pointer shadow-2xs"
         >
           <RotateCcw className="w-4 h-4" />
           <span>Reset</span>
         </button>
       </div>
 
-      {/* Settings Grid */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-3 text-left">
+      {/* Customizable Interval Settings */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-3 text-left shadow-xs">
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Work (sec)</label>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Work Phase (sec)</label>
           <input
             type="number"
             disabled={isActive}
             value={workSecs}
-            onChange={e => setWorkSecs(Math.max(5, parseInt(e.target.value) || 20))}
-            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+            onChange={e => {
+              setActivePreset('custom');
+              setWorkSecs(Math.max(5, parseInt(e.target.value) || 20));
+            }}
+            className="w-full border rounded-xl p-2.5 font-mono text-center font-black bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50 text-base"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rest (sec)</label>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rest Phase (sec)</label>
           <input
             type="number"
             disabled={isActive}
             value={restSecs}
-            onChange={e => setRestSecs(Math.max(5, parseInt(e.target.value) || 10))}
-            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+            onChange={e => {
+              setActivePreset('custom');
+              setRestSecs(Math.max(5, parseInt(e.target.value) || 10));
+            }}
+            className="w-full border rounded-xl p-2.5 font-mono text-center font-black bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50 text-base"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rounds</label>
+          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Total Rounds</label>
           <input
             type="number"
             disabled={isActive}
             value={totalRounds}
-            onChange={e => setTotalRounds(Math.max(1, parseInt(e.target.value) || 8))}
-            className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50"
+            onChange={e => {
+              setActivePreset('custom');
+              setTotalRounds(Math.max(1, parseInt(e.target.value) || 8));
+            }}
+            className="w-full border rounded-xl p-2.5 font-mono text-center font-black bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50 text-base"
           />
         </div>
       </div>
 
-      <div className="text-xs text-zinc-400">
-        Total workout duration: ~{totalMins} min ({totalWorkoutTimeSecs}s)
+      {/* Summary Footer */}
+      <div className="text-xs text-zinc-400 font-medium">
+        Total Session Duration: <strong className="text-zinc-700 dark:text-zinc-300 font-mono">{totalMins}m {totalSecsRem}s</strong> · Automatic audio beeps on last 3 seconds
       </div>
     </div>
   );

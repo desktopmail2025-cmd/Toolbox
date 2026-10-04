@@ -9,7 +9,6 @@ import { sounds } from '../../utils/audio';
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
   selectedToolId?: string | null;
-  onClearSelectedTool?: () => void;
   favorites: string[];
   onToggleFavorite: (toolId: string) => void;
   recents: string[];
@@ -24,7 +23,6 @@ type SectionFilter = 'all' | 'offline' | 'online';
 export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onSelectTool,
   selectedToolId,
-  onClearSelectedTool,
   favorites,
   onToggleFavorite,
   recents,
@@ -34,19 +32,6 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onCollapseAll,
 }) => {
   const [activeSection, setActiveSection] = useState<SectionFilter>('all');
-
-  // Auto-scroll to selected tool when returning to overview
-  useEffect(() => {
-    if (selectedToolId) {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`tool-card-${selectedToolId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedToolId]);
 
   const offlineToolsCount = TOOLS.filter(t => !t.isOnline).length;
   const onlineToolsCount = TOOLS.filter(t => t.isOnline).length;
@@ -329,38 +314,6 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               {/* Collapsible Content Area */}
               {isExpanded && (
                 <div className="p-3.5 sm:p-5 bg-zinc-50/40 dark:bg-zinc-950/30 animate-in fade-in duration-150">
-                  {/* Active Selection Banner if the selected tool is in this category */}
-                  {tools.some(t => t.id === selectedToolId) && (
-                    <div className="mb-4 px-4 py-3 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-900/60 flex items-center justify-between gap-3 text-xs text-indigo-950 dark:text-indigo-200 shadow-2xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white shrink-0 shadow-2xs">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </span>
-                        <div className="min-w-0">
-                          <span className="font-bold truncate block">
-                            Currently selected: {TOOLS.find(t => t.id === selectedToolId)?.name}
-                          </span>
-                          <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-normal">
-                            Click the selected card to reopen it, or click any other tool below to change your tool.
-                          </p>
-                        </div>
-                      </div>
-                      {onClearSelectedTool && (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            sounds.playClick();
-                            onClearSelectedTool();
-                          }}
-                          className="px-2.5 py-1 rounded-xl bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[11px] font-semibold border border-indigo-200 dark:border-indigo-800 shadow-2xs cursor-pointer transition-colors shrink-0"
-                        >
-                          Clear selection
-                        </button>
-                      )}
-                    </div>
-                  )}
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);

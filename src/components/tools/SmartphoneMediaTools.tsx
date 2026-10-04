@@ -199,8 +199,8 @@ const QrGeneratorView: React.FC = () => {
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 flex flex-col items-center space-y-4">
-        <div className="p-4 bg-white rounded-2xl shadow-sm border border-zinc-100 inline-block">
-          <canvas ref={canvasRef} width={size} height={size} className="rounded-lg" />
+        <div className="p-4 bg-white rounded-3xl shadow-md border-2 border-indigo-200 dark:border-indigo-800/80 inline-block ring-4 ring-indigo-500/10">
+          <canvas ref={canvasRef} width={size} height={size} className="rounded-2xl" />
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2.5">
@@ -216,7 +216,7 @@ const QrGeneratorView: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs active:scale-95"
             title="Download printable A4 PDF card"
           >
-            <FileText className="w-4 h-4" /> Download PDF Card
+            <FileText className="w-4 h-4" /> Download PDF Now Card
           </button>
           <button
             onClick={copyText}

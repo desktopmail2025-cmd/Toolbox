@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
 import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
+import { GcdLcmCalcView, MatrixOperatorView, LeapYearCheckerView } from './ExtendedUtilities';
 import { Delete, Trash2, X, Calendar, Clock, Users, ArrowRightLeft, Sparkles, Percent, Check } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -17,6 +18,12 @@ export const GeneralCalculators: React.FC<ToolComponentProps> = ({ toolId }) => 
       return <BasicCalcView />;
     case 'scientific-calc':
       return <ScientificCalcView />;
+    case 'gcd-lcm-calc':
+      return <GcdLcmCalcView />;
+    case 'matrix-operator':
+      return <MatrixOperatorView />;
+    case 'leap-year-checker':
+      return <LeapYearCheckerView />;
     case 'percentage-calc':
       return <PercentageCalcView />;
     case 'fraction-calc':
@@ -352,122 +359,516 @@ const BasicCalcView: React.FC = () => {
   );
 };
 
-// 2. Scientific Calculator
+// 2. Professional Scientific Calculator
 const ScientificCalcView: React.FC = () => {
-  const [val, setVal] = useState('0');
+  const [expr, setExpr] = useState<string>('0');
+  const [resultPreview, setResultPreview] = useState<string>('');
   const [isRad, setIsRad] = useState(true);
-
-  const applyFn = (fnName: string) => {
-    sounds.playClick();
-    const num = parseFloat(val);
-    let res = 0;
-    switch (fnName) {
-      case 'sin':
-        res = Math.sin(isRad ? num : (num * Math.PI) / 180);
-        break;
-      case 'cos':
-        res = Math.cos(isRad ? num : (num * Math.PI) / 180);
-        break;
-      case 'tan':
-        res = Math.tan(isRad ? num : (num * Math.PI) / 180);
-        break;
-      case 'sqrt':
-        res = Math.sqrt(num);
-        break;
-      case 'sqr':
-        res = Math.pow(num, 2);
-        break;
-      case 'cube':
-        res = Math.pow(num, 3);
-        break;
-      case 'ln':
-        res = Math.log(num);
-        break;
-      case 'log10':
-        res = Math.log10(num);
-        break;
-      case '1/x':
-        res = num !== 0 ? 1 / num : 0;
-        break;
-      case 'fact': {
-        let f = 1;
-        for (let i = 2; i <= Math.min(Math.floor(num), 120); i++) f *= i;
-        res = f;
-        break;
-      }
-      case 'pi':
-        res = Math.PI;
-        break;
-      case 'e':
-        res = Math.E;
-        break;
-      default:
-        break;
+  const [isSecond, setIsSecond] = useState(false);
+  const [memory, setMemory] = useState<number>(0);
+  const [ans, setAns] = useState<number>(0);
+  const [history, setHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_scientific_calc_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-    setVal(String(Number(res.toFixed(8))));
+  });
+
+  // Evaluate expression safely
+  const evaluateMath = (rawExpr: string, radMode: boolean, lastAns: number): { value: number | null; error?: string } => {
+    try {
+      let sanitized = rawExpr
+        .replace(/×/g, '*')
+        .replace(/÷/g, '/')
+        .replace(/π/g, `${Math.PI}`)
+        .replace(/\be\b/g, `${Math.E}`)
+        .replace(/Ans/g, `${lastAns}`);
+
+      // Handle factorial n!
+      sanitized = sanitized.replace(/(\d+(\.\d+)?)!/g, (_, num) => {
+        let n = parseInt(num, 10);
+        if (n < 0 || n > 150) return 'NaN';
+        let f = 1;
+        for (let i = 2; i <= n; i++) f *= i;
+        return String(f);
+      });
+
+      // Handle trigonometric functions with DEG/RAD awareness
+      if (!radMode) {
+        // DEG mode
+        sanitized = sanitized
+          .replace(/sin\(([^)]+)\)/g, 'Math.sin(($1) * Math.PI / 180)')
+          .replace(/cos\(([^)]+)\)/g, 'Math.cos(($1) * Math.PI / 180)')
+          .replace(/tan\(([^)]+)\)/g, 'Math.tan(($1) * Math.PI / 180)')
+          .replace(/asin\(([^)]+)\)/g, '(Math.asin($1) * 180 / Math.PI)')
+          .replace(/acos\(([^)]+)\)/g, '(Math.acos($1) * 180 / Math.PI)')
+          .replace(/atan\(([^)]+)\)/g, '(Math.atan($1) * 180 / Math.PI)');
+      } else {
+        // RAD mode
+        sanitized = sanitized
+          .replace(/sin\(/g, 'Math.sin(')
+          .replace(/cos\(/g, 'Math.cos(')
+          .replace(/tan\(/g, 'Math.tan(')
+          .replace(/asin\(/g, 'Math.asin(')
+          .replace(/acos\(/g, 'Math.acos(')
+          .replace(/atan\(/g, 'Math.atan(');
+      }
+
+      // Handle common scientific functions
+      sanitized = sanitized
+        .replace(/sqrt\(/g, 'Math.sqrt(')
+        .replace(/cbrt\(/g, 'Math.cbrt(')
+        .replace(/ln\(/g, 'Math.log(')
+        .replace(/log10\(/g, 'Math.log10(')
+        .replace(/abs\(/g, 'Math.abs(')
+        .replace(/\^/g, '**');
+
+      // Only allow safe characters
+      if (/[^0-9+\-*/().,MathPIE\s]/.test(sanitized)) {
+        return { value: null, error: 'Invalid Syntax' };
+      }
+
+      // Evaluate safely
+      const fn = new Function(`"use strict"; return (${sanitized});`);
+      const val = fn();
+      if (typeof val === 'number' && !isNaN(val) && isFinite(val)) {
+        return { value: val };
+      }
+      return { value: null, error: 'Math Error' };
+    } catch {
+      return { value: null, error: 'Syntax Error' };
+    }
+  };
+
+  // Update live preview when expr changes
+  useEffect(() => {
+    if (!expr || expr === '0') {
+      setResultPreview('');
+      return;
+    }
+    const evalRes = evaluateMath(expr, isRad, ans);
+    if (evalRes.value !== null) {
+      setResultPreview(String(Number(evalRes.value.toFixed(8))));
+    } else {
+      setResultPreview('');
+    }
+  }, [expr, isRad, ans]);
+
+  const appendToken = (token: string) => {
+    sounds.playClick();
+    setExpr(prev => {
+      if (prev === '0' || prev === 'Error') {
+        return token;
+      }
+      return prev + token;
+    });
+  };
+
+  const handleClear = () => {
+    sounds.playClick();
+    setExpr('0');
+    setResultPreview('');
+  };
+
+  const handleBackspace = () => {
+    sounds.playClick();
+    setExpr(prev => {
+      if (prev.length <= 1 || prev === 'Error') return '0';
+      return prev.slice(0, -1);
+    });
+  };
+
+  const handleEqual = () => {
+    sounds.playClick();
+    const evalRes = evaluateMath(expr, isRad, ans);
+    if (evalRes.value !== null) {
+      sounds.playSuccess();
+      const formatted = String(Number(evalRes.value.toFixed(8)));
+      const historyItem = `${expr} = ${formatted}`;
+      const newHistory = [historyItem, ...history.slice(0, 24)];
+      setHistory(newHistory);
+      try {
+        localStorage.setItem('omni_scientific_calc_history', JSON.stringify(newHistory));
+      } catch {
+        // ignore
+      }
+      setAns(evalRes.value);
+      setExpr(formatted);
+      setResultPreview('');
+    } else {
+      sounds.playTone(200, 0.2);
+      setExpr('Error');
+    }
+  };
+
+  // Memory keys
+  const handleMemory = (op: 'MC' | 'MR' | 'M+' | 'M-' | 'MS') => {
+    sounds.playClick();
+    const currentNum = parseFloat(resultPreview || expr) || 0;
+    if (op === 'MC') {
+      setMemory(0);
+    } else if (op === 'MR') {
+      appendToken(String(memory));
+    } else if (op === 'M+') {
+      setMemory(m => m + currentNum);
+    } else if (op === 'M-') {
+      setMemory(m => m - currentNum);
+    } else if (op === 'MS') {
+      setMemory(currentNum);
+    }
+  };
+
+  const handleClearHistory = () => {
+    sounds.playClick();
+    setHistory([]);
+    try {
+      localStorage.removeItem('omni_scientific_calc_history');
+    } catch {
+      // ignore
+    }
   };
 
   return (
-    <div className="max-w-xl mx-auto rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-medium">
+    <div className="max-w-xl mx-auto space-y-4">
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-md space-y-4">
+        {/* Top Header: RAD/DEG, 2nd, Memory Indicator */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setIsRad(true); }}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  isRad ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                RAD
+              </button>
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setIsRad(false); }}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  !isRad ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                DEG
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { sounds.playClick(); setIsSecond(!isSecond); }}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                isSecond
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                  : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300'
+              }`}
+            >
+              2nd
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-zinc-400">
+            {memory !== 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                M = {Number(memory.toFixed(4))}
+              </span>
+            )}
+            <span className="text-zinc-400 uppercase tracking-wider text-[10px]">Scientific Pro</span>
+          </div>
+        </div>
+
+        {/* Display Screen */}
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 p-4 text-right space-y-1">
+          <div className="text-zinc-500 dark:text-zinc-400 font-mono text-sm sm:text-base overflow-x-auto whitespace-nowrap scrollbar-none min-h-[1.5rem]">
+            {expr}
+          </div>
+          <div className="font-mono text-3xl sm:text-4xl font-black text-zinc-900 dark:text-zinc-50 tabular-nums overflow-x-auto whitespace-nowrap scrollbar-none">
+            {resultPreview || expr}
+          </div>
+        </div>
+
+        {/* Memory Bar */}
+        <div className="grid grid-cols-5 gap-1.5 text-xs font-semibold">
+          {[
+            { label: 'MC', op: 'MC' as const },
+            { label: 'MR', op: 'MR' as const },
+            { label: 'M+', op: 'M+' as const },
+            { label: 'M-', op: 'M-' as const },
+            { label: 'MS', op: 'MS' as const },
+          ].map(m => (
+            <button
+              key={m.label}
+              type="button"
+              onClick={() => handleMemory(m.op)}
+              className="py-1.5 rounded-xl border border-zinc-200/80 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scientific & Standard Keypad Grid */}
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold">
+          {/* Row 1: Sci Functions */}
           <button
-            onClick={() => { sounds.playClick(); setIsRad(true); }}
-            className={`px-3 py-1 rounded-md transition-colors ${isRad ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-xs' : 'text-zinc-500'}`}
+            onClick={() => appendToken(isSecond ? 'asin(' : 'sin(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
           >
-            RAD
+            {isSecond ? 'sin⁻¹' : 'sin'}
           </button>
           <button
-            onClick={() => { sounds.playClick(); setIsRad(false); }}
-            className={`px-3 py-1 rounded-md transition-colors ${!isRad ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-xs' : 'text-zinc-500'}`}
+            onClick={() => appendToken(isSecond ? 'acos(' : 'cos(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
           >
-            DEG
+            {isSecond ? 'cos⁻¹' : 'cos'}
+          </button>
+          <button
+            onClick={() => appendToken(isSecond ? 'atan(' : 'tan(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+          >
+            {isSecond ? 'tan⁻¹' : 'tan'}
+          </button>
+          <button
+            onClick={() => appendToken('(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all font-mono"
+          >
+            (
+          </button>
+          <button
+            onClick={() => appendToken(')')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all font-mono"
+          >
+            )
+          </button>
+
+          {/* Row 2: Sci Functions + Constants */}
+          <button
+            onClick={() => appendToken(isSecond ? 'cbrt(' : 'sqrt(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+          >
+            {isSecond ? '∛x' : '√x'}
+          </button>
+          <button
+            onClick={() => appendToken('^')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+          >
+            xʸ
+          </button>
+          <button
+            onClick={() => appendToken(isSecond ? '10^(' : 'log10(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+          >
+            {isSecond ? '10ˣ' : 'log'}
+          </button>
+          <button
+            onClick={() => appendToken(isSecond ? '2.71828^(' : 'ln(')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all"
+          >
+            {isSecond ? 'eˣ' : 'ln'}
+          </button>
+          <button
+            onClick={() => appendToken('!')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all font-mono"
+          >
+            x!
+          </button>
+
+          {/* Row 3: Clear, Numbers 7 8 9, Divide */}
+          <button
+            onClick={handleClear}
+            className="h-11 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 dark:text-rose-300 font-bold cursor-pointer active:scale-95 transition-all"
+          >
+            AC
+          </button>
+          <button
+            onClick={() => appendToken('7')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            7
+          </button>
+          <button
+            onClick={() => appendToken('8')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            8
+          </button>
+          <button
+            onClick={() => appendToken('9')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            9
+          </button>
+          <button
+            onClick={() => appendToken('÷')}
+            className="h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 font-bold text-base cursor-pointer active:scale-95 transition-all"
+          >
+            ÷
+          </button>
+
+          {/* Row 4: Constants, Numbers 4 5 6, Multiply */}
+          <button
+            onClick={() => appendToken('π')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all font-serif"
+          >
+            π
+          </button>
+          <button
+            onClick={() => appendToken('4')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            4
+          </button>
+          <button
+            onClick={() => appendToken('5')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            5
+          </button>
+          <button
+            onClick={() => appendToken('6')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            6
+          </button>
+          <button
+            onClick={() => appendToken('×')}
+            className="h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 font-bold text-base cursor-pointer active:scale-95 transition-all"
+          >
+            ×
+          </button>
+
+          {/* Row 5: Constant e, Numbers 1 2 3, Subtract */}
+          <button
+            onClick={() => appendToken('e')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer active:scale-95 transition-all font-serif"
+          >
+            e
+          </button>
+          <button
+            onClick={() => appendToken('1')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            1
+          </button>
+          <button
+            onClick={() => appendToken('2')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            2
+          </button>
+          <button
+            onClick={() => appendToken('3')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            3
+          </button>
+          <button
+            onClick={() => appendToken('-')}
+            className="h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 font-bold text-base cursor-pointer active:scale-95 transition-all"
+          >
+            −
+          </button>
+
+          {/* Row 6: Ans, Number 0, Decimal, Backspace, Add */}
+          <button
+            onClick={() => appendToken('Ans')}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold cursor-pointer active:scale-95 transition-all"
+          >
+            Ans
+          </button>
+          <button
+            onClick={() => appendToken('0')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            0
+          </button>
+          <button
+            onClick={() => appendToken('.')}
+            className="h-11 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 font-bold text-base cursor-pointer active:scale-95 transition-all shadow-2xs"
+          >
+            .
+          </button>
+          <button
+            onClick={handleBackspace}
+            className="h-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center justify-center cursor-pointer active:scale-95 transition-all"
+            title="Backspace"
+          >
+            <Delete className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => appendToken('+')}
+            className="h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 font-bold text-base cursor-pointer active:scale-95 transition-all"
+          >
+            +
           </button>
         </div>
-        <span className="text-xs text-zinc-400 font-mono">Scientific Precision</span>
-      </div>
 
-      <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-right dark:border-zinc-800 dark:bg-zinc-950 font-mono text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50 truncate">
-        {val}
-      </div>
-
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 text-sm font-medium">
-        {[
-          { label: 'sin', fn: 'sin' },
-          { label: 'cos', fn: 'cos' },
-          { label: 'tan', fn: 'tan' },
-          { label: '√x', fn: 'sqrt' },
-          { label: 'x²', fn: 'sqr' },
-          { label: 'x³', fn: 'cube' },
-          { label: 'ln', fn: 'ln' },
-          { label: 'log₁₀', fn: 'log10' },
-          { label: '1/x', fn: '1/x' },
-          { label: 'x!', fn: 'fact' },
-          { label: 'π', fn: 'pi' },
-          { label: 'e', fn: 'e' },
-        ].map(item => (
-          <button
-            key={item.label}
-            onClick={() => applyFn(item.fn)}
-            className="h-11 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-          >
-            {item.label}
-          </button>
-        ))}
+        {/* Big Equal Action Button */}
         <button
-          onClick={() => { sounds.playClick(); setVal('0'); }}
-          className="h-11 rounded-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold transition-colors cursor-pointer"
-          title="Clear to 0"
+          type="button"
+          onClick={handleEqual}
+          className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-md hover:shadow-indigo-500/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
         >
-          C
+          <span>=</span>
+          <span className="text-xs font-semibold opacity-80">Calculate Result</span>
         </button>
-        <input
-          type="number"
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          className="h-11 col-span-2 rounded-lg border border-zinc-200 dark:border-zinc-800 px-3 bg-white dark:bg-zinc-950 font-mono text-right"
-          placeholder="Input number"
-        />
+      </div>
+
+      {/* History Tape */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-sm space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+              Calculation Tape History
+            </span>
+            {history.length > 0 && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold">
+                {history.length}
+              </span>
+            )}
+          </div>
+
+          {history.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear History</span>
+            </button>
+          )}
+        </div>
+
+        {history.length === 0 ? (
+          <div className="py-6 text-center text-xs text-zinc-400 font-medium">
+            Calculations and answers will be saved here automatically.
+          </div>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {history.map((item, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  sounds.playClick();
+                  const parts = item.split(' = ');
+                  if (parts[1]) setExpr(parts[1]);
+                }}
+                className="p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-850 font-mono text-xs text-zinc-700 dark:text-zinc-300 flex items-center justify-between cursor-pointer group transition-all"
+                title="Click to reuse answer"
+              >
+                <span className="truncate">{item}</span>
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 font-sans font-bold shrink-0 ml-2">
+                  Reuse
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

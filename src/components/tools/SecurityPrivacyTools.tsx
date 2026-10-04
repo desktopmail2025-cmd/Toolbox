@@ -3,6 +3,7 @@ import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
 import { Copy, Check, RefreshCw, Lock, ShieldCheck, Download, Trash2, Plus, FileText, KeyRound, RotateCcw, Wifi, Printer } from 'lucide-react';
 import { ExtendedUtilities } from './ExtendedUtilities';
+import { jsPDF } from 'jspdf';
 
 interface ToolComponentProps {
   toolId: string;
@@ -454,6 +455,69 @@ const WifiQrCardView: React.FC = () => {
     sounds.playSuccess();
   };
 
+  const downloadPdfGuestCard = () => {
+    sounds.playClick();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      // Header Banner
+      doc.setFillColor(16, 185, 129);
+      doc.roundedRect(20, 20, 170, 32, 4, 4, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(255, 255, 255);
+      doc.text('GUEST WI-FI ACCESS CARD', 105, 35, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Scan with your phone camera to connect instantly', 105, 43, { align: 'center' });
+
+      // Frame with rounded border around QR code
+      doc.setDrawColor(220, 225, 230);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(35, 60, 140, 135, 8, 8, 'FD');
+
+      const qrDataUrl = canvas.toDataURL('image/png');
+      doc.addImage(qrDataUrl, 'PNG', 50, 72, 110, 110);
+
+      // Network Details Card
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(35, 205, 140, 48, 6, 6, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text('NETWORK NAME (SSID):', 45, 217);
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text(ssid || 'Guest_WiFi', 45, 226);
+
+      if (encryption !== 'nopass') {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text('SECURITY PASSWORD:', 45, 237);
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text(password || 'None', 45, 246);
+      }
+
+      // Footer
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text('OmniToolbox Universal Suite · Instant Offline Wi-Fi Generator', 105, 275, { align: 'center' });
+
+      doc.save(`omnitoolbox-wifi-guest-card-${(ssid || 'guest').replace(/\s+/g, '_')}.pdf`);
+      sounds.playSuccess();
+    } catch {
+      downloadQrPng();
+    }
+  };
+
   const printGuestCard = () => {
     sounds.playClick();
     window.print();
@@ -568,12 +632,12 @@ const WifiQrCardView: React.FC = () => {
               </span>
             </div>
 
-            {/* QR Code Container */}
+            {/* QR Code Container with Crisp Rounded Border */}
             <div className="flex justify-center">
-              <div className="p-3 bg-white rounded-2xl border-2 border-zinc-100 shadow-xs inline-block">
+              <div className="p-3.5 bg-white rounded-3xl border-2 border-emerald-300 dark:border-emerald-600 shadow-md inline-block ring-4 ring-emerald-500/10">
                 <canvas
                   ref={canvasRef}
-                  className="w-48 h-48 rounded-lg block"
+                  className="w-48 h-48 rounded-2xl block"
                 />
               </div>
             </div>
@@ -597,22 +661,31 @@ const WifiQrCardView: React.FC = () => {
             </p>
           </div>
 
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Action buttons including Download PDF Now Guest Card */}
+          <div className="space-y-2">
             <button
-              onClick={downloadQrPng}
-              className="py-2.5 px-4 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
+              onClick={downloadPdfGuestCard}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
             >
-              <Download className="w-4 h-4" />
-              <span>Download PNG</span>
+              <FileText className="w-4 h-4" />
+              <span>Download PDF Now Guest Card</span>
             </button>
-            <button
-              onClick={printGuestCard}
-              className="py-2.5 px-4 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 hover:border-indigo-400 transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Guest Card</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={downloadQrPng}
+                className="py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PNG</span>
+              </button>
+              <button
+                onClick={printGuestCard}
+                className="py-2 px-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 hover:border-indigo-400 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Card</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

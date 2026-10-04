@@ -2153,7 +2153,7 @@ const UserAgentParserView: React.FC = () => {
 };
 
 // 9. Retirement & FIRE Runway Planner
-const RetirementPlannerView: React.FC = () => {
+export const RetirementPlannerView: React.FC = () => {
   const [nestEgg, setNestEgg] = useState<number | string>(500000);
   const [annualExpense, setAnnualExpense] = useState<number | string>(40000);
   const [withdrawalRate, setWithdrawalRate] = useState<number | string>(4); // 4% rule
@@ -2274,7 +2274,7 @@ const MINING_COINS: MiningCoinPreset[] = [
   { id: 'ltc', name: 'Litecoin + Doge', ticker: 'LTC', algorithm: 'Scrypt', unit: 'GH/s', defaultHashrate: 9.05, defaultWatts: 3260, estCoinsPerUnitPerDay: 0.042, defaultPrice: 98 },
 ];
 
-const CryptoMiningCalcView: React.FC = () => {
+export const CryptoMiningCalcView: React.FC = () => {
   const [selectedCoinId, setSelectedCoinId] = useState<string>('btc');
   const [hashrate, setHashrate] = useState<number | string>(200);
   const [powerWatts, setPowerWatts] = useState<number | string>(3500);
@@ -2629,7 +2629,7 @@ const getEuclideanSteps = (a: number, b: number): EuclideanStep[] => {
   return steps;
 };
 
-const GcdLcmCalcView: React.FC = () => {
+export const GcdLcmCalcView: React.FC = () => {
   const [numInput1, setNumInput1] = useState<number | string>(48);
   const [numInput2, setNumInput2] = useState<number | string>(180);
   const [extraNums, setExtraNums] = useState<string>('');
@@ -2844,7 +2844,7 @@ const BinaryHexConverterView: React.FC = () => {
 };
 
 // 16. Perfect 2x2 Matrix Operator
-const MatrixOperatorView: React.FC = () => {
+export const MatrixOperatorView: React.FC = () => {
   const [valA, setValA] = useState<number | string>(4);
   const [valB, setValB] = useState<number | string>(7);
   const [valC, setValC] = useState<number | string>(2);
@@ -3207,7 +3207,7 @@ const HiitTimerView: React.FC = () => {
 };
 
 // 18. Perfect Leap Year Calendar Verifier
-const LeapYearCheckerView: React.FC = () => {
+export const LeapYearCheckerView: React.FC = () => {
   const [yearInput, setYearInput] = useState<number | string>(2028);
 
   const year = typeof yearInput === 'number' ? yearInput : parseInt(yearInput, 10) || 2024;

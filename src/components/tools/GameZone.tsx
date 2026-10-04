@@ -488,350 +488,283 @@ const TicTacToeView: React.FC = () => {
 
 // 3. Memory Match Cards Game (Item 7: Start Game Button -> Random Preview Countdown -> Vanish & Guess Recall Mode)
 const THEMES: Record<string, string[]> = {
-  Emojis: ['🚀', '🍕', '🎮', '💎', '🐶', '🔥', '🥑', '⚡'],
-  Animals: ['🦁', '🐯', '🐼', '🐨', '🦊', '🐰', '🐙', '🦄'],
-  Tech: ['💻', '📱', '🔋', '🔬', '🔭', '💡', '📡', '🤖'],
+  Emojis: ['🚀', '🍕', '🎮', '💎', '🔥', '⚡', '🥑', '🌈'],
+  Animals: ['🦁', '🐼', '🦊', '🐰', '🐙', '🦄', '🐨', '🐯'],
+  Tech: ['💻', '📱', '🔋', '🤖', '💡', '📡', '🔬', '🚀'],
+  Food: ['🍔', '🍩', '🍓', '🍣', '🍦', '🥑', '🥞', '🍕'],
 };
 
-type MemoryGameState = 'idle' | 'preview' | 'playing' | 'won';
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; pairs: number; cols: string }> = {
+  easy: { label: 'Easy (6 Cards)', pairs: 3, cols: 'grid-cols-3' },
+  medium: { label: 'Medium (12 Cards)', pairs: 6, cols: 'grid-cols-3 sm:grid-cols-4' },
+  hard: { label: 'Hard (16 Cards)', pairs: 8, cols: 'grid-cols-4' },
+};
 
 const MemoryMatchView: React.FC = () => {
-  const [theme, setTheme] = useState<'Emojis' | 'Animals' | 'Tech'>('Emojis');
-  const [previewDuration, setPreviewDuration] = useState<number>(3.5); // 3.5 seconds default
-  const [gameState, setGameState] = useState<MemoryGameState>('idle');
+  const [theme, setTheme] = useState<'Emojis' | 'Animals' | 'Tech' | 'Food'>('Emojis');
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [cards, setCards] = useState<string[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
-  const [previewRemaining, setPreviewRemaining] = useState(3.5);
-  const [peeking, setPeeking] = useState(false);
-  const [targetMode, setTargetMode] = useState(false);
-  const [targetItem, setTargetItem] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isWon, setIsWon] = useState(false);
+  const [isPeeking, setIsPeeking] = useState(false);
   const [bestMoves, setBestMoves] = useState<number>(() => {
-    return parseInt(localStorage.getItem('omni_memory_best_moves') || '0', 10);
+    try {
+      return parseInt(localStorage.getItem('omni_memory_best_moves') || '0', 10);
+    } catch {
+      return 0;
+    }
   });
 
-  const previewTimerRef = useRef<any>(null);
+  const totalPairs = DIFFICULTY_CONFIG[difficulty].pairs;
 
-  // Initialize placeholder deck on load/theme change
+  // Initialize and shuffle deck
+  const startNewGame = (diff = difficulty, th = theme) => {
+    sounds.playClick();
+    const source = THEMES[th];
+    const pairsCount = DIFFICULTY_CONFIG[diff].pairs;
+    const selectedItems = source.slice(0, pairsCount);
+    const deck = [...selectedItems, ...selectedItems].sort(() => Math.random() - 0.5);
+
+    setCards(deck);
+    setFlipped([]);
+    setMatched([]);
+    setMoves(0);
+    setSeconds(0);
+    setIsPlaying(false);
+    setIsWon(false);
+    setIsPeeking(false);
+  };
+
+  // Setup on mount and when settings change
   useEffect(() => {
-    const source = THEMES[theme];
-    const deck = [...source, ...source].sort(() => Math.random() - 0.5);
-    setCards(deck);
-    setFlipped([]);
-    setMatched([]);
-    setMoves(0);
-    setSeconds(0);
-    setGameState('idle');
-    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-  }, [theme]);
+    startNewGame(difficulty, theme);
+  }, [difficulty, theme]);
 
-  // Start Game Button Action: Shuffles deck, shows cards face-up for previewDuration, then vanishes and starts guessing
-  const handleStartGame = () => {
-    sounds.playClick();
-    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-
-    const source = THEMES[theme];
-    const deck = [...source, ...source].sort(() => Math.random() - 0.5);
-    setCards(deck);
-    setFlipped([]);
-    setMatched([]);
-    setMoves(0);
-    setSeconds(0);
-    setPeeking(false);
-
-    // Pick initial target item if target mode active
-    const randomTarget = source[Math.floor(Math.random() * source.length)];
-    setTargetItem(randomTarget);
-
-    // Enter Preview Mode
-    setGameState('preview');
-    setPreviewRemaining(previewDuration);
-
-    const startTime = Date.now();
-    previewTimerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const rem = Math.max(0, previewDuration - elapsed);
-      setPreviewRemaining(Number(rem.toFixed(1)));
-
-      if (rem <= 0) {
-        clearInterval(previewTimerRef.current);
-        // Vanish cards face down and enter playing mode!
-        setGameState('playing');
-        sounds.playTone(520, 0.15);
-      }
-    }, 100);
-  };
-
-  const skipPreview = () => {
-    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-    setGameState('playing');
-    sounds.playTone(520, 0.15);
-  };
-
-  const triggerPeek = () => {
-    if (gameState !== 'playing' || peeking || matched.length === cards.length) return;
-    sounds.playClick();
-    setPeeking(true);
-    setTimeout(() => {
-      setPeeking(false);
-    }, 2000);
-  };
-
-  // Timer while playing
+  // Game timer
   useEffect(() => {
     let interval: any;
-    if (gameState === 'playing' && matched.length < cards.length) {
+    if (isPlaying && !isWon) {
       interval = setInterval(() => {
         setSeconds(s => s + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [gameState, matched.length, cards.length]);
+  }, [isPlaying, isWon]);
 
   const handleCardClick = (idx: number) => {
-    if (gameState !== 'playing' || peeking || flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
+    // Prevent clicking matched, already flipped, or during 2-card check
+    if (isPeeking || isWon || flipped.includes(idx) || matched.includes(idx) || flipped.length >= 2) {
+      return;
+    }
+
     sounds.playClick();
 
-    const newFlipped = [...flipped, idx];
-    setFlipped(newFlipped);
+    // Start timer on first flip
+    if (!isPlaying) {
+      setIsPlaying(true);
+    }
 
-    if (newFlipped.length === 2) {
-      setMoves(m => m + 1);
-      const [first, second] = newFlipped;
-      if (cards[first] === cards[second]) {
+    const nextFlipped = [...flipped, idx];
+    setFlipped(nextFlipped);
+
+    // When 2 cards are flipped
+    if (nextFlipped.length === 2) {
+      const nextMoves = moves + 1;
+      setMoves(nextMoves);
+
+      const [firstIdx, secondIdx] = nextFlipped;
+      if (cards[firstIdx] === cards[secondIdx]) {
+        // Matched pair!
         sounds.playSuccess();
-        setMatched(m => {
-          const next = [...m, first, second];
-          if (next.length === cards.length) {
-            setGameState('won');
-            confetti({ particleCount: 80 });
-            if (bestMoves === 0 || moves + 1 < bestMoves) {
-              setBestMoves(moves + 1);
-              localStorage.setItem('omni_memory_best_moves', String(moves + 1));
-            }
-          }
-          return next;
-        });
+        const nextMatched = [...matched, firstIdx, secondIdx];
+        setMatched(nextMatched);
         setFlipped([]);
 
-        // Pick next target if target mode
-        if (targetMode) {
-          const remainingItems = THEMES[theme].filter(
-            item => !cards.filter((c, i) => [...matched, first, second].includes(i)).includes(item)
-          );
-          if (remainingItems.length > 0) {
-            setTargetItem(remainingItems[Math.floor(Math.random() * remainingItems.length)]);
+        // Check if all pairs matched
+        if (nextMatched.length === cards.length) {
+          setIsWon(true);
+          confetti({ particleCount: 90, spread: 60 });
+          if (bestMoves === 0 || nextMoves < bestMoves) {
+            setBestMoves(nextMoves);
+            try {
+              localStorage.setItem('omni_memory_best_moves', String(nextMoves));
+            } catch {
+              // ignore
+            }
           }
         }
       } else {
-        setTimeout(() => setFlipped([]), 850);
+        // Not a match: flip back after short delay
+        setTimeout(() => {
+          setFlipped([]);
+        }, 800);
       }
     }
   };
 
-  const accuracy = moves > 0 ? Math.round(((matched.length / 2) / moves) * 100) : 100;
-  const isWon = gameState === 'won';
-  const stars = moves <= 10 ? 3 : moves <= 16 ? 2 : 1;
+  const handlePeekHint = () => {
+    if (isPeeking || isWon || matched.length === cards.length) return;
+    sounds.playClick();
+    setIsPeeking(true);
+    setTimeout(() => {
+      setIsPeeking(false);
+    }, 1200);
+  };
+
+  const pairsFound = matched.length / 2;
+  const accuracy = moves > 0 ? Math.round((pairsFound / moves) * 100) : 100;
+  const stars = moves <= totalPairs + 2 ? 3 : moves <= totalPairs * 2 ? 2 : 1;
 
   return (
-    <div className="max-w-md mx-auto space-y-4 text-center">
-      {/* Theme & Options Header */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
-        <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
-          {(['Emojis', 'Animals', 'Tech'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTheme(t)}
-              disabled={gameState === 'preview'}
-              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                theme === t
-                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 font-bold shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-900'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+    <div className="max-w-md mx-auto space-y-4">
+      {/* Controls & Options Bar */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 shadow-sm space-y-3">
+        {/* Difficulty & Theme Row */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Difficulty selector */}
+          <div className="flex p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
+            {(['easy', 'medium', 'hard'] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => setDifficulty(d)}
+                className={`px-2.5 py-1 rounded-lg capitalize transition-all cursor-pointer ${
+                  difficulty === d
+                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 font-bold shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
+          {/* Theme selector */}
+          <div className="flex p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
+            {(['Emojis', 'Animals', 'Tech', 'Food'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                  theme === t
+                    ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setTargetMode(m => !m)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              targetMode
-                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800'
-                : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            🎯 Target Mode
-          </button>
-          {gameState !== 'idle' && (
-            <button
-              onClick={handleStartGame}
-              className="flex items-center gap-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Restart
-            </button>
-          )}
+        {/* Instructions */}
+        <div className="text-center py-0.5">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+            Tap cards to flip them over. Match all <strong>{totalPairs} pairs</strong> in the fewest moves!
+          </p>
+        </div>
+
+        {/* Dashboard Metrics */}
+        <div className="grid grid-cols-4 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800 text-center">
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-400 block font-bold uppercase">Moves</span>
+            <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{moves}</span>
+          </div>
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-400 block font-bold uppercase">Time</span>
+            <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{seconds}s</span>
+          </div>
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-400 block font-bold uppercase">Pairs</span>
+            <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
+              {pairsFound}/{totalPairs}
+            </span>
+          </div>
+          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-400 block font-bold uppercase">Accuracy</span>
+            <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">{accuracy}%</span>
+          </div>
         </div>
       </div>
 
-      {/* START GAME BANNER & PREVIEW CONTROLS (Item 7 Request) */}
-      {gameState === 'idle' && (
-        <div className="p-5 rounded-3xl bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60 space-y-4 shadow-sm">
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-indigo-900 dark:text-indigo-200 flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <span>Memory Recall Challenge</span>
-            </h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm mx-auto">
-              Press <strong>Start Game</strong> to reveal all cards for <strong>{previewDuration} seconds</strong>. Memorize their locations before they vanish face-down, then test your visual recall!
-            </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-3">
-            <div className="flex items-center gap-1 text-xs">
-              <span className="font-semibold text-zinc-500">Preview Time:</span>
-              {[
-                { label: '2s', s: 2.0 },
-                { label: '3.5s', s: 3.5 },
-                { label: '5s', s: 5.0 },
-              ].map(opt => (
-                <button
-                  key={opt.label}
-                  onClick={() => setPreviewDuration(opt.s)}
-                  className={`px-2 py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                    previewDuration === opt.s
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs'
-                      : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={handleStartGame}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Start Game</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ACTIVE PREVIEW COUNTDOWN BANNER */}
-      {gameState === 'preview' && (
-        <div className="p-4 rounded-3xl bg-indigo-600 text-white shadow-lg flex items-center justify-between animate-pulse">
-          <div className="text-left">
-            <span className="font-black text-sm block flex items-center gap-1.5">
-              <Eye className="w-4 h-4" /> Memorize Card Positions!
-            </span>
-            <span className="text-xs text-indigo-100 font-medium">
-              Vanish & flip face-down in <strong className="font-mono text-amber-300 text-sm">{previewRemaining}s</strong>...
-            </span>
-          </div>
-          <button
-            onClick={skipPreview}
-            className="px-4 py-1.5 rounded-xl bg-white text-indigo-900 font-extrabold text-xs hover:bg-indigo-50 cursor-pointer shadow-xs active:scale-95"
-          >
-            I'm Ready!
-          </button>
-        </div>
-      )}
-
-      {/* Target Item Prompt if Target Mode enabled */}
-      {targetMode && targetItem && !isWon && (
-        <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between text-xs">
-          <span className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-            🎯 Target to Match: <span className="text-xl ml-1">{targetItem}</span>
-          </span>
-          <span className="text-[11px] text-amber-700 dark:text-amber-300">Remember where it was!</span>
-        </div>
-      )}
-
-      {/* Dashboard Metrics */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
-          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Moves</span>
-          <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{moves}</span>
-        </div>
-        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
-          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Time</span>
-          <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-50">{seconds}s</span>
-        </div>
-        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
-          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Accuracy</span>
-          <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">{accuracy}%</span>
-        </div>
-        <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
-          <span className="text-[10px] text-zinc-400 block font-bold uppercase">Pairs</span>
-          <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
-            {matched.length / 2}/{cards.length / 2}
-          </span>
-        </div>
-      </div>
-
-      {/* 4x4 Cards Grid */}
-      <div className="grid grid-cols-4 gap-2.5 p-3.5 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+      {/* Cards Grid */}
+      <div className={`grid ${DIFFICULTY_CONFIG[difficulty].cols} gap-2.5 p-3.5 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner`}>
         {cards.map((item, idx) => {
           const isFlipped = flipped.includes(idx);
           const isMatched = matched.includes(idx);
-          const isRevealed = gameState === 'preview' || peeking || isFlipped || isMatched;
+          const isRevealed = isPeeking || isFlipped || isMatched;
 
           return (
             <button
               key={idx}
+              type="button"
               onClick={() => handleCardClick(idx)}
-              disabled={gameState === 'idle' || gameState === 'preview'}
-              className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border select-none active:scale-95 ${
-                gameState === 'idle'
-                  ? 'bg-zinc-200/80 dark:bg-zinc-800/60 border-zinc-300 dark:border-zinc-700 text-zinc-400 cursor-not-allowed opacity-75'
-                  : isMatched
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-xs'
+              className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border select-none cursor-pointer active:scale-95 shadow-sm ${
+                isMatched
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-600 text-emerald-900 dark:text-emerald-100 ring-2 ring-emerald-400/40 cursor-default'
                   : isFlipped
-                  ? 'bg-white dark:bg-zinc-800 border-indigo-400 dark:border-indigo-600 shadow-md scale-102 ring-2 ring-indigo-400/40'
-                  : gameState === 'preview' || peeking
-                  ? 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 shadow-sm'
-                  : 'bg-zinc-900 text-transparent dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 border-transparent shadow-sm cursor-pointer'
+                  ? 'bg-white dark:bg-zinc-800 border-indigo-500 dark:border-indigo-400 ring-2 ring-indigo-400/50 shadow-md scale-102'
+                  : isPeeking
+                  ? 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700'
+                  : 'bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-850 dark:hover:bg-zinc-750 border-zinc-700 dark:border-zinc-700 text-transparent'
               }`}
             >
-              {isRevealed ? item : '✨'}
+              {isRevealed ? (
+                <span className="animate-in zoom-in-75 duration-150">{item}</span>
+              ) : (
+                <span className="text-zinc-600 dark:text-zinc-500 text-lg font-bold select-none">?</span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Peek Hint Button while playing */}
-      {gameState === 'playing' && !isWon && (
-        <div className="flex justify-center pt-1">
-          <button
-            onClick={triggerPeek}
-            disabled={peeking}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs disabled:opacity-40"
-          >
-            <Eye className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Peek Cards (2s Hint)</span>
-          </button>
-        </div>
-      )}
+      {/* Action Buttons: New Game + Peek Hint */}
+      <div className="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => startNewGame()}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>New Game</span>
+        </button>
 
-      {/* Victory Card */}
+        <button
+          type="button"
+          onClick={handlePeekHint}
+          disabled={isPeeking || isWon || matched.length === cards.length}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all cursor-pointer shadow-2xs disabled:opacity-40"
+        >
+          <Eye className="w-3.5 h-3.5 text-indigo-500" />
+          <span>Peek Hint (1s)</span>
+        </button>
+      </div>
+
+      {/* Victory Celebration Modal / Banner */}
       {isWon && (
-        <div className="p-5 bg-emerald-600 text-white rounded-3xl text-sm font-bold shadow-md flex flex-col items-center justify-center gap-3">
+        <div className="p-5 bg-emerald-600 text-white rounded-3xl text-sm font-bold shadow-lg flex flex-col items-center justify-center gap-3 animate-in fade-in zoom-in-95">
           <div className="flex gap-1 text-amber-300">
             {Array.from({ length: stars }).map((_, i) => (
               <Star key={i} className="w-5 h-5 fill-amber-300" />
             ))}
           </div>
-          <span className="text-base">Flawless Recall! All Pairs Matched in {moves} moves ({seconds}s)</span>
+          <span className="text-base font-extrabold text-center">
+            Awesome! All {totalPairs} Pairs Matched in {moves} Moves ({seconds}s)
+          </span>
+          {bestMoves > 0 && (
+            <span className="text-xs text-emerald-100">
+              Personal Best: {bestMoves} moves
+            </span>
+          )}
           <button
-            onClick={handleStartGame}
-            className="px-5 py-2 bg-white text-emerald-900 font-extrabold text-xs rounded-xl shadow-xs cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all"
+            onClick={() => startNewGame()}
+            className="px-6 py-2 bg-white text-emerald-950 font-black text-xs rounded-xl shadow-md cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all"
           >
             Play Again
           </button>

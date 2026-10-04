@@ -393,14 +393,6 @@ export default function App() {
           <CategoryExplorer
             onSelectTool={handleSelectTool}
             selectedToolId={lastOpenedToolId}
-            onClearSelectedTool={() => {
-              setLastOpenedToolId(null);
-              try {
-                localStorage.removeItem('omni_last_tool');
-              } catch {
-                // ignore
-              }
-            }}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             recents={recents}
