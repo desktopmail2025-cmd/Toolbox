@@ -142,7 +142,7 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
         if (tool.id === 'hot-picks-feed') {
           return <HotPicksView key={`${tool.id}-${resetKey}`} />;
         }
-        if (tool.id === 'image-bg-remover' || tool.id === 'video-to-audio') {
+        if (tool.id === 'video-to-audio') {
           return <ProfessionalTools key={`${tool.id}-${resetKey}`} toolId={tool.id} />;
         }
         // Check if handled by extended utilities

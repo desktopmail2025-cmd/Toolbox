@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../utils/audio';
-import { RotateCcw, Trophy, Zap, Play, Bomb, Flag, Sparkles, Flame, Check } from 'lucide-react';
+import { RotateCcw, Trophy, Zap, Play, Bomb, Flag, Sparkles, Flame, Check, HelpCircle, Undo2, Eye, Star, Info } from 'lucide-react';
 import { ExtendedUtilities } from './ExtendedUtilities';
 
 interface ToolComponentProps {
@@ -37,14 +37,20 @@ export const GameZone: React.FC<ToolComponentProps> = ({ toolId }) => {
   }
 };
 
-// 1. 2048 Game
+// 1. 2048 Game (Item 10: Professional Edition with Touch Swipe, Undo, and Game Over Overlays)
 const Game2048View: React.FC = () => {
   const [board, setBoard] = useState<number[][]>(() => initBoard());
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
     return parseInt(localStorage.getItem('omni_2048_best') || '0', 10);
   });
+  const [history, setHistory] = useState<{ board: number[][]; score: number }[]>([]);
   const [gameOver, setGameOver] = useState(false);
+  const [hasWon, setHasWon] = useState(false);
+  const [keepPlaying, setKeepPlaying] = useState(false);
+  const [recentPoints, setRecentPoints] = useState<number | null>(null);
+  const [showHowTo, setShowHowTo] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   function initBoard(): number[][] {
     const b = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
@@ -66,10 +72,20 @@ const Game2048View: React.FC = () => {
     }
   }
 
+  const checkGameOver = (currentBoard: number[][]) => {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (currentBoard[r][c] === 0) return false;
+        if (r < 3 && currentBoard[r][c] === currentBoard[r + 1][c]) return false;
+        if (c < 3 && currentBoard[r][c] === currentBoard[r][c + 1]) return false;
+      }
+    }
+    return true;
+  };
+
   const move = useCallback(
     (direction: 'left' | 'right' | 'up' | 'down') => {
       if (gameOver) return;
-      sounds.playClick();
 
       let moved = false;
       let points = 0;
@@ -122,118 +138,244 @@ const Game2048View: React.FC = () => {
       }
 
       if (moved) {
+        sounds.playClick();
+        // Save undo history (last 5 moves)
+        setHistory(prev => [...prev.slice(-4), { board: board.map(r => [...r]), score }]);
+
         addRandom(newBoard);
         setBoard(newBoard);
-        setScore(s => {
-          const newS = s + points;
-          if (newS > bestScore) {
-            setBestScore(newS);
-            localStorage.setItem('omni_2048_best', String(newS));
-          }
-          return newS;
-        });
 
-        // Check 2048 tile for confetti
-        if (newBoard.some(r => r.includes(2048))) {
-          confetti({ particleCount: 50 });
+        if (points > 0) {
+          setRecentPoints(points);
+          setTimeout(() => setRecentPoints(null), 800);
+        }
+
+        const newScore = score + points;
+        setScore(newScore);
+        if (newScore > bestScore) {
+          setBestScore(newScore);
+          localStorage.setItem('omni_2048_best', String(newScore));
+        }
+
+        // Check 2048 tile for victory
+        if (!hasWon && !keepPlaying && newBoard.some(r => r.includes(2048))) {
+          setHasWon(true);
+          confetti({ particleCount: 75 });
+          sounds.playSuccess();
+        }
+
+        // Check Game Over
+        if (checkGameOver(newBoard)) {
+          setGameOver(true);
         }
       }
     },
-    [board, gameOver, bestScore]
+    [board, gameOver, score, bestScore, hasWon, keepPlaying]
   );
 
+  const undoMove = () => {
+    if (history.length === 0) return;
+    sounds.playClick();
+    const last = history[history.length - 1];
+    setBoard(last.board);
+    setScore(last.score);
+    setHistory(h => h.slice(0, -1));
+    setGameOver(false);
+  };
+
+  // Keyboard navigation
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
         e.preventDefault();
-        if (e.key === 'ArrowLeft') move('left');
-        if (e.key === 'ArrowRight') move('right');
-        if (e.key === 'ArrowUp') move('up');
-        if (e.key === 'ArrowDown') move('down');
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') move('left');
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') move('right');
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') move('up');
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') move('down');
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [move]);
 
+  // Touch swipe handling directly on board
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (Math.max(absX, absY) > 30) {
+      if (absX > absY) {
+        if (dx > 0) move('right');
+        else move('left');
+      } else {
+        if (dy > 0) move('down');
+        else move('up');
+      }
+    }
+    touchStartRef.current = null;
+  };
+
   const restart = () => {
     sounds.playClick();
     setBoard(initBoard());
     setScore(0);
+    setHistory([]);
     setGameOver(false);
+    setHasWon(false);
+    setKeepPlaying(false);
   };
 
   const getTileBg = (val: number) => {
     switch (val) {
-      case 2: return 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100';
-      case 4: return 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200';
-      case 8: return 'bg-orange-200 text-orange-900 dark:bg-orange-950 dark:text-orange-200';
-      case 16: return 'bg-orange-400 text-white font-bold';
-      case 32: return 'bg-orange-600 text-white font-bold';
-      case 64: return 'bg-red-500 text-white font-bold';
-      case 128: return 'bg-yellow-400 text-zinc-900 font-bold';
-      case 256: return 'bg-yellow-500 text-zinc-900 font-bold shadow-md';
-      case 512: return 'bg-emerald-500 text-white font-bold shadow-md';
-      case 1024: return 'bg-blue-600 text-white font-bold shadow-lg';
-      case 2048: return 'bg-purple-600 text-white font-bold shadow-xl';
-      default: return 'bg-zinc-200/50 dark:bg-zinc-800/40 text-transparent';
+      case 2: return 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 shadow-2xs';
+      case 4: return 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 shadow-2xs';
+      case 8: return 'bg-orange-200 text-orange-950 dark:bg-orange-950 dark:text-orange-200 font-bold';
+      case 16: return 'bg-orange-400 text-white font-extrabold shadow-xs';
+      case 32: return 'bg-orange-600 text-white font-black shadow-xs';
+      case 64: return 'bg-rose-500 text-white font-black shadow-xs';
+      case 128: return 'bg-amber-400 text-zinc-950 font-black shadow-sm scale-102';
+      case 256: return 'bg-amber-500 text-zinc-950 font-black shadow-md scale-102';
+      case 512: return 'bg-emerald-500 text-white font-black shadow-md scale-102';
+      case 1024: return 'bg-indigo-600 text-white font-black shadow-lg scale-104';
+      case 2048: return 'bg-purple-600 text-white font-black shadow-xl ring-2 ring-amber-300 scale-104 animate-pulse';
+      default: return 'bg-zinc-200/40 dark:bg-zinc-800/30 text-transparent';
     }
   };
 
   return (
     <div className="max-w-sm mx-auto space-y-4 text-center">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">
-            <span className="text-[10px] text-zinc-500 block uppercase font-semibold">Score</span>
-            <span className="font-mono font-bold text-sm">{score}</span>
+      {/* Header with Title and Help */}
+      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="text-left">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">2048 Puzzle Classic</h2>
+            <button
+              onClick={() => setShowHowTo(prev => !prev)}
+              title="How to Play 2048"
+              className="text-zinc-400 hover:text-indigo-600 text-xs cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">
-            <span className="text-[10px] text-zinc-500 block uppercase font-semibold">Best</span>
-            <span className="font-mono font-bold text-sm">{bestScore}</span>
-          </div>
+          <span className="text-[10px] text-zinc-400">Join matching numbers to reach 2048</span>
         </div>
-        <button
-          onClick={restart}
-          className="p-2 border rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> New Game
-        </button>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={undoMove}
+            disabled={history.length === 0 || gameOver}
+            title="Undo last move"
+            className="p-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold disabled:opacity-30 cursor-pointer flex items-center gap-1"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Undo</span>
+          </button>
+          <button
+            onClick={restart}
+            className="p-1.5 px-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="text-[10px]">New</span>
+          </button>
+        </div>
       </div>
 
-      {/* Grid */}
-      <div className="p-3 bg-zinc-200 dark:bg-zinc-800/80 rounded-2xl grid grid-cols-4 gap-2 aspect-square touch-none">
+      {/* Rules Banner (Collapsible) */}
+      {showHowTo && (
+        <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-left text-xs space-y-1">
+          <span className="font-bold text-indigo-700 dark:text-indigo-300 block">💡 How to Play 2048:</span>
+          <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
+            Swipe or use arrow keys to slide tiles across the board. When two tiles with the same number collide, they combine into one double-value tile (2+2=4, 4+4=8... 1024+1024=2048). Create the <strong>2048 tile</strong> to win!
+          </p>
+        </div>
+      )}
+
+      {/* Score Cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-2.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 relative">
+          <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Score</span>
+          <span className="font-mono font-black text-xl text-zinc-900 dark:text-zinc-50">{score}</span>
+          {recentPoints && (
+            <span className="absolute top-1 right-2 text-xs font-mono font-black text-emerald-600 animate-bounce">
+              +{recentPoints}
+            </span>
+          )}
+        </div>
+        <div className="p-2.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+          <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Best Score</span>
+          <span className="font-mono font-black text-xl text-amber-600 dark:text-amber-400">{bestScore}</span>
+        </div>
+      </div>
+
+      {/* 4x4 Grid Board with Touch Gestures */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="p-3 bg-zinc-300 dark:bg-zinc-800/90 rounded-3xl grid grid-cols-4 gap-2 aspect-square touch-none relative select-none shadow-inner"
+      >
         {board.map((row, r) =>
           row.map((cell, c) => (
             <div
               key={`${r}-${c}`}
-              className={`rounded-xl flex items-center justify-center font-mono font-bold text-lg sm:text-2xl transition-all duration-100 select-none ${getTileBg(cell)}`}
+              className={`rounded-2xl flex items-center justify-center font-mono font-black text-xl sm:text-2xl transition-all duration-150 select-none ${getTileBg(cell)}`}
             >
               {cell > 0 ? cell : ''}
             </div>
           ))
         )}
+
+        {/* Victory Overlay */}
+        {hasWon && !keepPlaying && (
+          <div className="absolute inset-0 bg-amber-500/90 backdrop-blur-xs rounded-3xl flex flex-col items-center justify-center p-6 text-white space-y-3 z-10 animate-fade-in">
+            <Trophy className="w-12 h-12 text-yellow-200 animate-bounce" />
+            <h3 className="text-2xl font-black">You Reached 2048!</h3>
+            <p className="text-xs text-amber-100">Incredible puzzle solving! Continue to reach 4096 or restart.</p>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setKeepPlaying(true)}
+                className="px-4 py-2 bg-white text-zinc-900 rounded-xl font-bold text-xs hover:bg-zinc-100 cursor-pointer shadow-md"
+              >
+                Keep Going
+              </button>
+              <button
+                onClick={restart}
+                className="px-4 py-2 bg-zinc-900 text-white rounded-xl font-bold text-xs hover:bg-zinc-800 cursor-pointer shadow-md"
+              >
+                New Game
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Game Over Overlay */}
+        {gameOver && (
+          <div className="absolute inset-0 bg-zinc-950/85 backdrop-blur-xs rounded-3xl flex flex-col items-center justify-center p-6 text-white space-y-3 z-10">
+            <span className="text-3xl">🧩</span>
+            <h3 className="text-2xl font-black">Game Over!</h3>
+            <p className="text-xs text-zinc-300">No more valid moves available. Final score: {score}</p>
+            <button
+              onClick={restart}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 cursor-pointer shadow-lg"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Mobile Swipe Buttons */}
-      <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto pt-2 sm:hidden">
-        <div />
-        <button onClick={() => move('up')} className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold">
-          ↑
-        </button>
-        <div />
-        <button onClick={() => move('left')} className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold">
-          ←
-        </button>
-        <button onClick={() => move('down')} className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold">
-          ↓
-        </button>
-        <button onClick={() => move('right')} className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold">
-          →
-        </button>
+      <div className="text-[11px] text-zinc-400 flex items-center justify-center gap-2">
+        <span className="hidden sm:inline">Use Arrow keys or W/A/S/D to slide tiles</span>
+        <span className="sm:hidden">Swipe anywhere on board to slide tiles</span>
       </div>
-
-      <p className="text-xs text-zinc-400 hidden sm:block">Use arrow keys on keyboard to slide tiles</p>
     </div>
   );
 };
@@ -344,7 +486,7 @@ const TicTacToeView: React.FC = () => {
   );
 };
 
-// 3. Memory Match Cards Game (Item 28: Complete Correct Implementation)
+// 3. Memory Match Cards Game (Item 10: Preview Recall Mode & Professional Memory Training)
 const THEMES: Record<string, string[]> = {
   Emojis: ['🚀', '🍕', '🎮', '💎', '🐶', '🔥', '🥑', '⚡'],
   Animals: ['🦁', '🐯', '🐼', '🐨', '🦊', '🐰', '🐙', '🦄'],
@@ -359,12 +501,21 @@ const MemoryMatchView: React.FC = () => {
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(true);
+  const [previewRemaining, setPreviewRemaining] = useState(3.0);
+  const [peeking, setPeeking] = useState(false);
+  const [targetMode, setTargetMode] = useState(false);
+  const [targetItem, setTargetItem] = useState<string | null>(null);
   const [bestMoves, setBestMoves] = useState<number>(() => {
     return parseInt(localStorage.getItem('omni_memory_best_moves') || '0', 10);
   });
 
+  const previewTimerRef = useRef<any>(null);
+
   const initGame = (selectedTheme = theme) => {
     sounds.playClick();
+    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+
     const source = THEMES[selectedTheme];
     const deck = [...source, ...source].sort(() => Math.random() - 0.5);
     setCards(deck);
@@ -373,25 +524,63 @@ const MemoryMatchView: React.FC = () => {
     setMoves(0);
     setSeconds(0);
     setIsPlaying(false);
+    setIsPreviewing(true);
+    setPreviewRemaining(3.0);
+    setPeeking(false);
+
+    // Pick random initial target
+    const randomTarget = source[Math.floor(Math.random() * source.length)];
+    setTargetItem(randomTarget);
+
+    // Run preview countdown: 3 seconds to memorize
+    const start = Date.now();
+    previewTimerRef.current = setInterval(() => {
+      const elapsed = (Date.now() - start) / 1000;
+      const rem = Math.max(0, 3.0 - elapsed);
+      setPreviewRemaining(Number(rem.toFixed(1)));
+      if (rem <= 0) {
+        clearInterval(previewTimerRef.current);
+        setIsPreviewing(false);
+        sounds.playClick(350, 0.05);
+      }
+    }, 100);
+  };
+
+  const skipPreview = () => {
+    if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+    setIsPreviewing(false);
+    sounds.playClick(350, 0.05);
+  };
+
+  const triggerPeek = () => {
+    if (isPreviewing || peeking || matched.length === cards.length) return;
+    sounds.playClick();
+    setPeeking(true);
+    setTimeout(() => {
+      setPeeking(false);
+    }, 2000);
   };
 
   useEffect(() => {
     initGame(theme);
+    return () => {
+      if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+    };
   }, [theme]);
 
-  // Timer loop
+  // Timer loop while actively playing
   useEffect(() => {
     let interval: any;
-    if (isPlaying && matched.length < cards.length) {
+    if (isPlaying && !isPreviewing && matched.length < cards.length) {
       interval = setInterval(() => {
         setSeconds(s => s + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, matched.length, cards.length]);
+  }, [isPlaying, isPreviewing, matched.length, cards.length]);
 
   const handleCardClick = (idx: number) => {
-    if (flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
+    if (isPreviewing || peeking || flipped.length === 2 || flipped.includes(idx) || matched.includes(idx)) return;
     if (!isPlaying) setIsPlaying(true);
     sounds.playClick();
 
@@ -406,7 +595,7 @@ const MemoryMatchView: React.FC = () => {
         setMatched(m => {
           const next = [...m, first, second];
           if (next.length === cards.length) {
-            confetti({ particleCount: 60 });
+            confetti({ particleCount: 70 });
             if (bestMoves === 0 || moves + 1 < bestMoves) {
               setBestMoves(moves + 1);
               localStorage.setItem('omni_memory_best_moves', String(moves + 1));
@@ -415,6 +604,16 @@ const MemoryMatchView: React.FC = () => {
           return next;
         });
         setFlipped([]);
+
+        // Pick next target if target mode
+        if (targetMode) {
+          const remainingItems = THEMES[theme].filter(
+            item => !cards.filter((c, i) => [...matched, first, second].includes(i)).includes(item)
+          );
+          if (remainingItems.length > 0) {
+            setTargetItem(remainingItems[Math.floor(Math.random() * remainingItems.length)]);
+          }
+        }
       } else {
         setTimeout(() => setFlipped([]), 850);
       }
@@ -424,16 +623,19 @@ const MemoryMatchView: React.FC = () => {
   const accuracy = moves > 0 ? Math.round(((matched.length / 2) / moves) * 100) : 100;
   const isWon = matched.length === cards.length && cards.length > 0;
 
+  // Star Rating
+  const stars = moves <= 10 ? 3 : moves <= 16 ? 2 : 1;
+
   return (
-    <div className="max-w-md mx-auto space-y-5 text-center">
-      {/* Theme & Stats Bar */}
+    <div className="max-w-md mx-auto space-y-4 text-center">
+      {/* Theme & Actions Bar */}
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
           {(['Emojis', 'Animals', 'Tech'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTheme(t)}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                 theme === t
                   ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 font-bold shadow-xs'
                   : 'text-zinc-500 hover:text-zinc-900'
@@ -444,13 +646,51 @@ const MemoryMatchView: React.FC = () => {
           ))}
         </div>
 
-        <button
-          onClick={() => initGame()}
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> Restart
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setTargetMode(m => !m)}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+              targetMode
+                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800'
+                : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+          >
+            🎯 Target Mode
+          </button>
+          <button
+            onClick={() => initGame()}
+            className="flex items-center gap-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Restart
+          </button>
+        </div>
       </div>
+
+      {/* Target Item Prompt if Target Mode enabled */}
+      {targetMode && targetItem && !isWon && (
+        <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between text-xs">
+          <span className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+            🎯 Target to Match: <span className="text-xl ml-1">{targetItem}</span>
+          </span>
+          <span className="text-[11px] text-amber-700 dark:text-amber-300">Remember where it was!</span>
+        </div>
+      )}
+
+      {/* Memorize Countdown Banner during Preview Phase */}
+      {isPreviewing && (
+        <div className="p-3.5 rounded-2xl bg-indigo-600 text-white shadow-md flex items-center justify-between animate-pulse">
+          <div className="text-left">
+            <span className="font-black text-sm block">👀 Memorize the Cards!</span>
+            <span className="text-xs text-indigo-100">Flipping face-down in {previewRemaining}s...</span>
+          </div>
+          <button
+            onClick={skipPreview}
+            className="px-3.5 py-1.5 rounded-xl bg-white text-indigo-900 font-bold text-xs hover:bg-indigo-50 cursor-pointer shadow-xs"
+          >
+            I'm Ready!
+          </button>
+        </div>
+      )}
 
       {/* Dashboard Metrics */}
       <div className="grid grid-cols-4 gap-2">
@@ -475,21 +715,24 @@ const MemoryMatchView: React.FC = () => {
       </div>
 
       {/* 4x4 Cards Grid */}
-      <div className="grid grid-cols-4 gap-2.5 p-3 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+      <div className="grid grid-cols-4 gap-2.5 p-3.5 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner">
         {cards.map((item, idx) => {
           const isFlipped = flipped.includes(idx);
           const isMatched = matched.includes(idx);
-          const isRevealed = isFlipped || isMatched;
+          const isRevealed = isPreviewing || peeking || isFlipped || isMatched;
 
           return (
             <button
               key={idx}
               onClick={() => handleCardClick(idx)}
+              disabled={isPreviewing}
               className={`h-20 sm:h-24 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl transition-all duration-300 border cursor-pointer select-none active:scale-95 ${
                 isMatched
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-xs'
                   : isFlipped
-                  ? 'bg-white dark:bg-zinc-800 border-indigo-400 dark:border-indigo-600 shadow-md scale-102'
+                  ? 'bg-white dark:bg-zinc-800 border-indigo-400 dark:border-indigo-600 shadow-md scale-102 ring-2 ring-indigo-400/40'
+                  : isPreviewing || peeking
+                  ? 'bg-white/80 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-700'
                   : 'bg-zinc-900 text-transparent dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 border-transparent shadow-sm'
               }`}
             >
@@ -499,17 +742,35 @@ const MemoryMatchView: React.FC = () => {
         })}
       </div>
 
+      {/* Peek Hint Button */}
+      {!isPreviewing && !isWon && (
+        <div className="flex justify-center pt-1">
+          <button
+            onClick={triggerPeek}
+            disabled={peeking}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs disabled:opacity-40"
+          >
+            <Eye className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Peek Cards (2s)</span>
+          </button>
+        </div>
+      )}
+
       {isWon && (
-        <div className="p-4 bg-emerald-600 text-white rounded-2xl text-sm font-bold shadow-md flex items-center justify-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-300" />
-          <span>All Pairs Matched in {moves} moves and {seconds}s!</span>
+        <div className="p-4 bg-emerald-600 text-white rounded-2xl text-sm font-bold shadow-md flex flex-col items-center justify-center gap-2">
+          <div className="flex gap-1 text-amber-300">
+            {Array.from({ length: stars }).map((_, i) => (
+              <Star key={i} className="w-5 h-5 fill-amber-300" />
+            ))}
+          </div>
+          <span>Flawless Recall! All Pairs Matched in {moves} moves ({seconds}s)</span>
         </div>
       )}
     </div>
   );
 };
 
-// 4. Minesweeper Classic (Item 29: Safe First-Click, Mobile Flags & Difficulty)
+// 4. Minesweeper Classic (Item 10: Professional Edition with Chord Clicking, Rules, & High Scores)
 const NUMBER_COLORS: Record<number, string> = {
   1: 'text-blue-600 dark:text-blue-400',
   2: 'text-emerald-600 dark:text-emerald-400',
@@ -531,6 +792,11 @@ const MinesweeperView: React.FC = () => {
   const [flagMode, setFlagMode] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isTense, setIsTense] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
+  const [bestTime, setBestTime] = useState<number>(() => {
+    return parseInt(localStorage.getItem(`omni_minesweeper_best_${size}`) || '0', 10);
+  });
 
   const initGrid = (boardSize = size, mineCount = numMines) => {
     sounds.playClick();
@@ -578,10 +844,12 @@ const MinesweeperView: React.FC = () => {
     setFirstClick(true);
     setTimerSeconds(0);
     setIsTimerRunning(false);
+    setIsTense(false);
   };
 
   useEffect(() => {
     initGrid(size, numMines);
+    setBestTime(parseInt(localStorage.getItem(`omni_minesweeper_best_${size}`) || '0', 10));
   }, [size, numMines]);
 
   useEffect(() => {
@@ -595,8 +863,9 @@ const MinesweeperView: React.FC = () => {
   const flagsPlaced = grid.flat().filter(c => c.flag).length;
   const minesLeft = Math.max(0, numMines - flagsPlaced);
 
+  // Handle cell click (and chord click if already revealed)
   const handleCellAction = (r: number, c: number) => {
-    if (gameOver || gameWon || grid[r][c].revealed) return;
+    if (gameOver || gameWon) return;
 
     if (flagMode) {
       toggleFlag(r, c);
@@ -604,6 +873,14 @@ const MinesweeperView: React.FC = () => {
     }
 
     if (grid[r][c].flag) return;
+
+    // Chord Clicking: if already revealed and number > 0, clicking checks flags and reveals safe neighbors
+    if (grid[r][c].revealed) {
+      if (grid[r][c].count > 0) {
+        chordReveal(r, c);
+      }
+      return;
+    }
 
     if (!isTimerRunning) setIsTimerRunning(true);
 
@@ -686,7 +963,37 @@ const MinesweeperView: React.FC = () => {
       setGameWon(true);
       setIsTimerRunning(false);
       sounds.playSuccess();
-      confetti({ particleCount: 60 });
+      confetti({ particleCount: 70 });
+      if (bestTime === 0 || timerSeconds < bestTime) {
+        setBestTime(timerSeconds);
+        localStorage.setItem(`omni_minesweeper_best_${size}`, String(timerSeconds));
+      }
+    }
+  };
+
+  // Chord click logic
+  const chordReveal = (r: number, c: number) => {
+    let adjacentFlags = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr >= 0 && nr < size && nc >= 0 && nc < size && grid[nr][nc].flag) {
+          adjacentFlags++;
+        }
+      }
+    }
+
+    if (adjacentFlags === grid[r][c].count) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < size && nc >= 0 && nc < size && !grid[nr][nc].flag && !grid[nr][nc].revealed) {
+            handleCellAction(nr, nc);
+          }
+        }
+      }
     }
   };
 
@@ -699,35 +1006,67 @@ const MinesweeperView: React.FC = () => {
     setGrid(newGrid);
   };
 
-  const smiley = gameOver ? '😵' : gameWon ? '😎' : '🙂';
+  const smiley = gameOver ? '😵' : gameWon ? '😎' : isTense ? '😮' : '🙂';
 
   return (
-    <div className="max-w-sm mx-auto space-y-4 text-center">
-      {/* Controls Bar */}
-      <div className="flex justify-between items-center">
+    <div className="max-w-md mx-auto space-y-4 text-center">
+      {/* Title & How to Play Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="text-left">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Minesweeper Classic</h2>
+            <button
+              onClick={() => setShowHowTo(prev => !prev)}
+              title="How to Play Minesweeper"
+              className="text-zinc-400 hover:text-indigo-600 text-xs cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <span className="text-[10px] text-zinc-400">Clear tiles safely without detonating mines</span>
+        </div>
+
+        {bestTime > 0 && (
+          <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+            Best: {bestTime}s
+          </span>
+        )}
+      </div>
+
+      {/* Rules Explanation Banner */}
+      {showHowTo && (
+        <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-left text-xs space-y-1">
+          <span className="font-bold text-indigo-700 dark:text-indigo-300 block">💡 How to Play Minesweeper:</span>
+          <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
+            1. Tap/click any tile to uncover it. Your first click is always guaranteed safe.<br />
+            2. The numbers indicate how many mines are touching that square.<br />
+            3. Right-click (or toggle the <strong>Flag</strong> button) to place a flag on suspected mines.<br />
+            4. Clicking a revealed number whose neighboring flags match will auto-reveal remaining tiles!
+          </p>
+        </div>
+      )}
+
+      {/* Controls Bar: Difficulties & Flag Toggle */}
+      <div className="flex justify-between items-center gap-2">
         <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-semibold">
-          <button
-            onClick={() => {
-              setSize(8);
-              setNumMines(10);
-            }}
-            className={`px-2.5 py-1 rounded-lg ${
-              size === 8 ? 'bg-white dark:bg-zinc-700 font-bold shadow-xs' : 'text-zinc-500'
-            }`}
-          >
-            8x8 (10)
-          </button>
-          <button
-            onClick={() => {
-              setSize(10);
-              setNumMines(16);
-            }}
-            className={`px-2.5 py-1 rounded-lg ${
-              size === 10 ? 'bg-white dark:bg-zinc-700 font-bold shadow-xs' : 'text-zinc-500'
-            }`}
-          >
-            10x10 (16)
-          </button>
+          {[
+            { label: '8x8 (10)', s: 8, m: 10 },
+            { label: '10x10 (16)', s: 10, m: 16 },
+            { label: '12x12 (24)', s: 12, m: 24 },
+          ].map(d => (
+            <button
+              key={d.label}
+              onClick={() => {
+                setSize(d.s);
+                setNumMines(d.m);
+              }}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                size === d.s ? 'bg-white dark:bg-zinc-700 font-bold shadow-xs text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
         </div>
 
         <button
@@ -743,68 +1082,72 @@ const MinesweeperView: React.FC = () => {
           title="Toggle flag placing mode"
         >
           <Flag className="w-3.5 h-3.5" />
-          <span>{flagMode ? 'Flagging' : 'Digging'}</span>
+          <span>{flagMode ? 'Flag Mode' : 'Dig Mode'}</span>
         </button>
       </div>
 
-      {/* Classic Dashboard */}
-      <div className="p-3.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
-        <div className="font-mono text-lg font-black bg-zinc-900 text-red-500 px-3 py-1 rounded-lg shadow-inner">
+      {/* Classic Windows Retro LED Dashboard */}
+      <div className="p-3 rounded-2xl bg-zinc-900 dark:bg-zinc-950 border-2 border-zinc-700 flex justify-between items-center shadow-md">
+        <div className="font-mono text-xl font-black bg-zinc-950 text-red-500 px-3 py-1 rounded-lg border border-zinc-800 tracking-widest shadow-inner">
           {String(minesLeft).padStart(3, '0')}
         </div>
 
         <button
           onClick={() => initGrid(size, numMines)}
-          className="text-2xl p-1 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-transform active:scale-90 cursor-pointer"
+          className="text-3xl p-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-transform active:scale-90 cursor-pointer shadow-sm border border-zinc-700"
           title="Restart game"
         >
           {smiley}
         </button>
 
-        <div className="font-mono text-lg font-black bg-zinc-900 text-red-500 px-3 py-1 rounded-lg shadow-inner">
+        <div className="font-mono text-xl font-black bg-zinc-950 text-red-500 px-3 py-1 rounded-lg border border-zinc-800 tracking-widest shadow-inner">
           {String(Math.min(timerSeconds, 999)).padStart(3, '0')}
         </div>
       </div>
 
       {/* Minesweeper Grid */}
-      <div
-        className="p-2.5 bg-zinc-200 dark:bg-zinc-800/90 rounded-2xl select-none inline-grid gap-1 shadow-inner"
-        style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
-      >
-        {grid.map((row, r) =>
-          row.map((cell, c) => (
-            <button
-              key={`${r}-${c}`}
-              onClick={() => handleCellAction(r, c)}
-              onContextMenu={e => toggleFlag(r, c, e)}
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center font-bold text-sm font-mono transition-all cursor-pointer select-none active:scale-95 ${
-                cell.revealed
-                  ? cell.isMine
-                    ? 'bg-rose-500 text-white animate-bounce'
-                    : 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800'
-                  : 'bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-350 dark:hover:bg-zinc-650 shadow-2xs'
-              }`}
-            >
-              {cell.revealed ? (
-                cell.isMine ? (
-                  '💣'
-                ) : cell.count > 0 ? (
-                  <span className={NUMBER_COLORS[cell.count] || 'text-zinc-900'}>{cell.count}</span>
+      <div className="overflow-x-auto pb-1 flex justify-center">
+        <div
+          className="p-3 bg-zinc-300 dark:bg-zinc-800 rounded-3xl select-none inline-grid gap-1.5 shadow-inner"
+          style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+        >
+          {grid.map((row, r) =>
+            row.map((cell, c) => (
+              <button
+                key={`${r}-${c}`}
+                onClick={() => handleCellAction(r, c)}
+                onContextMenu={e => toggleFlag(r, c, e)}
+                onMouseDown={() => !cell.revealed && setIsTense(true)}
+                onMouseUp={() => setIsTense(false)}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-sm font-mono transition-all cursor-pointer select-none active:scale-95 ${
+                  cell.revealed
+                    ? cell.isMine
+                      ? 'bg-rose-500 text-white animate-bounce'
+                      : 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs'
+                    : 'bg-zinc-400 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 shadow-2xs'
+                }`}
+              >
+                {cell.revealed ? (
+                  cell.isMine ? (
+                    '💣'
+                  ) : cell.count > 0 ? (
+                    <span className={NUMBER_COLORS[cell.count] || 'text-zinc-900'}>{cell.count}</span>
+                  ) : (
+                    ''
+                  )
+                ) : cell.flag ? (
+                  '🚩'
                 ) : (
                   ''
-                )
-              ) : cell.flag ? (
-                '🚩'
-              ) : (
-                ''
-              )}
-            </button>
-          ))
-        )}
+                )}
+              </button>
+            ))
+          )}
+        </div>
       </div>
 
-      {gameOver && <p className="text-xs font-bold text-rose-500">Boom! You hit a mine. Tap smiley to retry.</p>}
-      {gameWon && <p className="text-xs font-bold text-emerald-500">Congratulations! You cleared all mines! 🎉</p>}
+      {gameOver && <p className="text-xs font-bold text-rose-500">💥 Detonation! You hit a mine. Tap smiley to retry.</p>}
+      {gameWon && <p className="text-xs font-bold text-emerald-500">🎉 Mission Accomplished! Minefield cleared in {timerSeconds}s!</p>}
     </div>
   );
 };

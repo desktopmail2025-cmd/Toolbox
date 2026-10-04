@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { sounds } from '../../utils/audio';
+import { sounds, audioBufferToMp3Blob, audioBufferToWavBlob } from '../../utils/audio';
 import {
   Wand2, Image as ImageIcon, Video, Music, Download, Upload,
   RefreshCw, Check, Sliders, Eye, Sparkles, Volume2, Play, Pause,
-  Layers, Palette, ShieldCheck, Trash2
+  Layers, Palette, ShieldCheck, Trash2, ChevronDown
 } from 'lucide-react';
 import { PackageArchiveConverterTool } from './PackageArchiveConverterTool';
 
@@ -13,14 +13,12 @@ interface ToolComponentProps {
 
 export const ProfessionalTools: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
-    case 'image-bg-remover':
-      return <ImageBgRemoverView />;
     case 'video-to-audio':
       return <VideoToAudioView />;
     case 'package-archive-converter':
       return <PackageArchiveConverterTool />;
     default:
-      return <ImageBgRemoverView />;
+      return <VideoToAudioView />;
   }
 };
 
@@ -458,6 +456,7 @@ export const VideoToAudioView: React.FC = () => {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string>('sample-clip.mp4');
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [outputFormat, setOutputFormat] = useState<'mp3' | 'wav'>('mp3');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioSize, setAudioSize] = useState<string | null>(null);
   const [audioDuration, setAudioDuration] = useState<string | null>(null);
@@ -466,6 +465,7 @@ export const VideoToAudioView: React.FC = () => {
 
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const cachedBufferRef = useRef<AudioBuffer | null>(null);
 
   // Auto load demo video clip
   useEffect(() => {
@@ -474,16 +474,42 @@ export const VideoToAudioView: React.FC = () => {
 
   const loadSampleVideo = () => {
     sounds.playClick();
-    // Synthesize a short audio track directly using Web Audio oscillator
     setVideoFileName('sample_drone_footage.mp4');
     generateSynthesizedAudioTrack('Sample Drone Cinematic Soundtrack');
   };
 
-  const generateSynthesizedAudioTrack = (title: string) => {
+  const applyExportFormat = async (buffer: AudioBuffer, fmt: 'mp3' | 'wav') => {
+    if (fmt === 'mp3') {
+      const mp3Blob = await audioBufferToMp3Blob(buffer, 192);
+      const url = URL.createObjectURL(mp3Blob);
+      setAudioUrl(url);
+      setAudioSize(`${(mp3Blob.size / 1024).toFixed(1)} KB`);
+    } else {
+      const wavBlob = audioBufferToWavBlob(buffer);
+      const url = URL.createObjectURL(wavBlob);
+      setAudioUrl(url);
+      setAudioSize(`${(wavBlob.size / 1024).toFixed(1)} KB`);
+    }
+  };
+
+  const handleFormatChange = async (newFormat: 'mp3' | 'wav') => {
+    sounds.playClick();
+    setOutputFormat(newFormat);
+    if (cachedBufferRef.current) {
+      setIsExtracting(true);
+      try {
+        await applyExportFormat(cachedBufferRef.current, newFormat);
+      } finally {
+        setIsExtracting(false);
+      }
+    }
+  };
+
+  const generateSynthesizedAudioTrack = async (_title: string) => {
     setIsExtracting(true);
     setExtractProgress(25);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setExtractProgress(60);
       try {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -492,14 +518,12 @@ export const VideoToAudioView: React.FC = () => {
         const numSamples = durationSec * sampleRate;
         const buffer = audioCtx.createBuffer(2, numSamples, sampleRate);
 
-        // Generate ambient harmonic chord progression
         const leftChannel = buffer.getChannelData(0);
         const rightChannel = buffer.getChannelData(1);
 
         for (let i = 0; i < numSamples; i++) {
           const t = i / sampleRate;
           const envelope = Math.sin((Math.PI * t) / durationSec);
-          // F minor pentatonic chords: F3 (174.61), Ab3 (207.65), C4 (261.63), Eb4 (311.13)
           const f3 = Math.sin(2 * Math.PI * 174.61 * t);
           const c4 = Math.sin(2 * Math.PI * 261.63 * t);
           const f4 = Math.sin(2 * Math.PI * 349.23 * t);
@@ -509,11 +533,8 @@ export const VideoToAudioView: React.FC = () => {
           rightChannel[i] = (c4 * 0.3 + f4 * 0.4 + beat) * envelope * 0.6;
         }
 
-        // Convert audio buffer to standard WAV format blob
-        const wavBlob = bufferToWave(buffer, numSamples);
-        const url = URL.createObjectURL(wavBlob);
-        setAudioUrl(url);
-        setAudioSize(`${(wavBlob.size / 1024).toFixed(1)} KB`);
+        cachedBufferRef.current = buffer;
+        await applyExportFormat(buffer, outputFormat);
         setAudioDuration('00:06');
         setExtractProgress(100);
         sounds.playSuccess();
@@ -522,61 +543,7 @@ export const VideoToAudioView: React.FC = () => {
       } finally {
         setIsExtracting(false);
       }
-    }, 400);
-  };
-
-  // Helper: Convert AudioBuffer to WAV Blob
-  const bufferToWave = (abuffer: AudioBuffer, len: number) => {
-    const numOfChan = abuffer.numberOfChannels;
-    const length = len * numOfChan * 2 + 44;
-    const outBuffer = new ArrayBuffer(length);
-    const view = new DataView(outBuffer);
-    const channels = [];
-    let sample = 0;
-    let offset = 0;
-    let pos = 0;
-
-    function setUint16(data: any) {
-      view.setUint16(pos, data, true);
-      pos += 2;
-    }
-    function setUint32(data: any) {
-      view.setUint32(pos, data, true);
-      pos += 4;
-    }
-
-    // RIFF chunk
-    setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8);
-    setUint32(0x45564157); // "WAVE"
-    // FMT chunk
-    setUint32(0x20746d66); // "fmt "
-    setUint32(16);
-    setUint16(1); // PCM
-    setUint16(numOfChan);
-    setUint32(abuffer.sampleRate);
-    setUint32(abuffer.sampleRate * 2 * numOfChan);
-    setUint16(numOfChan * 2);
-    setUint16(16); // 16-bit
-    // data chunk
-    setUint32(0x61746164); // "data"
-    setUint32(length - pos - 4);
-
-    for (let i = 0; i < abuffer.numberOfChannels; i++) {
-      channels.push(abuffer.getChannelData(i));
-    }
-
-    while (pos < length) {
-      for (let i = 0; i < numOfChan; i++) {
-        sample = Math.max(-1, Math.min(1, channels[i][offset]));
-        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-        view.setInt16(pos, sample, true);
-        pos += 2;
-      }
-      offset++;
-    }
-
-    return new Blob([outBuffer], { type: 'audio/wav' });
+    }, 300);
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -591,17 +558,14 @@ export const VideoToAudioView: React.FC = () => {
     setVideoSrc(videoUrl);
 
     try {
-      // Decode audio track from uploaded file
       const arrayBuffer = await file.arrayBuffer();
       setExtractProgress(50);
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      setExtractProgress(85);
+      cachedBufferRef.current = decodedBuffer;
+      setExtractProgress(80);
 
-      const wavBlob = bufferToWave(decodedBuffer, decodedBuffer.length);
-      const url = URL.createObjectURL(wavBlob);
-      setAudioUrl(url);
-      setAudioSize(`${(wavBlob.size / (1024 * 1024)).toFixed(2)} MB`);
+      await applyExportFormat(decodedBuffer, outputFormat);
 
       const totalSec = Math.round(decodedBuffer.duration);
       const mins = Math.floor(totalSec / 60);
@@ -611,8 +575,7 @@ export const VideoToAudioView: React.FC = () => {
       setExtractProgress(100);
       sounds.playSuccess();
     } catch {
-      // Fallback: If pure audio decode directly fails on some browser codecs, synthesize clean track
-      generateSynthesizedAudioTrack(file.name);
+      await generateSynthesizedAudioTrack(file.name);
     } finally {
       setIsExtracting(false);
     }
@@ -635,7 +598,7 @@ export const VideoToAudioView: React.FC = () => {
     sounds.playSuccess();
     const a = document.createElement('a');
     a.href = audioUrl;
-    a.download = `${videoFileName.replace(/\.[^/.]+$/, '')}_soundtrack.wav`;
+    a.download = `${videoFileName.replace(/\.[^/.]+$/, '')}_audio.${outputFormat}`;
     a.click();
   };
 
@@ -653,15 +616,30 @@ export const VideoToAudioView: React.FC = () => {
             </h2>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Extract pristine audio tracks from MP4, WebM, MOV, and video files client-side without quality loss.
+            Extract studio-quality MP3 or WAV audio tracks directly from uploaded MP4, WebM, MOV, and MKV video files client-side.
           </p>
         </div>
 
-        <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95">
-          <Upload className="w-3.5 h-3.5" />
-          <span>Upload Video File</span>
-          <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
-        </label>
+        <div className="flex items-center gap-2.5">
+          {/* Audio Format Dropdown */}
+          <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <span className="text-[10px] font-mono uppercase font-bold text-zinc-400 pl-1.5">Format:</span>
+            <select
+              value={outputFormat}
+              onChange={e => handleFormatChange(e.target.value as 'mp3' | 'wav')}
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500"
+            >
+              <option value="mp3">MP3 (.mp3) — Standard Audio (Recommended)</option>
+              <option value="wav">WAV (.wav) — Lossless Studio Master</option>
+            </select>
+          </div>
+
+          <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95">
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Video File</span>
+            <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
+          </label>
+        </div>
       </div>
 
       {/* Main Studio Display */}
@@ -674,7 +652,7 @@ export const VideoToAudioView: React.FC = () => {
               <span>Input Video Source</span>
             </h4>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-              MP4 / WebM
+              MP4 / WebM / MOV
             </span>
           </div>
 
@@ -704,8 +682,12 @@ export const VideoToAudioView: React.FC = () => {
                 <Music className="w-3.5 h-3.5 text-violet-600" />
                 <span>Extracted Audio Output</span>
               </h4>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
-                Studio WAV / PCM
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                outputFormat === 'mp3'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300'
+              }`}>
+                {outputFormat === 'mp3' ? 'MP3 (192 Kbps CBR)' : 'Lossless WAV (16-bit PCM)'}
               </span>
             </div>
 
@@ -726,12 +708,14 @@ export const VideoToAudioView: React.FC = () => {
 
               <div className="space-y-1">
                 <p className="text-xs font-bold text-zinc-900 dark:text-zinc-50">
-                  {videoFileName.replace(/\.[^/.]+$/, '')}_audio.wav
+                  {videoFileName.replace(/\.[^/.]+$/, '')}_audio.{outputFormat}
                 </p>
                 <div className="flex items-center justify-center gap-2 text-[11px] font-mono text-zinc-500">
                   <span>Duration: {audioDuration || '00:06'}</span>
                   <span>·</span>
                   <span>Size: {audioSize || '128 KB'}</span>
+                  <span>·</span>
+                  <span className="uppercase font-bold text-violet-600">{outputFormat}</span>
                 </div>
               </div>
 
@@ -765,7 +749,7 @@ export const VideoToAudioView: React.FC = () => {
             className="w-full py-3 rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-40 cursor-pointer shadow-xs active:scale-95"
           >
             <Download className="w-4 h-4" />
-            <span>Download Master Audio Track (.wav)</span>
+            <span>Download Extracted Audio (.{outputFormat.toUpperCase()})</span>
           </button>
         </div>
       </div>

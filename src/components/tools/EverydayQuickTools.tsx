@@ -712,52 +712,403 @@ const DecisionMakerView: React.FC = () => {
   );
 };
 
-// 7. Multi Tally Counter
+// 7. Multi Tally Counter (Item 9: Full Multi-Channel Counting Workbench)
+interface CounterItem {
+  id: string;
+  name: string;
+  count: number;
+  step: number;
+  target?: number;
+  color: string;
+}
+
+const DEFAULT_COUNTERS: CounterItem[] = [
+  { id: '1', name: 'General Visitors', count: 12, step: 1, target: 50, color: 'indigo' },
+  { id: '2', name: 'VIP Passholders', count: 4, step: 1, target: 20, color: 'emerald' },
+  { id: '3', name: 'Staff & Crew', count: 8, step: 1, color: 'amber' },
+];
+
+const COUNTER_COLORS: Record<string, { bg: string; text: string; border: string; buttonBg: string }> = {
+  indigo: { bg: 'bg-indigo-50 dark:bg-indigo-950/40', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800', buttonBg: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
+  emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', buttonBg: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+  amber: { bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800', buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white' },
+  rose: { bg: 'bg-rose-50 dark:bg-rose-950/40', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800', buttonBg: 'bg-rose-600 hover:bg-rose-700 text-white' },
+  cyan: { bg: 'bg-cyan-50 dark:bg-cyan-950/40', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-200 dark:border-cyan-800', buttonBg: 'bg-cyan-600 hover:bg-cyan-700 text-white' },
+  purple: { bg: 'bg-purple-50 dark:bg-purple-950/40', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', buttonBg: 'bg-purple-600 hover:bg-purple-700 text-white' },
+};
+
 const TallyCounterView: React.FC = () => {
-  const [count, setCount] = useState(0);
-  const [step, setStep] = useState(1);
+  const [counters, setCounters] = useState<CounterItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_multi_tally_counters');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEFAULT_COUNTERS;
+  });
 
-  const increment = () => {
-    sounds.playClick(600, 0.03);
-    setCount(c => c + step);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newStep, setNewStep] = useState(1);
+  const [newTarget, setNewTarget] = useState<string>('');
+  const [newColor, setNewColor] = useState('indigo');
+  const [copiedReport, setCopiedReport] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('omni_multi_tally_counters', JSON.stringify(counters));
+    } catch {
+      // storage limit
+    }
+  }, [counters]);
+
+  const increment = (id: string) => {
+    sounds.playClick(650, 0.04);
+    setCounters(prev =>
+      prev.map(c => {
+        if (c.id === id) {
+          const next = c.count + c.step;
+          if (c.target && next >= c.target && c.count < c.target) {
+            sounds.playSuccess();
+            confetti({ particleCount: 50 });
+          }
+          return { ...c, count: next };
+        }
+        return c;
+      })
+    );
   };
 
-  const decrement = () => {
-    sounds.playClick(400, 0.03);
-    setCount(c => Math.max(0, c - step));
+  const decrement = (id: string) => {
+    sounds.playClick(420, 0.04);
+    setCounters(prev =>
+      prev.map(c => {
+        if (c.id === id) {
+          return { ...c, count: Math.max(0, c.count - c.step) };
+        }
+        return c;
+      })
+    );
   };
 
-  const reset = () => {
+  const resetSingle = (id: string) => {
     sounds.playClick();
-    setCount(0);
+    setCounters(prev =>
+      prev.map(c => (c.id === id ? { ...c, count: 0 } : c))
+    );
+  };
+
+  const resetAll = () => {
+    sounds.playClick();
+    setCounters(prev => prev.map(c => ({ ...c, count: 0 })));
+  };
+
+  const deleteCounter = (id: string) => {
+    sounds.playClick();
+    setCounters(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleAddCounter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    sounds.playSuccess();
+    const targetNum = newTarget ? parseInt(newTarget, 10) : undefined;
+    const item: CounterItem = {
+      id: Date.now().toString(),
+      name: newName.trim(),
+      count: 0,
+      step: newStep || 1,
+      target: targetNum && targetNum > 0 ? targetNum : undefined,
+      color: newColor,
+    };
+    setCounters(prev => [...prev, item]);
+    setNewName('');
+    setNewTarget('');
+    setIsAdding(false);
+  };
+
+  const totalCount = counters.reduce((sum, c) => sum + c.count, 0);
+
+  const exportCsv = () => {
+    sounds.playSuccess();
+    let csv = 'Counter Name,Current Count,Step Increment,Target Goal,Percentage Share\n';
+    counters.forEach(c => {
+      const share = totalCount > 0 ? ((c.count / totalCount) * 100).toFixed(1) : '0.0';
+      csv += `"${c.name}",${c.count},${c.step},${c.target || 'None'},${share}%\n`;
+    });
+    csv += `"Total Aggregate",${totalCount},-,--,--\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Multi-Tally-Report-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copySummary = () => {
+    sounds.playSuccess();
+    let summary = `📊 Multi Tally Report (${new Date().toLocaleDateString()})\nTotal Counts: ${totalCount}\n\n`;
+    counters.forEach(c => {
+      const share = totalCount > 0 ? ((c.count / totalCount) * 100).toFixed(1) : '0';
+      summary += `• ${c.name}: ${c.count}${c.target ? ` / ${c.target}` : ''} (${share}%)\n`;
+    });
+    navigator.clipboard.writeText(summary);
+    setCopiedReport(true);
+    setTimeout(() => setCopiedReport(false), 2000);
   };
 
   return (
-    <div className="max-w-xs mx-auto rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 text-center space-y-6 shadow-sm">
-      <div className="flex justify-between items-center text-xs">
-        <span className="text-zinc-500">Step: {step}</span>
-        <button onClick={reset} className="p-1 border rounded hover:bg-zinc-100 text-zinc-500">
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
+    <div className="max-w-3xl mx-auto space-y-5">
+      {/* Header & Purpose Explanation */}
+      <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Multi Tally Counter Studio</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Track multiple independent tallies, event attendees, inventory, or repetitions simultaneously</p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsAdding(prev => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Counter
+          </button>
+          <button
+            onClick={resetAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 text-xs font-semibold cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset All
+          </button>
+        </div>
       </div>
 
-      <div className="text-7xl font-mono font-bold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-50">
-        {count}
+      {/* Aggregate Statistics Ribbon */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[10px] font-bold text-zinc-400 uppercase block">Total Aggregate</span>
+          <span className="text-2xl font-mono font-black text-indigo-600 dark:text-indigo-400">{totalCount}</span>
+        </div>
+        <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[10px] font-bold text-zinc-400 uppercase block">Active Channels</span>
+          <span className="text-2xl font-mono font-black text-zinc-900 dark:text-zinc-100">{counters.length}</span>
+        </div>
+        <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[10px] font-bold text-zinc-400 uppercase block">Average / Channel</span>
+          <span className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400">
+            {counters.length > 0 ? (totalCount / counters.length).toFixed(1) : 0}
+          </span>
+        </div>
+        <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase block">Export Report</span>
+            <span className="text-xs font-semibold text-zinc-500">CSV & Clipboard</span>
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={exportCsv}
+              title="Download CSV"
+              className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold"
+            >
+              CSV
+            </button>
+            <button
+              onClick={copySummary}
+              title="Copy Summary"
+              className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold"
+            >
+              {copiedReport ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : 'Copy'}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={decrement}
-          className="h-16 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 flex items-center justify-center text-2xl font-bold"
-        >
-          <Minus className="w-6 h-6" />
-        </button>
-        <button
-          onClick={increment}
-          className="h-16 rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 flex items-center justify-center text-2xl font-bold hover:opacity-90 shadow-sm"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
+      {/* Add New Counter Form Modal / Drawer */}
+      {isAdding && (
+        <form onSubmit={handleAddCounter} className="p-4 rounded-3xl bg-zinc-50 dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-900/60 space-y-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-indigo-500" /> Add New Counting Category
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAdding(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-600 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            <div className="sm:col-span-2">
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Counter Name / Label *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. VIP Gate, Adults, Laps, Cars..."
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Step Increment</label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                value={newStep}
+                onChange={e => setNewStep(parseInt(e.target.value, 10) || 1)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Target Goal (optional)</label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 100"
+                value={newTarget}
+                onChange={e => setNewTarget(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-500">Color:</span>
+              <div className="flex gap-1.5">
+                {Object.keys(COUNTER_COLORS).map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewColor(color)}
+                    className={`w-5 h-5 rounded-full border-2 ${
+                      newColor === color ? 'border-zinc-900 dark:border-white scale-125' : 'border-transparent'
+                    } ${
+                      color === 'indigo' ? 'bg-indigo-500' :
+                      color === 'emerald' ? 'bg-emerald-500' :
+                      color === 'amber' ? 'bg-amber-500' :
+                      color === 'rose' ? 'bg-rose-500' :
+                      color === 'cyan' ? 'bg-cyan-500' : 'bg-purple-500'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer shadow-xs"
+              >
+                Create Counter
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* Multiple Counters Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {counters.map(c => {
+          const colorCfg = COUNTER_COLORS[c.color] || COUNTER_COLORS.indigo;
+          const share = totalCount > 0 ? ((c.count / totalCount) * 100).toFixed(0) : '0';
+          const isTargetReached = c.target && c.count >= c.target;
+
+          return (
+            <div
+              key={c.id}
+              className={`p-5 rounded-3xl border bg-white dark:bg-zinc-900 flex flex-col justify-between shadow-2xs transition-all ${
+                isTargetReached ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-400/30' : 'border-zinc-200/90 dark:border-zinc-800/90'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-2 pb-2 border-b border-zinc-100 dark:border-zinc-800/60">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">
+                      {c.name}
+                    </span>
+                    {isTargetReached && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        🎯 Goal Reached!
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5">
+                    <span>Step: +{c.step}</span>
+                    {c.target && <span>· Target: {c.target}</span>}
+                    <span>· Share: {share}%</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => resetSingle(c.id)}
+                    title="Reset this counter to 0"
+                    className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => deleteCounter(c.id)}
+                    title="Delete counter"
+                    className="p-1 text-zinc-400 hover:text-rose-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Huge Numeric Display */}
+              <div className="py-4 text-center">
+                <div className="text-6xl sm:text-7xl font-mono font-black tracking-tight tabular-nums text-zinc-900 dark:text-zinc-50">
+                  {c.count}
+                </div>
+                {c.target && (
+                  <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden mt-3 max-w-xs mx-auto">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        isTargetReached ? 'bg-emerald-500' : 'bg-indigo-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (c.count / c.target) * 100)}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons: Big + and - */}
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                <button
+                  onClick={() => decrement(c.id)}
+                  disabled={c.count === 0}
+                  className="h-14 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-bold text-xl cursor-pointer disabled:opacity-30 active:scale-95 transition-transform"
+                >
+                  <Minus className="w-5 h-5" />
+                </button>
+
+                <button
+                  onClick={() => increment(c.id)}
+                  className={`col-span-2 h-14 rounded-2xl ${colorCfg.buttonBg} flex items-center justify-center gap-2 font-black text-xl cursor-pointer shadow-xs active:scale-98 transition-transform`}
+                >
+                  <Plus className="w-6 h-6" />
+                  <span>+{c.step}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

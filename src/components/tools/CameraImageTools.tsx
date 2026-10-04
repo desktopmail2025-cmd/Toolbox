@@ -10,9 +10,6 @@ interface ToolComponentProps {
 
 export const CameraImageTools: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
-    case 'image-bg-remover':
-    case 'bg-remover':
-      return <ImageBgRemoverView />;
     case 'color-picker-tool':
       return <ColorPickerView />;
     case 'image-compressor':

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
-import { sounds } from '../../utils/audio';
+import { sounds, audioBufferToMp3Blob } from '../../utils/audio';
 import { Play, Pause, Volume2, VolumeX, Mic, MicOff, Music, Radio, Sparkles, FileAudio, Video, Upload, Download, Trash2, Plus, Sliders, CheckCircle2, RotateCcw } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -1152,9 +1152,13 @@ export const VideoToAudioExtractorView: React.FC = () => {
       const duration = decodedBuffer.duration;
       const length = decodedBuffer.length;
 
-      // Create WAV container
-      const wavBuffer = createWavBuffer(decodedBuffer, volumeBoost / 100);
-      const audioBlob = new Blob([wavBuffer], { type: outputFormat === 'mp3' ? 'audio/mp3' : 'audio/wav' });
+      let audioBlob: Blob;
+      if (outputFormat === 'mp3') {
+        audioBlob = await audioBufferToMp3Blob(decodedBuffer, 192);
+      } else {
+        const wavBuffer = createWavBuffer(decodedBuffer, volumeBoost / 100);
+        audioBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+      }
       const audioUrl = URL.createObjectURL(audioBlob);
       const baseName = item.name.replace(/\.[^/.]+$/, '');
       const audioFileName = `${baseName}_audio.${outputFormat}`;

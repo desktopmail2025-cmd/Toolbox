@@ -1599,15 +1599,6 @@ export const TOOLS: ToolItem[] = [
     isOnline: true,
   },
   {
-    id: 'image-bg-remover',
-    name: 'Image Background Remover',
-    categoryId: 'professional',
-    description: 'Instant client-side background removal with feathering, transparent PNG export, and custom backdrop replacements',
-    iconName: 'Wand2',
-    keywords: ['background remover', 'bg remover', 'cutout', 'transparent png', 'photo editor', 'image tool'],
-    isOnline: false,
-  },
-  {
     id: 'video-to-audio',
     name: 'Video to Audio Extractor',
     categoryId: 'professional',

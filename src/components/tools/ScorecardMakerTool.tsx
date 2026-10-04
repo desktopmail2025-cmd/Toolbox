@@ -128,6 +128,9 @@ export const ScorecardMakerTool: React.FC = () => {
   const [activePickerTeam, setActivePickerTeam] = useState<'A' | 'B' | null>(null);
   const [searchLogoQuery, setSearchLogoQuery] = useState<string>('');
   const [customLogoUrl, setCustomLogoUrl] = useState<string>('');
+  const fileInputRefA = useRef<HTMLInputElement | null>(null);
+  const fileInputRefB = useRef<HTMLInputElement | null>(null);
+  const modalFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Scores
   const [scoreA, setScoreA] = useState<number>(2);
@@ -141,9 +144,35 @@ export const ScorecardMakerTool: React.FC = () => {
     { id: 'ev-3', time: '67:10', team: 'A', type: 'Goal', detail: 'K. Mbappe (Penalty kick)' },
   ]);
 
-  // Match Timer
+  // Match Timer & Custom Time Inputs
   const [seconds, setSeconds] = useState<number>(4215); // ~70 mins
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isEditingTime, setIsEditingTime] = useState<boolean>(false);
+  const [customMinutes, setCustomMinutes] = useState<string>('70');
+  const [customSeconds, setCustomSeconds] = useState<string>('15');
+
+  const handleApplyCustomTime = () => {
+    sounds.playClick();
+    const m = Math.max(0, parseInt(customMinutes, 10) || 0);
+    const s = Math.max(0, Math.min(59, parseInt(customSeconds, 10) || 0));
+    setSeconds(m * 60 + s);
+    setIsEditingTime(false);
+  };
+
+  const handleLogoFileUpload = (team: 'A' | 'B', file: File) => {
+    sounds.playSuccess();
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      if (team === 'A') {
+        setTeamALogo(dataUrl);
+      } else {
+        setTeamBLogo(dataUrl);
+      }
+      setActivePickerTeam(null);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Quick event input
   const [customEventDetail, setCustomEventDetail] = useState<string>('');
@@ -408,7 +437,7 @@ export const ScorecardMakerTool: React.FC = () => {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 64px monospace';
-    const scoreStrA = sport === 'cricket' ? `${scoreA}/${wicketsA} (${oversA}.${ballsA} ov)` : String(scoreA);
+    const scoreStrA = sport === 'cricket' ? `${scoreA}/${wicketsA} (${Math.floor(ballsA / 6)}.${ballsA % 6} ov)` : String(scoreA);
     ctx.fillText(scoreStrA, 310, cardY + 215, 340);
 
     // Team B Card
@@ -434,7 +463,7 @@ export const ScorecardMakerTool: React.FC = () => {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 64px monospace';
-    const scoreStrB = sport === 'cricket' ? `${scoreB}/${wicketsB}` : String(scoreB);
+    const scoreStrB = sport === 'cricket' ? `${scoreB}/${wicketsB} (${Math.floor(ballsB / 6)}.${ballsB % 6} ov)` : String(scoreB);
     ctx.fillText(scoreStrB, W - 80 - cardW + 230, cardY + 215, 340);
 
     // Center VS
@@ -669,12 +698,106 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
           </div>
 
           {/* Broadcast Stopclock */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-1.5 rounded-2xl bg-zinc-800/90 border border-zinc-700 shadow-inner">
-              <span className={`w-2.5 h-2.5 rounded-full ${isRunning ? 'bg-rose-500 animate-pulse' : 'bg-zinc-500'}`} />
-              <span className="font-mono text-2xl sm:text-3xl font-black tabular-nums tracking-wider text-emerald-400">
-                {formatTimer(seconds)}
-              </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {isEditingTime ? (
+              <div className="flex items-center gap-2 p-2 rounded-2xl bg-zinc-800 border border-indigo-500 shadow-md">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="999"
+                    value={customMinutes}
+                    onChange={e => setCustomMinutes(e.target.value)}
+                    className="w-14 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-lg text-white font-mono text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    placeholder="Min"
+                  />
+                  <span className="text-white font-bold font-mono">:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={customSeconds}
+                    onChange={e => setCustomSeconds(e.target.value)}
+                    className="w-14 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-lg text-white font-mono text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    placeholder="Sec"
+                  />
+                </div>
+                <button
+                  onClick={handleApplyCustomTime}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs active:scale-95"
+                >
+                  Set
+                </button>
+                <button
+                  onClick={() => setIsEditingTime(false)}
+                  className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => {
+                  sounds.playClick();
+                  setCustomMinutes(String(Math.floor(seconds / 60)));
+                  setCustomSeconds(String(seconds % 60).padStart(2, '0'));
+                  setIsEditingTime(true);
+                }}
+                className="group flex items-center gap-2 px-4 py-1.5 rounded-2xl bg-zinc-800/90 border border-zinc-700 shadow-inner cursor-pointer hover:border-indigo-400 transition-colors"
+                title="Click to input custom match time"
+              >
+                <span className={`w-2.5 h-2.5 rounded-full ${isRunning ? 'bg-rose-500 animate-pulse' : 'bg-zinc-500'}`} />
+                <span className="font-mono text-2xl sm:text-3xl font-black tabular-nums tracking-wider text-emerald-400">
+                  {formatTimer(seconds)}
+                </span>
+                <span className="text-[10px] text-indigo-300 font-sans font-bold underline opacity-0 group-hover:opacity-100 transition-opacity">
+                  Custom Time
+                </span>
+              </div>
+            )}
+
+            {/* Quick time adjustments */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setSeconds(prev => Math.max(0, prev - 60));
+                }}
+                className="px-2 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 text-zinc-300 hover:text-white text-xs font-bold font-mono cursor-pointer"
+                title="Subtract 1 minute"
+              >
+                -1m
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setSeconds(prev => prev + 60);
+                }}
+                className="px-2 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 text-zinc-300 hover:text-white text-xs font-bold font-mono cursor-pointer"
+                title="Add 1 minute"
+              >
+                +1m
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setSeconds(45 * 60);
+                }}
+                className="px-2 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 text-zinc-300 hover:text-white text-xs font-bold font-mono cursor-pointer hidden sm:block"
+                title="Set to 45:00"
+              >
+                45m
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setSeconds(90 * 60);
+                }}
+                className="px-2 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 text-zinc-300 hover:text-white text-xs font-bold font-mono cursor-pointer hidden sm:block"
+                title="Set to 90:00"
+              >
+                90m
+              </button>
             </div>
 
             <button
@@ -702,6 +825,22 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
 
         {/* Head-to-Head Arena with PROMINENT REAL TEAM LOGOS */}
         <div className="grid grid-cols-1 md:grid-cols-11 items-center gap-6 relative z-10">
+          {/* Hidden File Inputs for Own Photo Uploads */}
+          <input
+            type="file"
+            ref={fileInputRefA}
+            accept="image/*"
+            className="hidden"
+            onChange={e => e.target.files?.[0] && handleLogoFileUpload('A', e.target.files[0])}
+          />
+          <input
+            type="file"
+            ref={fileInputRefB}
+            accept="image/*"
+            className="hidden"
+            onChange={e => e.target.files?.[0] && handleLogoFileUpload('B', e.target.files[0])}
+          />
+
           {/* Team A Broadcast Tile */}
           <div className="md:col-span-5 bg-zinc-800/50 backdrop-blur-md p-6 rounded-3xl border border-zinc-700/80 flex flex-col items-center space-y-4 shadow-xl">
             {/* Team A Crest Logo Header */}
@@ -712,7 +851,7 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                   setActivePickerTeam('A');
                 }}
                 className="group relative w-24 h-24 sm:w-28 sm:h-28 p-3 rounded-3xl bg-zinc-900 border-2 border-zinc-700 hover:border-indigo-400 flex items-center justify-center shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95"
-                title="Tap to change Team A logo or select official club"
+                title="Tap to change Team A logo or upload your own photo"
               >
                 <img
                   src={teamALogo}
@@ -723,7 +862,7 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                   }}
                 />
                 <span className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 rounded-3xl flex items-center justify-center text-[11px] font-bold text-white transition-opacity">
-                  Change Crest
+                  Change Photo
                 </span>
               </button>
 
@@ -734,18 +873,23 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                   onChange={e => setTeamAName(e.target.value)}
                   className="font-black text-lg sm:text-xl text-white text-center bg-transparent border-b border-transparent hover:border-zinc-600 focus:border-indigo-500 focus:outline-none w-full"
                 />
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">
-                    {sport === 'combat' ? 'RED CORNER' : 'HOME CLUB'}
-                  </span>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <button
+                    onClick={() => fileInputRefA.current?.click()}
+                    className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 font-bold bg-amber-950/60 border border-amber-700/70 px-2.5 py-1 rounded-xl cursor-pointer shadow-xs transition-all hover:scale-105"
+                    title="Upload custom logo photo from your device"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Upload Own Photo</span>
+                  </button>
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setActivePickerTeam('A');
                     }}
-                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
                   >
-                    Change Logo
+                    Preset Crests
                   </button>
                 </div>
               </div>
@@ -957,18 +1101,23 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                   onChange={e => setTeamBName(e.target.value)}
                   className="font-black text-lg sm:text-xl text-white text-center bg-transparent border-b border-transparent hover:border-zinc-600 focus:border-indigo-500 focus:outline-none w-full"
                 />
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">
-                    {sport === 'combat' ? 'BLUE CORNER' : 'AWAY CLUB'}
-                  </span>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <button
+                    onClick={() => fileInputRefB.current?.click()}
+                    className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 font-bold bg-amber-950/60 border border-amber-700/70 px-2.5 py-1 rounded-xl cursor-pointer shadow-xs transition-all hover:scale-105"
+                    title="Upload custom logo photo from your device"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Upload Own Photo</span>
+                  </button>
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setActivePickerTeam('B');
                     }}
-                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
                   >
-                    Change Logo
+                    Preset Crests
                   </button>
                 </div>
               </div>
@@ -1278,9 +1427,9 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100">
-                  Select Official Crest for {activePickerTeam === 'A' ? 'Team A (Home)' : 'Team B (Away)'}
+                  Select or Upload Photo for {activePickerTeam === 'A' ? 'Team A (Home)' : 'Team B (Away)'}
                 </h3>
-                <p className="text-xs text-zinc-400">Choose from top world clubs or paste a custom image URL</p>
+                <p className="text-xs text-zinc-400">Upload your own photo from device, choose world club crest, or paste a link</p>
               </div>
               <button
                 onClick={() => {
@@ -1290,6 +1439,40 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                 className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-center font-bold text-sm cursor-pointer"
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Custom Photo / Device File Upload Section */}
+            <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border-2 border-dashed border-indigo-300 dark:border-indigo-700/80 flex items-center justify-between gap-3">
+              <input
+                type="file"
+                ref={modalFileInputRef}
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files?.[0] && activePickerTeam) {
+                    handleLogoFileUpload(activePickerTeam, e.target.files[0]);
+                  }
+                }}
+              />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 block truncate">
+                    Upload Your Own Photo / Logo
+                  </span>
+                  <span className="text-[11px] text-zinc-500 block truncate">
+                    Supports PNG, JPG, WebP, SVG from your device
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => modalFileInputRef.current?.click()}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs whitespace-nowrap shadow-sm cursor-pointer active:scale-95 transition-all"
+              >
+                Browse File
               </button>
             </div>
 

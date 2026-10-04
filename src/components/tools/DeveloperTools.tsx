@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds } from '../../utils/audio';
-import { Copy, Check, Code2, Layers, Sliders, Eye, RefreshCw, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Copy, Check, Code2, Layers, Sliders, Eye, RefreshCw, FileText, CheckCircle2, AlertCircle, BookOpen, Sparkles, HelpCircle, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 
 interface ToolComponentProps {
   toolId: string;
@@ -345,89 +345,555 @@ const DiffCheckerView: React.FC = () => {
   );
 };
 
-// 4. Interactive Regex Tester
-const RegexTesterView: React.FC = () => {
-  const [pattern, setPattern] = useState('[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}');
-  const [flags, setFlags] = useState('gi');
-  const [testString, setTestString] = useState('Contact our team at hello@example.com or support@company.org for assistance.');
+// 4. Interactive Professional Regex Tester & Workbench
+interface RegexPreset {
+  name: string;
+  category: string;
+  pattern: string;
+  flags: string;
+  testText: string;
+  explanation: string;
+}
 
+const REGEX_PRESETS: RegexPreset[] = [
+  {
+    name: 'Email Addresses',
+    category: 'Validation',
+    pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}',
+    flags: 'gi',
+    testText: 'Send feedback to alex.dev@google.com or support@company.org. Billing is at billing-dept@finance.co.uk.',
+    explanation: 'Finds standard email addresses with user name, @ symbol, domain name, and minimum 2-letter top-level domain.'
+  },
+  {
+    name: 'URLs & Links (HTTP/HTTPS)',
+    category: 'Web',
+    pattern: 'https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&//=]*)',
+    flags: 'gi',
+    testText: 'Documentation is available at https://vite.dev/guide/ and our homepage is http://example.com/api?user=123#docs.',
+    explanation: 'Matches full web URLs with http or https protocol, valid hostnames, query parameters, and fragments.'
+  },
+  {
+    name: 'Phone Numbers (US / Intl)',
+    category: 'Validation',
+    pattern: '(?:\\+?1[-. ]?)?\\(?([0-9]{3})\\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})',
+    flags: 'g',
+    testText: 'Call our hotline at +1 (800) 555-0199 or direct desk 415-555-2671. Emergency: 212 555 4321.',
+    explanation: 'Matches 10-digit telephone numbers with optional +1 country code, parentheses around area codes, and dashes/spaces/dots.'
+  },
+  {
+    name: 'IPv4 Addresses',
+    category: 'Network',
+    pattern: '\\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b',
+    flags: 'g',
+    testText: 'Server listening on 127.0.0.1 (local) and gateway 192.168.1.254. DNS configured to 8.8.8.8 and 1.1.1.1.',
+    explanation: 'Validates strict IPv4 octets between 0 and 255 separated by four dots.'
+  },
+  {
+    name: 'Dates (YYYY-MM-DD)',
+    category: 'Data',
+    pattern: '\\b(\\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])\\b',
+    flags: 'g',
+    testText: 'Release was launched on 2026-03-15 and the next major milestone is scheduled for 2026-11-28.',
+    explanation: 'Matches ISO 8601 calendar dates formatted as 4-digit year, 2-digit month (01-12), and 2-digit day (01-31).'
+  },
+  {
+    name: 'Hex Color Codes',
+    category: 'Design',
+    pattern: '#(?:[0-9a-fA-F]{3}){1,2}\\b',
+    flags: 'gi',
+    testText: 'Brand palette consists of #4f46e5 (indigo), #06b6d4 (cyan), #fff (white), and dark slate #09090b.',
+    explanation: 'Matches 3-digit shorthand (#RGB) and 6-digit standard (#RRGGBB) hexadecimal CSS color codes.'
+  },
+  {
+    name: 'HTML Tags & Attributes',
+    category: 'Markup',
+    pattern: '<([a-z1-6]+)(?:\\s+[^>]*)?>(.*?)<\\/\\1>|<([a-z1-6]+)(?:\\s+[^>]*)?\\s*\\/>',
+    flags: 'gi',
+    testText: '<div class="container"><h1 id="title">Welcome</h1><p>Learn more <img src="pic.png" /> today.</p></div>',
+    explanation: 'Matches opening and closing HTML tags with inner text, or self-closing tags with attributes.'
+  },
+  {
+    name: 'Currency & Monetary Amounts',
+    category: 'Finance',
+    pattern: '\\$[0-9]{1,3}(?:,[0-9]{3})*(?:\\.[0-9]{2})?',
+    flags: 'g',
+    testText: 'The standard subscription costs $29.99/mo, enterprise starts at $1,450.00, and setup is $0.00.',
+    explanation: 'Matches dollar signs followed by whole or comma-formatted numbers with optional cents.'
+  },
+];
+
+const RegexTesterView: React.FC = () => {
+  const [pattern, setPattern] = useState('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}');
+  const [flagG, setFlagG] = useState(true);
+  const [flagI, setFlagI] = useState(true);
+  const [flagM, setFlagM] = useState(false);
+  const [flagS, setFlagS] = useState(false);
+  const [testString, setTestString] = useState('Contact our team at hello@example.com or support@company.org for assistance. Billing questions go to billing@corp.net.');
+  const [replacement, setReplacement] = useState('[REDACTED]');
+  const [activeTab, setActiveTab] = useState<'matches' | 'replace' | 'cheatsheet'>('matches');
+  const [showExplanation, setShowExplanation] = useState(true);
+
+  const flags = `${flagG ? 'g' : ''}${flagI ? 'i' : ''}${flagM ? 'm' : ''}${flagS ? 's' : ''}`;
+
+  let regexObj: RegExp | null = null;
   let matches: RegExpMatchArray[] = [];
   let error = '';
+  let replacedText = '';
 
   try {
-    const reg = new RegExp(pattern, flags);
-    matches = [...testString.matchAll(new RegExp(pattern, flags.includes('g') ? flags : flags + 'g'))];
+    if (pattern) {
+      regexObj = new RegExp(pattern, flags);
+      const matchRegex = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g');
+      matches = [...testString.matchAll(matchRegex)];
+      replacedText = testString.replace(matchRegex, replacement);
+    }
   } catch (err: unknown) {
-    error = err instanceof Error ? err.message : 'Invalid regex pattern';
+    error = err instanceof Error ? err.message : 'Invalid regex pattern syntax';
   }
 
+  const applyPreset = (preset: RegexPreset) => {
+    sounds.playClick();
+    setPattern(preset.pattern);
+    setFlagG(preset.flags.includes('g'));
+    setFlagI(preset.flags.includes('i'));
+    setFlagM(preset.flags.includes('m'));
+    setFlagS(preset.flags.includes('s'));
+    setTestString(preset.testText);
+  };
+
+  // Build highlighted JSX from testString
+  const renderHighlightedText = () => {
+    if (!pattern || error || matches.length === 0) {
+      return <span className="text-zinc-600 dark:text-zinc-400">{testString || '(No test text provided)'}</span>;
+    }
+
+    const segments: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    matches.forEach((m, matchIdx) => {
+      const start = m.index ?? 0;
+      const end = start + m[0].length;
+
+      // Text before match
+      if (start > lastIndex) {
+        segments.push(
+          <span key={`text-${lastIndex}`}>{testString.slice(lastIndex, start)}</span>
+        );
+      }
+
+      // Highlighted match badge
+      segments.push(
+        <mark
+          key={`match-${matchIdx}`}
+          title={`Match #${matchIdx + 1}: "${m[0]}" at index ${start}`}
+          className="bg-amber-300 dark:bg-amber-500/30 text-amber-950 dark:text-amber-200 font-semibold px-1 py-0.5 rounded border border-amber-400 dark:border-amber-600/50 shadow-2xs mx-0.5"
+        >
+          {m[0]}
+        </mark>
+      );
+
+      lastIndex = end;
+    });
+
+    if (lastIndex < testString.length) {
+      segments.push(
+        <span key={`text-end`}>{testString.slice(lastIndex)}</span>
+      );
+    }
+
+    return segments;
+  };
+
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Regular Expression Tester</h2>
+    <div className="space-y-5 max-w-3xl mx-auto">
+      {/* Header & Preset Library */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Regular Expression Professional Workbench</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Test, validate, highlight, and replace RegEx patterns in real-time</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-indigo-500" /> Presets:
+          </span>
+          {REGEX_PRESETS.slice(0, 4).map(p => (
+            <button
+              key={p.name}
+              onClick={() => applyPreset(p)}
+              className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300 border border-zinc-200 dark:border-zinc-700 cursor-pointer whitespace-nowrap transition-colors"
+            >
+              {p.name.split(' ')[0]}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-        <div className="col-span-2 sm:col-span-3">
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Regex Pattern</label>
-          <div className="flex items-center gap-1 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-950 font-mono text-sm">
-            <span className="text-zinc-400">/</span>
-            <input
-              type="text"
-              value={pattern}
-              onChange={e => setPattern(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none"
-              placeholder="e.g. \b[0-9]+\b"
-            />
-            <span className="text-zinc-400">/</span>
+      {/* Quick Preset Selector Full Strip */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <span className="text-[11px] text-zinc-400 font-medium shrink-0">Common Templates:</span>
+        {REGEX_PRESETS.map(p => (
+          <button
+            key={p.name}
+            onClick={() => applyPreset(p)}
+            className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 cursor-pointer whitespace-nowrap transition-colors"
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Regex Pattern Editor & Flag Toggles */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5">
+            <Code2 className="w-4 h-4 text-indigo-500" /> Regular Expression Pattern & Flags
+          </label>
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+            <span>Active Flags: <span className="font-bold text-indigo-600 dark:text-indigo-400">/{flags || '-'}/</span></span>
           </div>
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Flags</label>
+
+        <div className="flex items-center gap-2 border-2 border-zinc-200 dark:border-zinc-700 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 rounded-xl px-3 py-2.5 bg-zinc-50 dark:bg-zinc-950 font-mono text-sm shadow-inner transition-colors">
+          <span className="text-zinc-400 font-bold text-lg select-none">/</span>
           <input
             type="text"
-            value={flags}
-            onChange={e => setFlags(e.target.value)}
-            className="w-full font-mono text-sm border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-950"
-            placeholder="gi"
+            value={pattern}
+            onChange={e => setPattern(e.target.value)}
+            className="flex-1 bg-transparent text-zinc-900 dark:text-zinc-100 font-mono font-medium focus:outline-none"
+            placeholder="Type regex pattern (e.g. \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b)"
           />
+          <span className="text-zinc-400 font-bold text-lg select-none">/</span>
         </div>
+
+        {/* Flag Checkboxes with English Explanations */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+          <label className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+            flagG
+              ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-bold'
+              : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={flagG}
+              onChange={e => setFlagG(e.target.checked)}
+              className="accent-indigo-600 rounded"
+            />
+            <div>
+              <span className="font-mono font-bold">g</span> Global
+              <span className="block text-[10px] font-normal text-zinc-400">Match all occurrences</span>
+            </div>
+          </label>
+
+          <label className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+            flagI
+              ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-bold'
+              : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={flagI}
+              onChange={e => setFlagI(e.target.checked)}
+              className="accent-indigo-600 rounded"
+            />
+            <div>
+              <span className="font-mono font-bold">i</span> Ignore Case
+              <span className="block text-[10px] font-normal text-zinc-400">Case-insensitive A=a</span>
+            </div>
+          </label>
+
+          <label className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+            flagM
+              ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-bold'
+              : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={flagM}
+              onChange={e => setFlagM(e.target.checked)}
+              className="accent-indigo-600 rounded"
+            />
+            <div>
+              <span className="font-mono font-bold">m</span> Multiline
+              <span className="block text-[10px] font-normal text-zinc-400">^ and $ match line ends</span>
+            </div>
+          </label>
+
+          <label className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+            flagS
+              ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-bold'
+              : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={flagS}
+              onChange={e => setFlagS(e.target.checked)}
+              className="accent-indigo-600 rounded"
+            />
+            <div>
+              <span className="font-mono font-bold">s</span> DotAll
+              <span className="block text-[10px] font-normal text-zinc-400">. matches \n newlines</span>
+            </div>
+          </label>
+        </div>
+
+        {error ? (
+          <div className="p-3 rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 text-xs font-mono flex items-center gap-2 border border-rose-200 dark:border-rose-900">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+            <span>Syntax Error: {error}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between text-xs pt-1">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Pattern Valid · {matches.length} Match{matches.length === 1 ? '' : 'es'} Found</span>
+            </div>
+            {matches.length > 0 && (
+              <span className="text-[11px] text-zinc-400">Matches visually highlighted below</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {error ? (
-        <div className="p-3 rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 text-xs font-mono">
-          {error}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Found {matches.length} match{matches.length === 1 ? '' : 'es'}</span>
+      {/* Tabs: Visual Match Inspector, Replace / Substitution, and Cheat Sheet */}
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-4 text-xs font-semibold">
+        <button
+          onClick={() => setActiveTab('matches')}
+          className={`pb-2.5 border-b-2 cursor-pointer transition-colors ${
+            activeTab === 'matches'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+          }`}
+        >
+          🔍 Live Highlight & Test String ({matches.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('replace')}
+          className={`pb-2.5 border-b-2 cursor-pointer transition-colors ${
+            activeTab === 'replace'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+          }`}
+        >
+          🔄 Substitution & Replace
+        </button>
+        <button
+          onClick={() => setActiveTab('cheatsheet')}
+          className={`pb-2.5 border-b-2 cursor-pointer transition-colors ${
+            activeTab === 'cheatsheet'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+          }`}
+        >
+          📖 RegEx Cheat Sheet & Token Guide
+        </button>
+      </div>
+
+      {/* Tab 1: Live Highlight & Input Text */}
+      {activeTab === 'matches' && (
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Test String Input</label>
+              <button
+                onClick={() => setTestString('')}
+                className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                Clear
+              </button>
+            </div>
+            <textarea
+              rows={4}
+              value={testString}
+              onChange={e => setTestString(e.target.value)}
+              className="w-full font-mono text-xs p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+              placeholder="Paste or type text to test regex against..."
+            />
+          </div>
+
+          {/* Visual In-Line Match Highlighter */}
+          <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-amber-500" /> Visual Highlighting Preview
+              </span>
+              <span className="text-[10px] text-zinc-400 font-mono">
+                {matches.length} marked segment{matches.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono text-xs leading-relaxed break-words max-h-56 overflow-y-auto">
+              {renderHighlightedText()}
+            </div>
+          </div>
+
+          {/* Detailed Match Breakdown Cards */}
+          {matches.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Match Capture Groups & Positions
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                {matches.map((m, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">Match #{idx + 1}</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Index {m.index} · Length {m[0].length}</span>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg break-all">
+                      {m[0]}
+                    </span>
+                    {m.length > 1 && (
+                      <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 block uppercase">Sub-Groups ($1, $2...)</span>
+                        {m.slice(1).map((sub, sIdx) => (
+                          <div key={sIdx} className="text-[11px] font-mono flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                            <span className="text-indigo-500 font-bold">${sIdx + 1}:</span>
+                            <span className="font-semibold text-zinc-900 dark:text-zinc-200">{sub || 'undefined'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div>
-        <label className="block text-xs font-semibold text-zinc-500 mb-1">Test String</label>
-        <textarea
-          rows={6}
-          value={testString}
-          onChange={e => setTestString(e.target.value)}
-          className="w-full font-mono text-xs p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-          placeholder="Paste or type test string..."
-        />
-      </div>
-
-      {matches.length > 0 && (
-        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
-          <h4 className="text-xs font-bold uppercase text-zinc-500 mb-2">Match Results</h4>
-          <div className="flex flex-wrap gap-2">
-            {matches.map((m, idx) => (
-              <span
-                key={idx}
-                className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/60 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-mono text-xs font-bold"
+      {/* Tab 2: Substitution & Replace */}
+      {activeTab === 'replace' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
+              Replacement String (Supports $1, $2 capture groups or custom text)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={replacement}
+                onChange={e => setReplacement(e.target.value)}
+                className="flex-1 font-mono text-xs p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g. [REDACTED] or $1"
+              />
+              <button
+                onClick={() => {
+                  sounds.playSuccess();
+                  navigator.clipboard.writeText(replacedText);
+                }}
+                className="px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-1.5 hover:opacity-90 cursor-pointer"
               >
-                {m[0]}
-              </span>
-            ))}
+                <Copy className="w-3.5 h-3.5" /> Copy Output
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
+              Real-Time Replaced Output
+            </label>
+            <textarea
+              readOnly
+              rows={5}
+              value={replacedText}
+              className="w-full font-mono text-xs p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 select-all focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: RegEx Cheat Sheet & Token Guide */}
+      {activeTab === 'cheatsheet' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+            <h4 className="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[11px]">Character Classes</h4>
+            <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">\d</span>
+                <span className="text-zinc-500 font-sans">Any single digit (0-9)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">\w</span>
+                <span className="text-zinc-500 font-sans">Word char (letters, digits, _)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">\s</span>
+                <span className="text-zinc-500 font-sans">Whitespace (spaces, tabs, newlines)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">.</span>
+                <span className="text-zinc-500 font-sans">Any single character except newline</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">[A-Z]</span>
+                <span className="text-zinc-500 font-sans">Character set range</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+            <h4 className="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[11px]">Quantifiers & Repetition</h4>
+            <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">+</span>
+                <span className="text-zinc-500 font-sans">1 or more times (greedy)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">*</span>
+                <span className="text-zinc-500 font-sans">0 or more times</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">?</span>
+                <span className="text-zinc-500 font-sans">0 or 1 time (optional)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">{'{3,8}'}</span>
+                <span className="text-zinc-500 font-sans">Between 3 and 8 occurrences</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">+?</span>
+                <span className="text-zinc-500 font-sans">Lazy / non-greedy match</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+            <h4 className="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[11px]">Anchors & Boundaries</h4>
+            <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">^</span>
+                <span className="text-zinc-500 font-sans">Beginning of string / line</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">$</span>
+                <span className="text-zinc-500 font-sans">End of string / line</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">\b</span>
+                <span className="text-zinc-500 font-sans">Word boundary position</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+            <h4 className="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[11px]">Groups & Lookarounds</h4>
+            <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">(abc)</span>
+                <span className="text-zinc-500 font-sans">Capture group ($1, $2)</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">(?:abc)</span>
+                <span className="text-zinc-500 font-sans">Non-capturing group</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">a|b</span>
+                <span className="text-zinc-500 font-sans">Alternative OR condition</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -417,10 +417,33 @@ const LiveWeatherView: React.FC = () => {
 };
 
 // 2. Air Quality Index (AQI) Monitor (Live Open-Meteo Air Quality API)
+const WORLD_AQI_METROS = [
+  { name: 'New York', country: 'USA', lat: 40.7128, lon: -74.006 },
+  { name: 'London', country: 'UK', lat: 51.5074, lon: -0.1278 },
+  { name: 'Tokyo', country: 'Japan', lat: 35.6762, lon: 139.6503 },
+  { name: 'Paris', country: 'France', lat: 48.8566, lon: 2.3522 },
+  { name: 'Dubai', country: 'UAE', lat: 25.2048, lon: 55.2708 },
+  { name: 'New Delhi', country: 'India', lat: 28.6139, lon: 77.209 },
+  { name: 'Beijing', country: 'China', lat: 39.9042, lon: 116.4074 },
+  { name: 'Singapore', country: 'Singapore', lat: 1.3521, lon: 103.8198 },
+  { name: 'Sydney', country: 'Australia', lat: -33.8688, lon: 151.2093 },
+  { name: 'São Paulo', country: 'Brazil', lat: -23.5505, lon: -46.6333 },
+  { name: 'Cairo', country: 'Egypt', lat: 30.0444, lon: 31.2357 },
+  { name: 'Toronto', country: 'Canada', lat: 43.6532, lon: -79.3832 },
+  { name: 'Berlin', country: 'Germany', lat: 52.52, lon: 13.405 },
+  { name: 'Seoul', country: 'South Korea', lat: 37.5665, lon: 126.978 },
+  { name: 'Bangkok', country: 'Thailand', lat: 13.7563, lon: 100.5018 },
+  { name: 'Los Angeles', country: 'USA', lat: 34.0522, lon: -118.2437 },
+];
+
 const AqiMonitorView: React.FC = () => {
   const [city, setCity] = useState('New York');
   const [coords, setCoords] = useState({ lat: 40.7128, lon: -74.006 });
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ id: number; name: string; country: string; admin1?: string; latitude: number; longitude: number }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [aqiData, setAqiData] = useState<{
     usAqi: number;
     pm25: number;
@@ -430,6 +453,55 @@ const AqiMonitorView: React.FC = () => {
     co: number;
     lastUpdated: string;
   } | null>(null);
+
+  const handleCitySearch = async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim() || query.length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=8&language=en&format=json`
+      );
+      if (!res.ok) throw new Error('Geocoding error');
+      const data = await res.json();
+      setSearchResults(data.results || []);
+      setShowSearchDropdown(true);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectCityResult = (item: { name: string; country: string; admin1?: string; latitude: number; longitude: number }) => {
+    sounds.playClick();
+    const displayName = `${item.name}${item.admin1 ? ', ' + item.admin1 : ''}, ${item.country}`;
+    setCity(displayName);
+    setCoords({ lat: item.latitude, lon: item.longitude });
+    setSearchQuery('');
+    setShowSearchDropdown(false);
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) return;
+    sounds.playClick();
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setCity('My Current Location');
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        sounds.playSuccess();
+      },
+      () => {
+        setLoading(false);
+      },
+      { timeout: 8000 }
+    );
+  };
 
   const fetchAqi = async (lat: number, lon: number) => {
     setLoading(true);
@@ -509,8 +581,8 @@ const AqiMonitorView: React.FC = () => {
   const aqiInfo = aqiData ? getAqiCategory(aqiData.usAqi) : getAqiCategory(38);
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="space-y-5 max-w-2xl mx-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
             Real-Time Air Quality Index (EPA Standard)
@@ -518,42 +590,90 @@ const AqiMonitorView: React.FC = () => {
           <span className="text-[11px] text-zinc-400">Live atmospheric pollution & particulate sensors</span>
         </div>
 
-        <button
-          onClick={() => fetchAqi(coords.lat, coords.lon)}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 cursor-pointer shadow-2xs"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Update Readings</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDetectLocation}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 text-indigo-600 dark:text-indigo-400 cursor-pointer shadow-2xs"
+            title="Use current GPS location"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">My Location</span>
+          </button>
+          <button
+            onClick={() => fetchAqi(coords.lat, coords.lon)}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Update</span>
+          </button>
+        </div>
       </div>
 
-      {/* Preset Metros */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {[
-          { name: 'New York', lat: 40.7128, lon: -74.006 },
-          { name: 'London', lat: 51.5074, lon: -0.1278 },
-          { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
-          { name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
-          { name: 'New Delhi', lat: 28.6139, lon: 77.209 },
-          { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
-        ].map(m => (
-          <button
-            key={m.name}
-            onClick={() => {
-              sounds.playClick();
-              setCity(m.name);
-              setCoords({ lat: m.lat, lon: m.lon });
-            }}
-            className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
-              city === m.name
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-            }`}
-          >
-            {m.name}
-          </button>
-        ))}
+      {/* Global City Search Option */}
+      <div className="relative z-20">
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search any world city or town (e.g. Madrid, Chicago, Mumbai, Jakarta, Oslo...)"
+            value={searchQuery}
+            onChange={e => handleCitySearch(e.target.value)}
+            onFocus={() => searchResults.length > 0 && setShowSearchDropdown(true)}
+            className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {isSearching && (
+            <RefreshCw className="w-3.5 h-3.5 text-zinc-400 animate-spin absolute right-3.5 top-1/2 -translate-y-1/2" />
+          )}
+        </div>
+
+        {/* Autocomplete Search Dropdown */}
+        {showSearchDropdown && searchResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+            {searchResults.map(item => (
+              <button
+                key={`${item.id}-${item.latitude}`}
+                onClick={() => handleSelectCityResult(item)}
+                className="w-full px-4 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/80 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/60 last:border-0 cursor-pointer text-xs transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">{item.name}</span>
+                  {item.admin1 && <span className="text-zinc-400 text-[11px]">({item.admin1})</span>}
+                </div>
+                <span className="font-mono text-[11px] text-zinc-500 font-semibold">{item.country}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Preset Metros Quick Chips */}
+      <div className="space-y-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
+          Quick Major World Cities:
+        </span>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {WORLD_AQI_METROS.map(m => (
+            <button
+              key={m.name}
+              onClick={() => {
+                sounds.playClick();
+                setCity(`${m.name}, ${m.country}`);
+                setCoords({ lat: m.lat, lon: m.lon });
+                setSearchQuery('');
+                setShowSearchDropdown(false);
+              }}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
+                city.startsWith(m.name)
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {aqiData && (
@@ -759,21 +879,109 @@ const CryptoMonitorView: React.FC = () => {
   );
 };
 
-// 4. Live Stock Market Ticker (Global Indexes & Tech Equities)
-const STOCKS = [
-  { symbol: 'SPX', name: 'S&P 500 Index', price: 5751.24, change: 24.3, pct: 0.42 },
-  { symbol: 'IXIC', name: 'NASDAQ Composite', price: 18182.16, change: 112.5, pct: 0.62 },
-  { symbol: 'DJI', name: 'Dow Jones Industrial', price: 42156.97, change: -12.4, pct: -0.03 },
-  { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 121.44, change: 3.82, pct: 3.25 },
-  { symbol: 'AAPL', name: 'Apple Inc.', price: 227.63, change: -1.24, pct: -0.54 },
-  { symbol: 'MSFT', name: 'Microsoft Corporation', price: 428.15, change: 2.15, pct: 0.50 },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 165.20, change: -0.45, pct: -0.27 },
-  { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 186.40, change: 1.80, pct: 0.98 },
+// 4. Live Stock Market Ticker (Global Indexes, Tech Equities, Bluechips & Commodities)
+interface StockItem {
+  symbol: string;
+  name: string;
+  category: 'tech' | 'index' | 'bluechip' | 'commodity';
+  price: number;
+  change: number;
+  pct: number;
+  isCustom?: boolean;
+}
+
+const GLOBAL_STOCKS_UNIVERSE: StockItem[] = [
+  // Global Indices
+  { symbol: 'SPX', name: 'S&P 500 Index', category: 'index', price: 5751.24, change: 24.3, pct: 0.42 },
+  { symbol: 'IXIC', name: 'NASDAQ Composite', category: 'index', price: 18182.16, change: 112.5, pct: 0.62 },
+  { symbol: 'DJI', name: 'Dow Jones Industrial', category: 'index', price: 42156.97, change: -12.4, pct: -0.03 },
+  { symbol: 'FTSE', name: 'FTSE 100 (London)', category: 'index', price: 8280.63, change: 18.2, pct: 0.22 },
+  { symbol: 'DAX', name: 'DAX 40 (Frankfurt)', category: 'index', price: 19115.42, change: 45.1, pct: 0.24 },
+  { symbol: 'NIK', name: 'Nikkei 225 (Tokyo)', category: 'index', price: 38651.97, change: -180.2, pct: -0.46 },
+  { symbol: 'NIFTY', name: 'Nifty 50 (India)', category: 'index', price: 25014.60, change: 84.7, pct: 0.34 },
+  { symbol: 'HSI', name: 'Hang Seng Index (Hong Kong)', category: 'index', price: 22736.87, change: 312.40, pct: 1.39 },
+  { symbol: 'TSX', name: 'TSX Composite (Toronto)', category: 'index', price: 24040.20, change: 65.10, pct: 0.27 },
+  { symbol: 'CAC', name: 'CAC 40 (Paris)', category: 'index', price: 7541.36, change: 28.50, pct: 0.38 },
+
+  // Tech & AI Leaders
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', category: 'tech', price: 121.44, change: 3.82, pct: 3.25 },
+  { symbol: 'AAPL', name: 'Apple Inc.', category: 'tech', price: 227.63, change: -1.24, pct: -0.54 },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', category: 'tech', price: 428.15, change: 2.15, pct: 0.50 },
+  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)', category: 'tech', price: 165.20, change: -0.45, pct: -0.27 },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.', category: 'tech', price: 186.40, change: 1.80, pct: 0.98 },
+  { symbol: 'META', name: 'Meta Platforms (Facebook)', category: 'tech', price: 589.34, change: 8.42, pct: 1.45 },
+  { symbol: 'TSLA', name: 'Tesla Inc.', category: 'tech', price: 240.80, change: -4.10, pct: -1.67 },
+  { symbol: 'PLTR', name: 'Palantir Technologies', category: 'tech', price: 38.65, change: 1.42, pct: 3.81 },
+  { symbol: 'ARM', name: 'Arm Holdings plc', category: 'tech', price: 142.75, change: 4.30, pct: 3.11 },
+  { symbol: 'AMD', name: 'Advanced Micro Devices', category: 'tech', price: 162.30, change: 4.15, pct: 2.62 },
+  { symbol: 'TSM', name: 'Taiwan Semiconductor', category: 'tech', price: 181.25, change: 2.80, pct: 1.57 },
+  { symbol: 'AVGO', name: 'Broadcom Inc.', category: 'tech', price: 174.50, change: 3.10, pct: 1.81 },
+  { symbol: 'QCOM', name: 'Qualcomm Inc.', category: 'tech', price: 168.40, change: -1.15, pct: -0.68 },
+  { symbol: 'INTC', name: 'Intel Corporation', category: 'tech', price: 22.80, change: 0.35, pct: 1.56 },
+  { symbol: 'NFLX', name: 'Netflix Inc.', category: 'tech', price: 719.50, change: 11.20, pct: 1.58 },
+  { symbol: 'ASML', name: 'ASML Holding Semiconductor', category: 'tech', price: 765.10, change: 6.40, pct: 0.84 },
+  { symbol: 'ORCL', name: 'Oracle Corporation', category: 'tech', price: 172.90, change: 1.50, pct: 0.87 },
+  { symbol: 'CRM', name: 'Salesforce Inc.', category: 'tech', price: 278.40, change: 2.60, pct: 0.94 },
+  { symbol: 'ADBE', name: 'Adobe Inc.', category: 'tech', price: 504.20, change: -3.40, pct: -0.67 },
+  { symbol: 'UBER', name: 'Uber Technologies', category: 'tech', price: 76.80, change: 1.25, pct: 1.65 },
+  { symbol: 'COIN', name: 'Coinbase Global', category: 'tech', price: 178.50, change: 7.90, pct: 4.63 },
+  { symbol: 'SPOT', name: 'Spotify Technology', category: 'tech', price: 362.10, change: 4.50, pct: 1.26 },
+  { symbol: 'SHOP', name: 'Shopify Inc.', category: 'tech', price: 81.30, change: 1.15, pct: 1.43 },
+  { symbol: 'BABA', name: 'Alibaba Group Holding', category: 'tech', price: 114.80, change: 3.60, pct: 3.24 },
+  { symbol: 'SONY', name: 'Sony Group Corporation', category: 'tech', price: 96.40, change: 0.85, pct: 0.89 },
+
+  // Bluechips & Consumer Leaders
+  { symbol: 'BRK.B', name: 'Berkshire Hathaway', category: 'bluechip', price: 458.12, change: 1.10, pct: 0.24 },
+  { symbol: 'JPM', name: 'JPMorgan Chase & Co.', category: 'bluechip', price: 216.45, change: 1.85, pct: 0.86 },
+  { symbol: 'V', name: 'Visa Inc.', category: 'bluechip', price: 275.30, change: -0.65, pct: -0.24 },
+  { symbol: 'MA', name: 'Mastercard Inc.', category: 'bluechip', price: 489.10, change: 2.30, pct: 0.47 },
+  { symbol: 'WMT', name: 'Walmart Inc.', category: 'bluechip', price: 80.45, change: 0.55, pct: 0.69 },
+  { symbol: 'COST', name: 'Costco Wholesale', category: 'bluechip', price: 894.20, change: 5.80, pct: 0.65 },
+  { symbol: 'DIS', name: 'Walt Disney Company', category: 'bluechip', price: 95.70, change: -0.80, pct: -0.83 },
+  { symbol: 'KO', name: 'Coca-Cola Company', category: 'bluechip', price: 71.15, change: 0.25, pct: 0.35 },
+  { symbol: 'PEP', name: 'PepsiCo Inc.', category: 'bluechip', price: 172.60, change: -0.40, pct: -0.23 },
+  { symbol: 'MCD', name: 'McDonald\'s Corp.', category: 'bluechip', price: 298.10, change: 1.40, pct: 0.47 },
+  { symbol: 'NKE', name: 'Nike Inc.', category: 'bluechip', price: 83.40, change: -1.15, pct: -1.36 },
+  { symbol: 'PFE', name: 'Pfizer Inc.', category: 'bluechip', price: 28.95, change: 0.15, pct: 0.52 },
+  { symbol: 'JNJ', name: 'Johnson & Johnson', category: 'bluechip', price: 161.40, change: -0.80, pct: -0.49 },
+  { symbol: 'PG', name: 'Procter & Gamble Co.', category: 'bluechip', price: 170.80, change: 0.60, pct: 0.35 },
+  { symbol: 'XOM', name: 'Exxon Mobil Corp.', category: 'bluechip', price: 122.50, change: 1.10, pct: 0.91 },
+  { symbol: 'CVX', name: 'Chevron Corp.', category: 'bluechip', price: 152.30, change: 0.90, pct: 0.59 },
+
+  // Commodities & Cryptos
+  { symbol: 'GOLD', name: 'Spot Gold ($ / troy oz)', category: 'commodity', price: 2658.40, change: 14.80, pct: 0.56 },
+  { symbol: 'SILVER', name: 'Spot Silver ($ / oz)', category: 'commodity', price: 32.18, change: 0.42, pct: 1.32 },
+  { symbol: 'COPPER', name: 'Copper Futures ($ / lb)', category: 'commodity', price: 4.52, change: 0.06, pct: 1.35 },
+  { symbol: 'OIL', name: 'Crude Oil Brent ($ / bbl)', category: 'commodity', price: 78.25, change: -0.65, pct: -0.82 },
+  { symbol: 'NATGAS', name: 'Natural Gas ($ / MMBtu)', category: 'commodity', price: 2.85, change: 0.08, pct: 2.89 },
+  { symbol: 'BTC', name: 'Bitcoin (USD)', category: 'commodity', price: 62450.00, change: 1240.00, pct: 2.03 },
+  { symbol: 'ETH', name: 'Ethereum (USD)', category: 'commodity', price: 2445.50, change: 48.20, pct: 2.01 },
+  { symbol: 'SOL', name: 'Solana (USD)', category: 'commodity', price: 146.80, change: 5.60, pct: 3.97 },
+  { symbol: 'BNB', name: 'Binance Coin (USD)', category: 'commodity', price: 574.20, change: 8.40, pct: 1.48 },
+  { symbol: 'XRP', name: 'XRP (USD)', category: 'commodity', price: 0.534, change: 0.012, pct: 2.30 },
 ];
 
 const StockMarketTickerView: React.FC = () => {
-  const [stocks, setStocks] = useState(STOCKS);
+  const [stocks, setStocks] = useState<StockItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_custom_stocks');
+      if (saved) {
+        const custom: StockItem[] = JSON.parse(saved);
+        return [...GLOBAL_STOCKS_UNIVERSE, ...custom.filter(c => !GLOBAL_STOCKS_UNIVERSE.some(g => g.symbol === c.symbol))];
+      }
+    } catch {
+      // fallback
+    }
+    return GLOBAL_STOCKS_UNIVERSE;
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'tech' | 'index' | 'bluechip' | 'commodity'>('all');
   const [lastTick, setLastTick] = useState(new Date().toLocaleTimeString());
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [newSymbol, setNewSymbol] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newCategory, setNewCategory] = useState<'tech' | 'index' | 'bluechip' | 'commodity'>('tech');
+  const [newPrice, setNewPrice] = useState('100.00');
 
   // Check if US Market is currently open (9:30 AM - 4:00 PM EST, Mon-Fri)
   const isMarketOpen = () => {
@@ -792,19 +1000,81 @@ const StockMarketTickerView: React.FC = () => {
     sounds.playClick();
     setStocks(prev =>
       prev.map(s => {
-        const delta = (Math.random() * 0.006 - 0.003) * s.price;
-        const newPrice = Number((s.price + delta).toFixed(2));
+        const delta = (Math.random() * 0.008 - 0.004) * s.price;
+        const newP = Number((s.price + delta).toFixed(2));
         const newChange = Number((s.change + delta).toFixed(2));
         const newPct = Number(((newChange / s.price) * 100).toFixed(2));
-        return { ...s, price: newPrice, change: newChange, pct: newPct };
+        return { ...s, price: newP, change: newChange, pct: newPct };
       })
     );
     setLastTick(new Date().toLocaleTimeString());
   };
 
+  const handleAddCustomTicker = (e: React.FormEvent) => {
+    e.preventDefault();
+    const sym = newSymbol.trim().toUpperCase();
+    if (!sym) return;
+
+    if (stocks.some(s => s.symbol.toUpperCase() === sym)) {
+      setSearchQuery(sym);
+      setIsAddingCustom(false);
+      return;
+    }
+
+    const priceNum = parseFloat(newPrice) || 125.50;
+    const item: StockItem = {
+      symbol: sym,
+      name: newName.trim() || `${sym} Equity`,
+      category: newCategory,
+      price: priceNum,
+      change: Number((priceNum * (Math.random() * 0.04 - 0.015)).toFixed(2)),
+      pct: Number(((Math.random() * 3.5 - 1.2)).toFixed(2)),
+      isCustom: true,
+    };
+
+    sounds.playSuccess();
+    const updated = [item, ...stocks];
+    setStocks(updated);
+
+    try {
+      const customOnly = updated.filter(s => s.isCustom);
+      localStorage.setItem('omni_custom_stocks', JSON.stringify(customOnly));
+    } catch {
+      // storage
+    }
+
+    setNewSymbol('');
+    setNewName('');
+    setIsAddingCustom(false);
+    setSearchQuery('');
+  };
+
+  const handleRemoveCustomTicker = (sym: string) => {
+    sounds.playClick();
+    const updated = stocks.filter(s => s.symbol !== sym);
+    setStocks(updated);
+    try {
+      const customOnly = updated.filter(s => s.isCustom);
+      localStorage.setItem('omni_custom_stocks', JSON.stringify(customOnly));
+    } catch {
+      // storage
+    }
+  };
+
+  const filteredStocks = stocks.filter(st => {
+    const matchesCategory = categoryFilter === 'all' || st.category === categoryFilter;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      st.symbol.toLowerCase().includes(q) ||
+      st.name.toLowerCase().includes(q);
+    return matchesCategory && matchesSearch;
+  });
+
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="space-y-4 max-w-3xl mx-auto">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Live Global Market Tickers</h2>
@@ -813,47 +1083,234 @@ const StockMarketTickerView: React.FC = () => {
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                 : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
             }`}>
-              {marketActive ? '● Market Open' : '○ Market Closed (After-Hours)'}
+              {marketActive ? '● Market Open (NYSE / NASDAQ)' : '○ Global Trading Session'}
             </span>
           </div>
-          <span className="text-[10px] text-zinc-400">Exchange telemetry: {lastTick}</span>
+          <span className="text-[10px] text-zinc-400">Exchange telemetry tick: {lastTick} · {stocks.length} assets tracked</span>
         </div>
 
-        <button
-          onClick={tickUpdate}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 cursor-pointer shadow-2xs"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Update Ticker</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsAddingCustom(prev => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 cursor-pointer shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Ticker</span>
+          </button>
+          <button
+            onClick={tickUpdate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Update</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {stocks.map(st => {
-          const isUp = st.change >= 0;
-          return (
-            <div
-              key={st.symbol}
-              className="p-4 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 flex items-center justify-between shadow-2xs"
+      {/* Add Custom Ticker Modal / Drawer */}
+      {isAddingCustom && (
+        <form onSubmit={handleAddCustomTicker} className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-indigo-500" /> Track Any Stock, ETF, or Asset Symbol
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAddingCustom(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-600 font-bold"
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-100">{st.symbol}</span>
-                  <span className="text-xs text-zinc-400 truncate max-w-[130px]">{st.name}</span>
-                </div>
-                <div className="text-lg font-bold font-mono mt-1 text-zinc-950 dark:text-zinc-50">
-                  ${st.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
-              </div>
+              ✕
+            </button>
+          </div>
 
-              <div className={`text-right font-mono text-xs font-bold ${isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                <div>{isUp ? '+' : ''}{st.change.toFixed(2)}</div>
-                <div className="text-[11px] opacity-80">{isUp ? '+' : ''}{st.pct}%</div>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Symbol / Ticker *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. PLTR, COIN, ARM"
+                value={newSymbol}
+                onChange={e => setNewSymbol(e.target.value.toUpperCase())}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
             </div>
-          );
-        })}
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Company / Asset Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Palantir Tech"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Current Price ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="100.00"
+                value={newPrice}
+                onChange={e => setNewPrice(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-zinc-500 block mb-1">Category</label>
+              <select
+                value={newCategory}
+                onChange={e => setNewCategory(e.target.value as any)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              >
+                <option value="tech">💻 Tech & AI</option>
+                <option value="index">📈 Index & ETF</option>
+                <option value="bluechip">🏛️ Bluechip</option>
+                <option value="commodity">🪙 Commodity / Crypto</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsAddingCustom(false)}
+              className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer shadow-xs"
+            >
+              Save Ticker to Watchlist
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Search Input & Category Filters */}
+      <div className="space-y-2.5">
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search stock ticker symbol or company name (e.g. NVDA, Apple, Tesla, Gold, Bitcoin, S&P, DAX...)"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs font-bold"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Category Filter Chips */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { id: 'all', label: `All Tickers (${stocks.length})` },
+            { id: 'tech', label: '💻 Tech & AI' },
+            { id: 'index', label: '📈 World Indices' },
+            { id: 'bluechip', label: '🏛️ Bluechips & Retail' },
+            { id: 'commodity', label: '🪙 Gold, Oil & Crypto' },
+          ].map(c => (
+            <button
+              key={c.id}
+              onClick={() => {
+                sounds.playClick();
+                setCategoryFilter(c.id as any);
+              }}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
+                categoryFilter === c.id
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {filteredStocks.length === 0 ? (
+        <div className="py-10 px-4 text-center text-xs text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-3">
+          <p>No stock tickers matching "{searchQuery}".</p>
+          <button
+            onClick={() => {
+              setNewSymbol(searchQuery.toUpperCase().trim());
+              setNewName(searchQuery);
+              setIsAddingCustom(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add "{searchQuery.toUpperCase().trim()}" to My Watchlist</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {filteredStocks.map(st => {
+            const isUp = st.change >= 0;
+            return (
+              <div
+                key={st.symbol}
+                className="p-4 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 flex flex-col justify-between shadow-2xs hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors relative group"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-black text-sm text-zinc-900 dark:text-zinc-100 block">
+                        {st.symbol}
+                      </span>
+                      {st.isCustom && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-400 truncate block max-w-[140px]" title={st.name}>
+                      {st.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold font-mono shrink-0 ${
+                      isUp
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    }`}>
+                      {isUp ? '+' : ''}{st.pct}%
+                    </span>
+                    {st.isCustom && (
+                      <button
+                        onClick={() => handleRemoveCustomTicker(st.symbol)}
+                        title="Remove ticker"
+                        className="text-zinc-400 hover:text-rose-500 text-xs p-1 ml-1"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline justify-between pt-3 mt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <span className="text-lg font-bold font-mono text-zinc-950 dark:text-zinc-50">
+                    ${st.price >= 1000 ? st.price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : st.price.toFixed(2)}
+                  </span>
+                  <span className={`font-mono text-xs font-bold ${isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                    {isUp ? '+' : ''}{st.change.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

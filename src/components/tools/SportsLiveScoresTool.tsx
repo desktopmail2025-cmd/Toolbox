@@ -194,16 +194,6 @@ const SPORTS_LEAGUES: LeagueConfig[] = [
     endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8053/scoreboard',
     logo: 'https://a.espncdn.com/i/teamlogos/cricket/500/8053.png',
   },
-  {
-    id: 'ashes-series',
-    sportId: 'cricket',
-    name: 'The Ashes & International Series',
-    shortName: 'The Ashes & Tests',
-    country: 'International',
-    flag: '🏆',
-    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard',
-    logo: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
-  },
 
   // 3. Combat Sports (UFC Octagon Official Feeds)
   {
@@ -558,6 +548,24 @@ export const SportsLiveScoresTool: React.FC = () => {
 
           const isCricket = currentLeague.sportId === 'cricket';
 
+          const parseScore = (comp: any) => {
+            const raw = comp?.score;
+            if (raw === undefined || raw === null || raw === '') {
+              return { score: matchStatus === 'UPCOMING' ? '-' : '-', overs: undefined };
+            }
+            const s = String(raw).trim();
+            if (isCricket && s.includes('(')) {
+              const parts = s.split('(');
+              const mainScore = parts[0].trim();
+              const ov = parts[1]?.replace(')', '').trim();
+              return { score: mainScore || '-', overs: ov || undefined };
+            }
+            return { score: s, overs: undefined };
+          };
+
+          const homeParsed = parseScore(homeComp);
+          const awayParsed = parseScore(awayComp);
+
           parsedMatches.push({
             id: ev.id,
             sportId: currentLeague.sportId,
@@ -577,8 +585,8 @@ export const SportsLiveScoresTool: React.FC = () => {
               name: homeComp.team?.displayName || homeComp.team?.name || 'Home Club',
               shortName: homeComp.team?.abbreviation,
               logo: homeComp.team?.logo,
-              score: homeComp.score ?? (isCricket ? 'Yet to bat' : '0'),
-              cricketOvers: isCricket && homeComp.score ? homeComp.score.split('(')[1]?.replace(')', '') : undefined,
+              score: homeParsed.score,
+              cricketOvers: homeParsed.overs,
               homeAway: 'home',
               records: homeComp.records?.[0]?.summary,
               winner: homeComp.winner === 'true' || homeComp.winner === true,
@@ -588,8 +596,8 @@ export const SportsLiveScoresTool: React.FC = () => {
               name: awayComp.team?.displayName || awayComp.team?.name || 'Away Club',
               shortName: awayComp.team?.abbreviation,
               logo: awayComp.team?.logo,
-              score: awayComp.score ?? (isCricket ? 'Yet to bat' : '0'),
-              cricketOvers: isCricket && awayComp.score ? awayComp.score.split('(')[1]?.replace(')', '') : undefined,
+              score: awayParsed.score,
+              cricketOvers: awayParsed.overs,
               homeAway: 'away',
               records: awayComp.records?.[0]?.summary,
               winner: awayComp.winner === 'true' || awayComp.winner === true,

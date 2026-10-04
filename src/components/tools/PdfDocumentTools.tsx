@@ -230,44 +230,115 @@ const TextToPdfView: React.FC = () => {
   );
 };
 
-// 3. Digital Signature & Stamp Pad
+// 3. Digital Signature & Stamp Pad (Item 8: Multi writing/bg colors & PDF export)
+const WRITING_COLORS = [
+  { name: 'Classic Black', color: '#09090b' },
+  { name: 'Executive Navy', color: '#1e3a8a' },
+  { name: 'Royal Blue', color: '#2563eb' },
+  { name: 'Forest Emerald', color: '#15803d' },
+  { name: 'Crimson Red', color: '#b91c1c' },
+  { name: 'Royal Violet', color: '#7c3aed' },
+  { name: 'Amber Gold', color: '#d97706' },
+  { name: 'Slate Grey', color: '#475569' },
+];
+
+const BACKGROUND_COLORS = [
+  { name: 'Transparent', color: 'transparent' },
+  { name: 'Pure White', color: '#ffffff' },
+  { name: 'Parchment Cream', color: '#fefce8' },
+  { name: 'Vintage Linen', color: '#f8fafc' },
+  { name: 'Warm Ivory', color: '#fafaf9' },
+  { name: 'Soft Sand', color: '#fef3c7' },
+  { name: 'Dark Slate', color: '#09090b' },
+];
+
+const STROKE_WIDTHS = [
+  { label: 'Fine', width: 1.5 },
+  { label: 'Medium', width: 2.5 },
+  { label: 'Bold', width: 4.0 },
+  { label: 'Marker', width: 6.0 },
+];
+
 const SignaturePadView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [penColor, setPenColor] = useState('#09090b');
+  const [customPenColor, setCustomPenColor] = useState('#09090b');
+  const [bgColor, setBgColor] = useState('transparent');
+  const [customBgColor, setCustomBgColor] = useState('#ffffff');
+  const [strokeWidth, setStrokeWidth] = useState(2.5);
+  const [signerName, setSignerName] = useState('');
+  const [includeDateStamp, setIncludeDateStamp] = useState(true);
+  const [history, setHistory] = useState<ImageData[]>([]);
+  const [hasDrawn, setHasDrawn] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const startDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
+  const saveState = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    setHistory(prev => [...prev.slice(-15), imgData]);
+  };
+
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    saveState();
+    setIsDrawing(true);
+    setHasDrawn(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
     ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    ctx.moveTo(x, y);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    ctx.lineWidth = 2.5;
+    const { x, y } = getCanvasCoords(e);
+    ctx.lineWidth = strokeWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = penColor;
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 
   const stopDraw = () => {
     setIsDrawing(false);
+  };
+
+  const undoLast = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || history.length === 0) return;
+    sounds.playClick();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const prev = history[history.length - 1];
+    ctx.putImageData(prev, 0, 0);
+    setHistory(h => h.slice(0, -1));
   };
 
   const clearPad = () => {
@@ -276,42 +347,265 @@ const SignaturePadView: React.FC = () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    saveState();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
   };
 
-  const downloadSignature = () => {
-    sounds.playClick();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Helper to generate composite canvas with background
+  const getRenderedCanvas = (): HTMLCanvasElement => {
+    const original = canvasRef.current;
+    const offscreen = document.createElement('canvas');
+    if (!original) return offscreen;
+
+    offscreen.width = original.width;
+    offscreen.height = original.height;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return offscreen;
+
+    // Fill background if not transparent
+    if (bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    }
+
+    // Draw strokes
+    ctx.drawImage(original, 0, 0);
+
+    // Optional Signer Name & Date Stamp
+    if (signerName.trim() || includeDateStamp) {
+      ctx.fillStyle = penColor;
+      ctx.font = '12px sans-serif';
+      const text = `${signerName.trim() ? signerName.trim() + ' — ' : ''}${
+        includeDateStamp ? 'Signed: ' + new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }) : ''
+      }`;
+      ctx.fillText(text, 14, offscreen.height - 12);
+    }
+
+    return offscreen;
+  };
+
+  const downloadPng = () => {
+    sounds.playSuccess();
+    const canvas = getRenderedCanvas();
     const link = document.createElement('a');
-    link.download = 'signature.png';
+    link.download = `signature-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
+  const exportPdf = () => {
+    sounds.playSuccess();
+    const canvas = getRenderedCanvas();
+    const dataUrl = canvas.toDataURL('image/png');
+
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [160, 100],
+    });
+
+    // Background color
+    if (bgColor !== 'transparent') {
+      const rgb = hexToRgb(bgColor);
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.rect(0, 0, 160, 100, 'F');
+      }
+    }
+
+    // Outer decorative border
+    pdf.setDrawColor(200, 205, 215);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(6, 6, 148, 88, 3, 3, 'D');
+
+    // Header title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(60, 65, 75);
+    pdf.text('VERIFIED DIGITAL SIGNATURE', 14, 15);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(130, 140, 155);
+    pdf.text('Generated via OmniToolbox Digital Signature Pad', 14, 20);
+
+    // Signature image centered
+    pdf.addImage(dataUrl, 'PNG', 14, 25, 132, 50);
+
+    // Footer info
+    pdf.setFontSize(8);
+    pdf.setTextColor(80, 85, 95);
+    const dateStr = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
+    pdf.text(`Signatory: ${signerName.trim() || 'Authorized Signatory'}`, 14, 86);
+    pdf.text(`Timestamp: ${dateStr}`, 95, 86);
+
+    pdf.save(`Digital-Signature-${signerName.trim() ? signerName.trim().replace(/\s+/g, '-') : 'Pad'}.pdf`);
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      const canvas = getRenderedCanvas();
+      canvas.toBlob(async blob => {
+        if (!blob) return;
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        sounds.playSuccess();
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    } catch {
+      // Fallback
+    }
+  };
+
+  function hexToRgb(hex: string) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
+  }
+
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-semibold text-zinc-500">Sign with finger or stylus</span>
-          <div className="flex items-center gap-2">
-            {(['#09090b', '#2563eb', '#16a34a'] as const).map(color => (
-              <button
-                key={color}
-                onClick={() => setPenColor(color)}
-                style={{ backgroundColor: color }}
-                className={`w-6 h-6 rounded-full border-2 ${penColor === color ? 'border-zinc-400 scale-110' : 'border-transparent'}`}
-              />
-            ))}
+    <div className="max-w-2xl mx-auto space-y-5">
+      {/* Header */}
+      <div className="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Digital Signature & Stamp Pad</h2>
+          <p className="text-xs text-zinc-400">Draw smooth handwritten signatures with custom inks, backgrounds, and PNG/PDF export</p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4 shadow-sm">
+        {/* Controls Bar 1: Writing Inks & Background Colors */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
+          {/* Writing Inks */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block">
+              Writing Ink Color
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {WRITING_COLORS.map(item => (
+                <button
+                  key={item.color}
+                  title={item.name}
+                  onClick={() => setPenColor(item.color)}
+                  style={{ backgroundColor: item.color }}
+                  className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
+                    penColor === item.color ? 'border-indigo-500 scale-125 shadow-xs' : 'border-zinc-300 dark:border-zinc-700'
+                  }`}
+                />
+              ))}
+              <div className="flex items-center gap-1 pl-1">
+                <input
+                  type="color"
+                  value={customPenColor}
+                  onChange={e => {
+                    setCustomPenColor(e.target.value);
+                    setPenColor(e.target.value);
+                  }}
+                  className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                  title="Custom Ink Color"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Background Colors */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block">
+              Pad Background Color
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {BACKGROUND_COLORS.map(item => {
+                const isTrans = item.color === 'transparent';
+                return (
+                  <button
+                    key={item.name}
+                    title={item.name}
+                    onClick={() => setBgColor(item.color)}
+                    style={{ backgroundColor: isTrans ? '#f4f4f5' : item.color }}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer relative ${
+                      bgColor === item.color ? 'border-indigo-500 scale-125 shadow-xs' : 'border-zinc-300 dark:border-zinc-700'
+                    }`}
+                  >
+                    {isTrans && <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-zinc-600">∅</span>}
+                  </button>
+                );
+              })}
+              <div className="flex items-center gap-1 pl-1">
+                <input
+                  type="color"
+                  value={customBgColor}
+                  onChange={e => {
+                    setCustomBgColor(e.target.value);
+                    setBgColor(e.target.value);
+                  }}
+                  className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                  title="Custom Background Color"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Signature Canvas */}
-        <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden touch-none">
+        {/* Controls Bar 2: Stroke Width & Signer Details */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-500">Stroke:</span>
+            <div className="flex gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
+              {STROKE_WIDTHS.map(sw => (
+                <button
+                  key={sw.label}
+                  onClick={() => setStrokeWidth(sw.width)}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    strokeWidth === sw.width
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-2xs font-bold'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  {sw.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Signatory Name (optional)"
+              value={signerName}
+              onChange={e => setSignerName(e.target.value)}
+              className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <label className="flex items-center gap-1.5 text-zinc-500 text-[11px] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeDateStamp}
+                onChange={e => setIncludeDateStamp(e.target.checked)}
+                className="accent-indigo-600 rounded"
+              />
+              Date Stamp
+            </label>
+          </div>
+        </div>
+
+        {/* Signature Canvas Box */}
+        <div
+          style={{ backgroundColor: bgColor === 'transparent' ? undefined : bgColor }}
+          className={`rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 p-2 overflow-hidden touch-none relative ${
+            bgColor === 'transparent' ? 'bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:12px_12px] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)]' : ''
+          }`}
+        >
           <canvas
             ref={canvasRef}
-            width={500}
-            height={220}
+            width={640}
+            height={260}
             onMouseDown={startDraw}
             onMouseMove={draw}
             onMouseUp={stopDraw}
@@ -319,23 +613,55 @@ const SignaturePadView: React.FC = () => {
             onTouchStart={startDraw}
             onTouchMove={draw}
             onTouchEnd={stopDraw}
-            className="w-full h-48 block cursor-crosshair"
+            className="w-full h-56 block cursor-crosshair"
           />
+
+          {!hasDrawn && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-zinc-400 dark:text-zinc-600 text-xs font-medium">
+              ✍️ Sign or draw with stylus, mouse, or touch screen here
+            </div>
+          )}
         </div>
 
-        <div className="flex justify-between items-center">
-          <button
-            onClick={clearPad}
-            className="px-3 py-1.5 border rounded-xl text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Clear Signature
-          </button>
-          <button
-            onClick={downloadSignature}
-            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-semibold text-xs rounded-xl"
-          >
-            <Download className="w-3.5 h-3.5" /> Download Transparent PNG
-          </button>
+        {/* Action Buttons: Undo, Clear, PNG Export, PDF Export */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2.5 pt-1">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={undoLast}
+              disabled={history.length === 0}
+              className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 cursor-pointer"
+            >
+              Undo
+            </button>
+            <button
+              onClick={clearPad}
+              className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              Clear Pad
+            </button>
+            <button
+              onClick={copyToClipboard}
+              className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-1"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied!' : 'Copy'}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={downloadPng}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold text-xs rounded-xl cursor-pointer shadow-2xs transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download PNG
+            </button>
+            <button
+              onClick={exportPdf}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-xs transition-colors"
+            >
+              <FileCheck className="w-4 h-4" /> Export as PDF
+            </button>
+          </div>
         </div>
       </div>
     </div>
