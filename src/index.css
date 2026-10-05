@@ -198,3 +198,11 @@ html.dark .hover-card-highlight:hover {
     overflow-wrap: break-word;
   }
 }
+
+/* Mobile Bottom Navigation Bar: Always stays pinned at the bottom of the screen */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}

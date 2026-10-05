@@ -13,6 +13,7 @@ import {
   Sparkles,
   X,
   Save,
+  ArrowLeft,
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -56,9 +57,10 @@ const DEFAULT_NOTES: NoteItem[] = [
 
 interface NotesViewProps {
   onOpenNewNote?: () => void;
+  onBackToHome?: () => void;
 }
 
-export const NotesView: React.FC<NotesViewProps> = () => {
+export const NotesView: React.FC<NotesViewProps> = ({ onBackToHome }) => {
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -211,19 +213,35 @@ export const NotesView: React.FC<NotesViewProps> = () => {
     <div className="space-y-6 pb-24 max-w-7xl mx-auto">
       {/* Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-zinc-200 pb-5 dark:border-zinc-800">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
-            <span>Local Vault</span>
-            <span aria-hidden="true">·</span>
-            <span>{notes.length} Notes Stored Offline</span>
+        <div className="flex items-start gap-3">
+          {onBackToHome && (
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onBackToHome();
+              }}
+              className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
+              title="Back to Home"
+              aria-label="Back to Home"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+              <span>Local Vault</span>
+              <span aria-hidden="true">·</span>
+              <span>{notes.length} Notes Stored Offline</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2.5">
+              <FileText className="w-7 h-7 text-zinc-800 dark:text-zinc-200" />
+              My Notes & Scratchpad
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
+              Clean recycler cards with quick options to pin, edit, and delete. All changes save directly to your device.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2.5">
-            <FileText className="w-7 h-7 text-zinc-800 dark:text-zinc-200" />
-            My Notes & Scratchpad
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
-            Clean recycler cards with quick options to pin, edit, and delete. All changes save directly to your device.
-          </p>
         </div>
 
         <button

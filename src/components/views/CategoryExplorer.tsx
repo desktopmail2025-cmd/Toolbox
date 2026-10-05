@@ -3,12 +3,11 @@ import { CATEGORIES, TOOLS } from '../../data/toolsRegistry';
 import { CategoryId, ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
-import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff, Wifi, Sparkles, Filter, CheckCircle2 } from 'lucide-react';
+import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
-  selectedToolId?: string | null;
   favorites: string[];
   onToggleFavorite: (toolId: string) => void;
   recents: string[];
@@ -16,13 +15,12 @@ interface CategoryExplorerProps {
   onToggleCategory: (catId: CategoryId) => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
+  toolFilter?: 'all' | 'offline' | 'online';
+  onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
 }
-
-type SectionFilter = 'all' | 'offline' | 'online';
 
 export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onSelectTool,
-  selectedToolId,
   favorites,
   onToggleFavorite,
   recents,
@@ -30,12 +28,9 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onToggleCategory,
   onExpandAll,
   onCollapseAll,
+  toolFilter = 'all',
+  onSelectToolFilter,
 }) => {
-  const [activeSection, setActiveSection] = useState<SectionFilter>('all');
-
-  const offlineToolsCount = TOOLS.filter(t => !t.isOnline).length;
-  const onlineToolsCount = TOOLS.filter(t => t.isOnline).length;
-
   const recentToolItems = recents
     .map(id => TOOLS.find(t => t.id === id))
     .filter((t): t is ToolItem => t !== undefined)
@@ -45,8 +40,8 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   const getCategoryTools = (categoryId: CategoryId) => {
     return TOOLS.filter(t => {
       if (t.categoryId !== categoryId) return false;
-      if (activeSection === 'offline') return !t.isOnline;
-      if (activeSection === 'online') return !!t.isOnline;
+      if (toolFilter === 'offline') return !t.isOnline;
+      if (toolFilter === 'online') return !!t.isOnline;
       return true;
     });
   };
@@ -55,23 +50,33 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   const visibleCategories = CATEGORIES.filter(cat => getCategoryTools(cat.id).length > 0);
 
   return (
-    <div className="space-y-8 pb-28">
-      {/* Figma-Expert Hero Header */}
-      <div className="border-b border-zinc-200/80 pb-6 dark:border-zinc-800/80">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="space-y-6 pb-28">
+      {/* Hero Header */}
+      <div className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        {/* Mobile View: Clean header with only Expand All & Collapse All */}
+        <div className="flex md:hidden items-center justify-end gap-2">
+          <button
+            onClick={onExpandAll}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-zinc-200/80 bg-white hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer shadow-2xs"
+          >
+            Expand All
+          </button>
+          <button
+            onClick={onCollapseAll}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-zinc-200/80 bg-white hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer shadow-2xs"
+          >
+            Collapse All
+          </button>
+        </div>
+
+        {/* Desktop View: Description and action buttons */}
+        <div className="hidden md:flex flex-row items-end justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-1.5">
-              <span>Universal Toolbox</span>
-              <span aria-hidden="true">·</span>
-              <span className="text-indigo-600 dark:text-indigo-400">{CATEGORIES.length} Categories</span>
-              <span aria-hidden="true">·</span>
-              <span>{TOOLS.length} Production Utilities</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
               Tool Explorer
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl leading-relaxed">
-              Explore our master catalog of high-performance utilities. Filter between 100% on-device offline tools and live internet-connected APIs.
+              Explore our master catalog of high-performance utilities.
             </p>
           </div>
 
@@ -90,163 +95,64 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Figma Segmented Control: 2 Sections (Offline vs Online) + All */}
-        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-100/70 dark:bg-zinc-900/60 p-1.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none pb-0.5">
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveSection('all');
-              }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeSection === 'all'
-                  ? 'bg-white text-zinc-950 shadow-xs dark:bg-zinc-800 dark:text-zinc-50'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>All Tools</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700/80 text-zinc-500 dark:text-zinc-300">
-                {TOOLS.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveSection('offline');
-              }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeSection === 'offline'
-                  ? 'bg-white text-emerald-800 shadow-xs dark:bg-zinc-800 dark:text-emerald-300'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
-              }`}
-            >
-              <WifiOff className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Offline</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-                {offlineToolsCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setActiveSection('online');
-              }}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeSection === 'online'
-                  ? 'bg-white text-sky-800 shadow-xs dark:bg-zinc-800 dark:text-sky-300'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-              <span>Online</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-sky-100/70 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400">
-                {onlineToolsCount}
-              </span>
-            </button>
-          </div>
-
-          <div className="text-[11px] font-medium text-zinc-500 px-3 hidden sm:block">
-            {activeSection === 'offline' && '📴 100% on-device · Private · Zero network requests required'}
-            {activeSection === 'online' && '🌐 Requires Internet · Live APIs, weather radars & live tickers'}
-            {activeSection === 'all' && `⚡ Displaying master directory of all ${TOOLS.length} utilities`}
-          </div>
-        </div>
       </div>
 
-      {/* Section Explainer Banner */}
-      {activeSection === 'offline' && (
-        <div className="p-5 rounded-2xl border border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                Offline Section: 100% On-Device & Private Sandbox
-              </h3>
-              <p className="text-xs text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
-                These tools run purely using your device's browser engine, hardware sensors, and local memory. Works perfectly on planes, offline, or off-grid.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 shrink-0 self-end sm:self-center">
-            {offlineToolsCount} Ready Tools
+      {/* Filter notification if a filter was selected from the drawer */}
+      {toolFilter !== 'all' && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+            Filtered: {toolFilter === 'offline' ? 'Offline Tools' : 'Online Tools'}
           </span>
-        </div>
-      )}
-
-      {activeSection === 'online' && (
-        <div className="p-5 rounded-2xl border border-sky-200/80 bg-sky-50/40 dark:border-sky-900/50 dark:bg-sky-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
-              <Globe className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-sky-900 dark:text-sky-200">
-                Online Section: Live Public APIs & Cloud Data
-              </h3>
-              <p className="text-xs text-sky-800/80 dark:text-sky-400/80 mt-0.5">
-                These tools query live open web APIs for meteorological forecasts, cryptocurrency exchange rates, Wikipedia summaries, and language translation.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono font-bold text-sky-700 dark:text-sky-300 shrink-0 self-end sm:self-center">
-            {onlineToolsCount} Live Tools
-          </span>
+          {onSelectToolFilter && (
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onSelectToolFilter('all');
+              }}
+              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              Show All Categories
+            </button>
+          )}
         </div>
       )}
 
       {/* Recently Opened Shelf */}
-      {recentToolItems.length > 0 && activeSection === 'all' && (
+      {recentToolItems.length > 0 && toolFilter === 'all' && (
         <section>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3">
             <Clock className="w-3.5 h-3.5" />
             <span>Recently Opened</span>
           </div>
           <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
-            {recentToolItems.map(tool => {
-              const isSelected = tool.id === selectedToolId;
-              return (
-                <div
-                  key={tool.id}
-                  onClick={() => {
-                    sounds.playClick();
-                    onSelectTool(tool);
-                  }}
-                  className={`group flex items-center justify-between p-3 rounded-2xl border cursor-pointer active:scale-[0.98] transition-all duration-200 ${
-                    isSelected
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 dark:border-indigo-400 ring-2 ring-indigo-500/20 shadow-sm'
-                      : 'border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
-                      <IconRenderer name={tool.iconName} size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
-                          {tool.name}
-                        </span>
-                        {isSelected && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white shrink-0">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-zinc-400 block truncate">
-                        {CATEGORIES.find(c => c.id === tool.categoryId)?.name}
+            {recentToolItems.map(tool => (
+              <div
+                key={tool.id}
+                onClick={() => {
+                  sounds.playClick();
+                  onSelectTool(tool);
+                }}
+                className="group flex items-center justify-between p-3 rounded-2xl border border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 cursor-pointer active:scale-[0.98] transition-all duration-200"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
+                    <IconRenderer name={tool.iconName} size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
+                        {tool.name}
                       </span>
                     </div>
+                    <span className="text-[10px] text-zinc-400 block truncate">
+                      {CATEGORIES.find(c => c.id === tool.categoryId)?.name}
+                    </span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
                 </div>
-              );
-            })}
+                <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -317,7 +223,6 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);
-                      const isSelected = tool.id === selectedToolId;
                       const catTheme = getCategoryTheme(category.id);
                       const iconTheme = getToolIconTheme(tool.id, tool.iconName);
 
@@ -330,27 +235,15 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             onSelectTool(tool);
                           }}
                           style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
-                          className={`group relative flex flex-col justify-between rounded-2xl p-4.5 transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
-                            isSelected
-                              ? 'border-2 border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-4 ring-indigo-500/20 shadow-lg scale-[1.01] dark:border-indigo-400'
-                              : 'border border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)]'
-                          }`}
+                          className="group relative flex flex-col justify-between rounded-2xl p-4.5 border border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)] transition-all duration-200 cursor-pointer select-none active:scale-[0.98]"
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} ${isSelected ? 'scale-110 ring-2 ring-indigo-500/40' : 'group-hover:scale-110'} transition-transform shadow-2xs`}>
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} group-hover:scale-110 transition-transform shadow-2xs`}>
                                 <IconRenderer name={tool.iconName} size={18} />
                               </div>
 
                               <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                {/* Selected Badge */}
-                                {isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white shadow-xs animate-pulse">
-                                    <CheckCircle2 className="w-2.5 h-2.5" />
-                                    Selected
-                                  </span>
-                                )}
-
                                 {/* Online/Offline Badges */}
                                 {tool.isOnline ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
@@ -384,9 +277,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             </div>
 
                             <div className="flex items-center gap-1.5 mb-0.5">
-                              <h3 className={`font-bold text-xs sm:text-sm transition-colors ${
-                                isSelected ? 'text-indigo-900 dark:text-indigo-200 font-extrabold' : 'text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)]'
-                              }`}>
+                              <h3 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)] transition-colors">
                                 {tool.name}
                               </h3>
                             </div>
@@ -395,21 +286,8 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             </p>
                           </div>
 
-                          <div className={`flex items-center justify-between pt-3 mt-3 border-t text-[10px] font-semibold transition-colors ${
-                            isSelected
-                              ? 'border-indigo-200 dark:border-indigo-800/80 text-indigo-600 dark:text-indigo-400 font-bold'
-                              : 'border-zinc-100 dark:border-zinc-800/80 text-zinc-400 group-hover:text-[var(--cat-accent)]'
-                          }`}>
-                            {isSelected ? (
-                              <span className="flex items-center gap-1">
-                                <Sparkles className="w-3 h-3 text-indigo-500" />
-                                Selected · Reopen Tool
-                              </span>
-                            ) : (
-                              <span className="font-mono">
-                                {tools.some(t => t.id === selectedToolId) ? 'Change to this tool' : 'Launch Tool'}
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-semibold text-zinc-400 group-hover:text-[var(--cat-accent)] transition-colors">
+                            <span className="font-mono">Launch Tool</span>
                             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>

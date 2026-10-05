@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { LayoutGrid, Star, FileText } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -13,57 +13,93 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onSelectTab,
   favoriteCount,
 }) => {
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const baselineHeightRef = useRef<number>(0);
 
   useEffect(() => {
-    // Detect input/textarea focus which opens virtual keyboard on mobile
-    const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        setIsKeyboardOpen(true);
+    const isInputFocused = () => {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || tag === 'select' || (el as HTMLElement).isContentEditable;
+    };
+
+    const getViewportHeight = () => {
+      return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    };
+
+    // Set baseline screen height when no input is focused
+    const updateBaseline = () => {
+      if (!isInputFocused()) {
+        baselineHeightRef.current = Math.max(
+          getViewportHeight(),
+          window.innerHeight,
+          window.screen?.height || 0
+        );
       }
     };
 
-    const handleFocusOut = () => {
-      setIsKeyboardOpen(false);
-    };
+    updateBaseline();
 
-    // Also monitor visualViewport height changes
-    const handleViewportResize = () => {
-      if (window.visualViewport) {
-        const heightDiff = window.innerHeight - window.visualViewport.height;
-        if (heightDiff > 140) {
-          setIsKeyboardOpen(true);
-        } else {
-          // If no active input is focused, reset
-          const active = document.activeElement;
-          if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && !active.getAttribute('contenteditable'))) {
-            setIsKeyboardOpen(false);
-          }
-        }
+    const handleAdjust = () => {
+      if (!navRef.current) return;
+      const currentHeight = getViewportHeight();
+
+      // If no input is focused and current height is larger than baseline, update baseline
+      if (!isInputFocused() && currentHeight >= (baselineHeightRef.current || 0)) {
+        baselineHeightRef.current = currentHeight;
+        navRef.current.style.transform = 'translateY(0px)';
+        return;
+      }
+
+      const baseline = baselineHeightRef.current || currentHeight;
+      const delta = Math.max(0, baseline - currentHeight);
+
+      // If the viewport shrunk because of the virtual keyboard, counteract it by delta
+      // so the bottom nav bar remains firmly fixed at the physical bottom of the screen
+      if (delta > 60) {
+        navRef.current.style.transform = `translateY(${delta}px)`;
+      } else {
+        navRef.current.style.transform = 'translateY(0px)';
       }
     };
 
-    window.addEventListener('focusin', handleFocusIn);
-    window.addEventListener('focusout', handleFocusOut);
+    window.addEventListener('resize', handleAdjust, { passive: true });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        updateBaseline();
+        handleAdjust();
+      }, 150);
+    });
+
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportResize);
+      window.visualViewport.addEventListener('resize', handleAdjust, { passive: true });
+      window.visualViewport.addEventListener('scroll', handleAdjust, { passive: true });
     }
 
+    window.addEventListener('focusin', handleAdjust, { passive: true });
+    window.addEventListener('focusout', () => {
+      setTimeout(handleAdjust, 100);
+      setTimeout(handleAdjust, 250);
+    }, { passive: true });
+
     return () => {
-      window.removeEventListener('focusin', handleFocusIn);
-      window.removeEventListener('focusout', handleFocusOut);
+      window.removeEventListener('resize', handleAdjust);
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportResize);
+        window.visualViewport.removeEventListener('resize', handleAdjust);
+        window.visualViewport.removeEventListener('scroll', handleAdjust);
       }
     };
   }, []);
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-950/95 shadow-lg safe-area-bottom transition-all duration-200 ${
-        isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
-      }`}
+      ref={navRef}
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-950/95 shadow-lg safe-area-bottom will-change-transform"
+      style={{
+        transform: 'translateY(0px)',
+        transition: 'transform 0.05s ease-out',
+      }}
     >
       <div className="grid grid-cols-3 h-16 items-center px-4">
         {/* Tab 1: Tools */}

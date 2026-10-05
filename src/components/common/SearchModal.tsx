@@ -74,7 +74,15 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-20 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-20 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={onClose}
+      onPointerDown={e => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div
         className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 transition-all"
         onClick={e => e.stopPropagation()}

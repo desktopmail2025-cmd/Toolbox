@@ -15,6 +15,7 @@ import { CategoryId, ToolItem } from './types';
 import { TOOLS, CATEGORIES } from './data/toolsRegistry';
 import { getStoredFavorites, saveStoredFavorites, getStoredRecents, addStoredRecent } from './utils/storage';
 import { sounds } from './utils/audio';
+import { ArrowLeft } from 'lucide-react';
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
@@ -26,6 +27,8 @@ export default function App() {
     }
   });
   const [activeTab, setActiveTab] = useState<string>('categories');
+  const [toolReturnTab, setToolReturnTab] = useState<string>('categories');
+  const [toolFilter, setToolFilter] = useState<'all' | 'offline' | 'online'>('all');
   const [favorites, setFavorites] = useState<string[]>(getStoredFavorites);
   const [recents, setRecents] = useState<string[]>(getStoredRecents);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -142,12 +145,13 @@ export default function App() {
   const handleSelectTool = (tool: ToolItem) => {
     // Preserve current scroll position
     setSavedScrollPos(window.scrollY);
-    // Keep category expanded so when coming back it is STILL expanded
-    setExpandedCatIds(prev => {
-      const next = new Set(prev);
-      next.add(tool.categoryId);
-      return next;
-    });
+
+    // Remember the tab the tool was opened from (e.g. 'favorites' if opened from Starred screen)
+    const sourceTab = activeTab;
+    setToolReturnTab(sourceTab);
+
+    // Categories remain in collapsed form always unless user explicitly clicks expand/collapse
+
     setLastOpenedToolId(tool.id);
     try {
       localStorage.setItem('omni_last_tool', tool.id);
@@ -155,11 +159,10 @@ export default function App() {
       // ignore
     }
     setActiveTool(tool);
-    setActiveTab('categories');
     addStoredRecent(tool.id);
     setRecents(getStoredRecents());
     try {
-      window.history.pushState({ toolId: tool.id, tab: 'categories' }, '', `?tool=${tool.id}`);
+      window.history.pushState({ toolId: tool.id, returnTab: sourceTab }, '', `?tool=${tool.id}`);
     } catch {
       // ignore
     }
@@ -168,38 +171,65 @@ export default function App() {
 
   const handleBackToOverview = () => {
     setActiveTool(null);
-    setActiveTab('categories');
+    const targetTab = toolReturnTab || 'categories';
+    setActiveTab(targetTab);
     try {
-      window.history.pushState({ tab: 'categories' }, '', '/');
+      window.history.pushState({ tab: targetTab }, '', targetTab === 'categories' ? '/' : `?tab=${targetTab}`);
     } catch {
       // ignore
     }
-    // Restore the scroll position so it stays exactly where it was
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
-    });
+    // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
+    if (targetTab === 'categories') {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   };
 
   // Browser back button / gesture handler: first return to tool left off, then on another press to home
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      // If search in navbar was open when back was pressed, it was closed - don't navigate away
+      if ((window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen || e.state?.omniSearchOpen) {
+        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+        return;
+      }
+
+      // If full search modal was open, close it
+      if (isSearchOpen) {
+        setIsSearchOpen(false);
+        return;
+      }
+
       const state = e.state;
       if (state?.toolId) {
         const found = TOOLS.find(t => t.id === state.toolId);
         if (found) {
           setActiveTool(found);
-          setActiveTab('categories');
+          if (state.returnTab) {
+            setToolReturnTab(state.returnTab);
+          }
           return;
         }
       }
+
+      // If returning from tool, navigate back to the tab it was opened from (e.g. Starred)
+      if (activeTool) {
+        handleBackToOverview();
+        return;
+      }
+
       if (state?.tab) {
         if (state.tab === 'categories') {
-          if (activeTool) {
-            setActiveTool(null);
-          }
+          setActiveTool(null);
           setActiveTab('categories');
+          setToolReturnTab('categories');
         } else {
+          setActiveTool(null);
           setActiveTab(state.tab);
+          setToolReturnTab(state.tab);
         }
         return;
       }
@@ -208,15 +238,15 @@ export default function App() {
         setActiveTab('categories');
         return;
       }
-      // If user is inside a tool, back takes them to home overview
-      if (activeTool) {
-        handleBackToOverview();
+      // If user was on notes/starred/games, back takes them to home
+      if (activeTab !== 'categories') {
+        handleGoHome();
         return;
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [activeTool, activeTab, savedScrollPos]);
+  }, [activeTool, activeTab, savedScrollPos, isSearchOpen, toolReturnTab]);
 
   const handleToggleFavorite = (toolId: string) => {
     const updated = favorites.includes(toolId)
@@ -236,18 +266,32 @@ export default function App() {
     setDarkMode(prev => !prev);
   };
 
+  const handleGoHome = () => {
+    sounds.playClick();
+    setActiveTool(null);
+    setActiveTab('categories');
+    setToolReturnTab('categories');
+    try {
+      window.history.pushState({ tab: 'categories' }, '', '/');
+    } catch {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const handleSelectTab = (tab: string) => {
     sounds.playClick();
     if (tab === 'categories') {
-      if (activeTab === 'categories' && activeTool) {
-        // User was already in this tool and clicked "All Tools" tab again -> return to home overview
-        handleBackToOverview();
-        return;
-      }
-      // If user came from notes/favorites/games -> return to active tool where they left off
-      setActiveTab('categories');
-    } else {
-      setActiveTab(tab);
+      handleGoHome();
+      return;
+    }
+    setActiveTool(null);
+    setActiveTab(tab);
+    setToolReturnTab(tab);
+    try {
+      window.history.pushState({ tab }, '', `?tab=${tab}`);
+    } catch {
+      // ignore
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -255,11 +299,10 @@ export default function App() {
   const handleToggleFloatingNotes = () => {
     sounds.playClick();
     if (activeTab === 'notes') {
-      setActiveTab('categories');
+      handleGoHome();
     } else {
-      setActiveTab('notes');
+      handleSelectTab('notes');
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -276,94 +319,58 @@ export default function App() {
         onSelectTab={handleSelectTab}
         onSelectTool={handleSelectTool}
         onOpenOnboarding={() => setShowOnboarding(true)}
+        toolFilter={toolFilter}
+        onSelectToolFilter={setToolFilter}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
-        {activeTab === 'notes' ? (
+        {activeTool ? (
+          <ToolDispatcher
+            tool={activeTool}
+            onBack={handleBackToOverview}
+            isFavorite={favorites.includes(activeTool.id)}
+            onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
+            onSelectTool={handleSelectTool}
+          />
+        ) : activeTab === 'notes' ? (
           <div className="space-y-4">
-            {activeTool && (
-              <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-900/60 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="text-xs text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span>You were working in <strong>{activeTool.name}</strong></span>
-                </div>
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setActiveTab('categories');
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
-                >
-                  Return to {activeTool.name} →
-                </button>
-              </div>
-            )}
-            <NotesView />
+            <NotesView onBackToHome={handleGoHome} />
           </div>
         ) : activeTab === 'favorites' ? (
           <div className="space-y-4">
-            {activeTool && (
-              <div className="p-3.5 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-900/60 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                  <span>You were working in <strong>{activeTool.name}</strong></span>
-                </div>
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setActiveTab('categories');
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
-                >
-                  Return to {activeTool.name} →
-                </button>
-              </div>
-            )}
             <FavoritesView
               favorites={favorites}
               onSelectTool={handleSelectTool}
               onToggleFavorite={handleToggleFavorite}
-              onBrowseAll={() => {
-                if (activeTool) {
-                  setActiveTab('categories');
-                } else {
-                  handleBackToOverview();
-                }
-              }}
+              onBrowseAll={handleGoHome}
             />
           </div>
         ) : activeTab === 'games' ? (
           <div className="space-y-6 max-w-4xl mx-auto pb-24">
-            {activeTool && (
-              <div className="p-3.5 rounded-2xl bg-violet-50/90 dark:bg-violet-950/40 border border-violet-200/90 dark:border-violet-900/60 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="text-xs text-violet-950 dark:text-violet-200 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
-                  <span>You were working in <strong>{activeTool.name}</strong></span>
+            <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
+              <button
+                type="button"
+                onClick={handleGoHome}
+                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
+                title="Back to Home"
+                aria-label="Back to Home"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+                  <span>Offline Arcade</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Brain & Reflex Challenges</span>
                 </div>
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setActiveTab('categories');
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
-                >
-                  Return to {activeTool.name} →
-                </button>
+                <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                  Lightweight Game Zone
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                  Zero lag, 100% offline mini-games: 2048, Tic-Tac-Toe AI, Minesweeper, Memory Match, reaction time reflex tests & mental math.
+                </p>
               </div>
-            )}
-            <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
-                <span>Offline Arcade</span>
-                <span aria-hidden="true">·</span>
-                <span>Brain & Reflex Challenges</span>
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Lightweight Game Zone
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Zero lag, 100% offline mini-games: 2048, Tic-Tac-Toe AI, Minesweeper, Memory Match, reaction time reflex tests & mental math.
-              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {TOOLS.filter(t => t.categoryId === 'games').map(tool => (
@@ -381,18 +388,9 @@ export default function App() {
               ))}
             </div>
           </div>
-        ) : activeTool ? (
-          <ToolDispatcher
-            tool={activeTool}
-            onBack={handleBackToOverview}
-            isFavorite={favorites.includes(activeTool.id)}
-            onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
-            onSelectTool={handleSelectTool}
-          />
         ) : (
           <CategoryExplorer
             onSelectTool={handleSelectTool}
-            selectedToolId={lastOpenedToolId}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             recents={recents}
@@ -400,14 +398,19 @@ export default function App() {
             onToggleCategory={handleToggleCategory}
             onExpandAll={handleExpandAll}
             onCollapseAll={handleCollapseAll}
+            toolFilter={toolFilter}
+            onSelectToolFilter={setToolFilter}
           />
         )}
       </main>
 
-      {/* Floating Action Button (FAB) to take notes directly */}
+      {/* Floating Action Button (FAB): Circular Speed Dial for Home, Starred & Notes */}
       <FloatingNotesButton
-        onClick={handleToggleFloatingNotes}
-        isOpen={activeTab === 'notes'}
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        onGoHome={handleGoHome}
+        onBackToOverview={handleBackToOverview}
+        favoriteCount={favorites.length}
         activeToolName={activeTool?.name}
       />
 

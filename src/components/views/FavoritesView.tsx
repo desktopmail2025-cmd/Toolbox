@@ -3,7 +3,7 @@ import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
-import { Star, ArrowRight, Globe, ShieldCheck } from 'lucide-react';
+import { Star, ArrowRight, Globe, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface FavoritesViewProps {
@@ -23,14 +23,28 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-20">
-      <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-          <Star className="w-5 h-5 fill-amber-400 text-amber-500" />
-          Starred Quick Access ({favoriteTools.length})
-        </h2>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-          Your favorite and most-used utilities pinned for instant one-tap access across devices.
-        </p>
+      <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            onBrowseAll();
+          }}
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
+          title="Back to Home"
+          aria-label="Back to Home"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+            <Star className="w-5 h-5 fill-amber-400 text-amber-500" />
+            Starred Quick Access ({favoriteTools.length})
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            Your favorite and most-used utilities pinned for instant one-tap access across devices.
+          </p>
+        </div>
       </div>
 
       {favoriteTools.length === 0 ? (

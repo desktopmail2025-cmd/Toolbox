@@ -4,8 +4,8 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Auto-register service worker for 100% offline functionality across devices
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+// Auto-register service worker for 100% offline functionality across devices in production
+if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   registerSW({
     immediate: true,
     onOfflineReady() {
