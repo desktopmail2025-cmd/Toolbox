@@ -66,25 +66,29 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
           {favoriteTools.map(tool => {
-            const isSelected = selectedToolId === tool.id;
+            const isSelected = Boolean(selectedToolId && selectedToolId === tool.id);
             const cat = CATEGORIES.find(c => c.id === tool.categoryId);
+            const catTheme = getCategoryTheme(tool.categoryId);
+            const iconTheme = getToolIconTheme(tool.id, tool.iconName);
             return (
               <div
                 id={`favorite-tool-${tool.id}`}
                 key={tool.id}
+                tabIndex={0}
                 onClick={() => {
                   sounds.playClick();
                   onSelectTool(tool);
                 }}
-                className={`group flex flex-col justify-between rounded-2xl border p-4.5 transition-all cursor-pointer shadow-xs ${
+                style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
+                className={`group relative flex flex-col justify-between rounded-2xl p-4.5 border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] hover-card-highlight ${
                   isSelected
-                    ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40'
-                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700'
+                    ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40 dark:border-indigo-400'
+                    : 'border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-lg hover:-translate-y-1 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)]'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconTheme.iconBg} border ${iconTheme.border} shadow-2xs group-hover:scale-105 transition-transform`}>
                       <IconRenderer name={tool.iconName} size={20} />
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -110,21 +114,21 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                           sounds.playClick();
                           onToggleFavorite(tool.id);
                         }}
-                        className="p-1.5 text-amber-500 hover:text-amber-600 transition-colors"
+                        className="p-1.5 text-amber-500 hover:text-amber-600 hover:scale-110 transition-all cursor-pointer"
                         title="Remove from Starred"
                       >
                         <Star className="w-4 h-4 fill-amber-400" />
                       </button>
                     </div>
                   </div>
-                  <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-50">{tool.name}</h3>
+                  <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{tool.name}</h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
                     {tool.description}
                   </p>
                 </div>
                 <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800 text-[11px] text-zinc-400">
-                  <span>{cat?.name}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                  <span className="font-medium">{cat?.name}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
             );

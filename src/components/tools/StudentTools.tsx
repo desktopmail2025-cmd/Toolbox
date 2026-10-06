@@ -1282,54 +1282,8 @@ const StudyWhiteboardView: React.FC = () => {
   const [preferredStickyBg, setPreferredStickyBg] = useState('#fef08a');
   const [preferredStickyColor, setPreferredStickyColor] = useState('#854d0e');
 
-  // Movable and Resizable Objects State
-  const [objects, setObjects] = useState<MovableObject[]>([
-    {
-      id: '1',
-      type: 'sticky',
-      x: 8,
-      y: 10,
-      width: 22,
-      height: 24,
-      text: '📌 Formula:\nE = mc²\nF = ma',
-      color: '#854d0e',
-      bg: '#fef08a',
-    },
-    {
-      id: '2',
-      type: 'text',
-      x: 35,
-      y: 10,
-      width: 26,
-      height: 14,
-      text: 'Final Exam Review Topics',
-      color: '#2563eb',
-    },
-    {
-      id: '3',
-      type: 'rect',
-      x: 65,
-      y: 10,
-      width: 26,
-      height: 32,
-      text: 'Architecture Block',
-      color: '#2563eb',
-      bg: 'rgba(37, 99, 235, 0.08)',
-      strokeWidth: 3,
-    },
-    {
-      id: '4',
-      type: 'circle',
-      x: 35,
-      y: 38,
-      width: 18,
-      height: 18,
-      text: 'Core Concept',
-      color: '#dc2626',
-      bg: 'rgba(220, 38, 38, 0.08)',
-      strokeWidth: 3,
-    },
-  ]);
+  // Movable and Resizable Objects State (Kept empty at launch)
+  const [objects, setObjects] = useState<MovableObject[]>([]);
 
   // Object dragging & resizing state
   const [draggingId, setDraggingId] = useState<string | null>(null);

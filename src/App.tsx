@@ -30,6 +30,7 @@ export default function App() {
   });
   const [activeTab, setActiveTab] = useState<string>('categories');
   const [toolReturnTab, setToolReturnTab] = useState<string>('categories');
+  const [starredSelectedToolId, setStarredSelectedToolId] = useState<string | null>(null);
   const [toolFilter, setToolFilter] = useState<'all' | 'offline' | 'online'>('all');
   const [favorites, setFavorites] = useState<string[]>(getStoredFavorites);
   const [recents, setRecents] = useState<string[]>(getStoredRecents);
@@ -391,6 +392,11 @@ export default function App() {
     }
     const targetTab = toolReturnTab || 'categories';
     setActiveTab(targetTab);
+    if (targetTab === 'favorites') {
+      setStarredSelectedToolId(closedToolId || null);
+    } else {
+      setStarredSelectedToolId(null);
+    }
     try {
       window.history.pushState({ tab: targetTab }, '', targetTab === 'categories' ? '/' : `?tab=${targetTab}`);
     } catch {
@@ -498,6 +504,7 @@ export default function App() {
   const handleGoHome = () => {
     sounds.playClick();
     setActiveTool(null);
+    setStarredSelectedToolId(null);
     setActiveTab('categories');
     setToolReturnTab('categories');
     try {
@@ -510,6 +517,7 @@ export default function App() {
 
   const handleSelectTab = (tab: string) => {
     sounds.playClick();
+    setStarredSelectedToolId(null);
     if (tab === 'categories') {
       handleGoHome();
       return;
@@ -527,6 +535,7 @@ export default function App() {
 
   const handleToggleFloatingNotes = () => {
     sounds.playClick();
+    setStarredSelectedToolId(null);
     if (activeTab === 'notes') {
       handleGoHome();
     } else {
@@ -574,7 +583,7 @@ export default function App() {
               onSelectTool={handleSelectTool}
               onToggleFavorite={handleToggleFavorite}
               onBrowseAll={handleGoHome}
-              selectedToolId={lastOpenedToolId}
+              selectedToolId={starredSelectedToolId}
             />
           </div>
         ) : activeTab === 'games' ? (

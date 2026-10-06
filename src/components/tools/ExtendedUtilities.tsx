@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
+import { SmartHintInput } from '../common/SmartHintInput';
 import { sounds } from '../../utils/audio';
 import { PerfectPrimeCalculatorView } from './PerfectPrimeCalculator';
 import {
@@ -2528,11 +2529,21 @@ const FreelanceRateCalcView: React.FC = () => {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-500 mb-1">Desired Take-Home ($)</label>
-          <input type="number" value={desiredSalary} onChange={e => setDesiredSalary(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-xl border font-mono text-base font-bold" />
+          <SmartHintInput
+            defaultValue={85000}
+            value={desiredSalary}
+            onChange={val => setDesiredSalary(val)}
+            className="w-full p-2.5 rounded-xl border font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-500 mb-1">Billable Hours / Week</label>
-          <input type="number" value={billableHoursPerWeek} onChange={e => setBillableHoursPerWeek(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-xl border font-mono text-base font-bold" />
+          <SmartHintInput
+            defaultValue={25}
+            value={billableHoursPerWeek}
+            onChange={val => setBillableHoursPerWeek(val)}
+            className="w-full p-2.5 rounded-xl border font-mono text-base font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
         </div>
       </div>
 
@@ -3581,7 +3592,12 @@ const TargetHeartRateView: React.FC = () => {
 
       <div>
         <label className="block text-xs font-semibold text-zinc-500 mb-1">Your Age</label>
-        <input type="number" value={age} onChange={e => setAge(parseInt(e.target.value) || 25)} className="w-full p-2.5 rounded-xl border font-bold" />
+        <SmartHintInput
+          defaultValue={30}
+          value={age}
+          onChange={val => setAge(Math.round(val))}
+          className="w-full p-2.5 rounded-xl border font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-3">

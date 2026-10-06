@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
+import { SmartHintInput } from '../common/SmartHintInput';
 import { sounds } from '../../utils/audio';
 import {
   Heart, Droplets, Flame, Moon, Footprints, Play, Pause, RotateCcw,
@@ -1626,23 +1627,23 @@ const TargetHeartRateView: React.FC = () => {
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-500 mb-1">Age (Years)</label>
-          <input
-            type="number"
+          <SmartHintInput
+            defaultValue={30}
+            value={age}
+            onChange={val => setAge(Math.round(val))}
             min={10}
             max={100}
-            value={age}
-            onChange={e => setAge(parseInt(e.target.value) || 20)}
             className="w-full border rounded-xl p-2.5 font-mono text-base bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-500 mb-1">Resting Heart Rate (BPM)</label>
-          <input
-            type="number"
+          <SmartHintInput
+            defaultValue={65}
+            value={restingHr}
+            onChange={val => setRestingHr(Math.round(val))}
             min={40}
             max={120}
-            value={restingHr}
-            onChange={e => setRestingHr(parseInt(e.target.value) || 60)}
             className="w-full border rounded-xl p-2.5 font-mono text-base bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
           />
         </div>

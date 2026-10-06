@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ResultCard } from '../common/ResultCard';
+import { SmartHintInput } from '../common/SmartHintInput';
 import { sounds } from '../../utils/audio';
 import { Plus, Trash2, ArrowRight, RefreshCw, Globe, Copy, Check, Edit2, X, Bookmark, Save } from 'lucide-react';
 import { RetirementPlannerView, CryptoMiningCalcView } from './ExtendedUtilities';
@@ -27,8 +28,9 @@ export const FinanceCalculators: React.FC<ToolComponentProps> = ({ toolId }) => 
     case 'investment-roi-calc':
       return <RoiCagrCalcView />;
     case 'salary-calc':
+      return <SalaryTakeHomeCalcView />;
     case 'freelance-rate-calc':
-      return <SalaryFreelanceCalcView />;
+      return <FreelanceRateCalcView />;
     case 'car-lease-buy-calc':
       return <CarLeaseBuyCalcView />;
     case 'vat-tax-calc':
@@ -417,22 +419,11 @@ const RoiCagrCalcView: React.FC = () => {
   );
 };
 
-// 7. Salary, Hourly & Freelance Billing Rate Calculator (Unified)
-const SalaryFreelanceCalcView: React.FC = () => {
-  const [tab, setTab] = useState<'salary' | 'freelance'>('salary');
-
-  // Salary mode state
+// 7. Salary & Take-Home Calculator (Freelance mode removed)
+const SalaryTakeHomeCalcView: React.FC = () => {
   const [annualSalary, setAnnualSalary] = useState(75000);
   const [estimatedTax, setEstimatedTax] = useState(22);
   const [hoursPerWeek, setHoursPerWeek] = useState(40);
-
-  // Freelance mode state
-  const [desiredAnnualNet, setDesiredAnnualNet] = useState(85000);
-  const [annualOverhead, setAnnualOverhead] = useState(12000); // software, hardware, accounting
-  const [weeksVacation, setWeeksVacation] = useState(4);
-  const [billableHoursPerWeek, setBillableHoursPerWeek] = useState(25);
-  const [taxRateFreelance, setTaxRateFreelance] = useState(28); // self-employment tax
-  const [profitMargin, setProfitMargin] = useState(15); // % business buffer
 
   // Calculations for Salary
   const netAnnual = annualSalary * (1 - estimatedTax / 100);
@@ -442,8 +433,59 @@ const SalaryFreelanceCalcView: React.FC = () => {
   const hourly = hoursPerWeek > 0 ? netAnnual / (52 * hoursPerWeek) : 0;
   const grossHourly = hoursPerWeek > 0 ? annualSalary / (52 * hoursPerWeek) : 0;
 
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Gross Annual Salary ($)</label>
+          <input
+            type="number"
+            value={annualSalary}
+            onChange={e => setAnnualSalary(parseFloat(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Tax & Deductions (%)</label>
+          <input
+            type="number"
+            value={estimatedTax}
+            onChange={e => setEstimatedTax(parseFloat(e.target.value) || 0)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Work Hours / Week</label>
+          <input
+            type="number"
+            value={hoursPerWeek}
+            onChange={e => setHoursPerWeek(parseInt(e.target.value) || 40)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <ResultCard label="Monthly Take-Home" value={`$${monthly.toFixed(2)}`} highlight />
+        <ResultCard label="Bi-Weekly Paycheck" value={`$${biweekly.toFixed(2)}`} />
+        <ResultCard label="Net Hourly Wage" value={`$${hourly.toFixed(2)}`} />
+        <ResultCard label="Gross Hourly Rate" value={`$${grossHourly.toFixed(2)}`} />
+      </div>
+    </div>
+  );
+};
+
+// 7b. Freelance Hourly Rate Estimator with SmartHintInput
+const FreelanceRateCalcView: React.FC = () => {
+  const [desiredAnnualNet, setDesiredAnnualNet] = useState(85000);
+  const [annualOverhead, setAnnualOverhead] = useState(12000); // software, hardware, accounting
+  const [weeksVacation, setWeeksVacation] = useState(4);
+  const [billableHoursPerWeek, setBillableHoursPerWeek] = useState(25);
+  const [taxRateFreelance, setTaxRateFreelance] = useState(28); // self-employment tax
+  const [profitMargin, setProfitMargin] = useState(15); // % business buffer
+
   // Calculations for Freelance
-  const grossTargetIncome = (desiredAnnualNet / (1 - taxRateFreelance / 100)) + annualOverhead;
+  const grossTargetIncome = (desiredAnnualNet / (1 - Math.min(99, taxRateFreelance) / 100)) + annualOverhead;
   const totalTargetWithMargin = grossTargetIncome * (1 + profitMargin / 100);
   const workingWeeks = Math.max(1, 52 - weeksVacation);
   const annualBillableHours = workingWeeks * billableHoursPerWeek;
@@ -451,137 +493,70 @@ const SalaryFreelanceCalcView: React.FC = () => {
   const targetDayRate = targetHourlyRate * (billableHoursPerWeek / 5);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Mode Switcher */}
-      <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl max-w-sm mx-auto">
-        <button
-          onClick={() => { sounds.playClick(); setTab('salary'); }}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl cursor-pointer transition-all ${
-            tab === 'salary'
-              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-        >
-          💼 Salary ⇄ Hourly Wage
-        </button>
-        <button
-          onClick={() => { sounds.playClick(); setTab('freelance'); }}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl cursor-pointer transition-all ${
-            tab === 'freelance'
-              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-        >
-          ⚡ Freelance Hourly Rate
-        </button>
+    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">Desired Net Income ($/yr)</label>
+          <SmartHintInput
+            defaultValue={85000}
+            value={desiredAnnualNet}
+            onChange={val => setDesiredAnnualNet(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Annual Business Expenses ($)</label>
+          <SmartHintInput
+            defaultValue={12000}
+            value={annualOverhead}
+            onChange={val => setAnnualOverhead(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Self-Employment Tax (%)</label>
+          <SmartHintInput
+            defaultValue={28}
+            value={taxRateFreelance}
+            onChange={val => setTaxRateFreelance(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Billable Hours / Week</label>
+          <SmartHintInput
+            defaultValue={25}
+            value={billableHoursPerWeek}
+            onChange={val => setBillableHoursPerWeek(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
+          />
+          <span className="text-[10px] text-zinc-400">Excludes admin, emails, marketing</span>
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Vacation Weeks / Year</label>
+          <SmartHintInput
+            defaultValue={4}
+            value={weeksVacation}
+            onChange={val => setWeeksVacation(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Profit Buffer / Margin (%)</label>
+          <SmartHintInput
+            defaultValue={15}
+            value={profitMargin}
+            onChange={val => setProfitMargin(val)}
+            className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
+          />
+        </div>
       </div>
 
-      {tab === 'salary' ? (
-        <div className="space-y-6 animate-in fade-in">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1">Gross Annual Salary ($)</label>
-              <input
-                type="number"
-                value={annualSalary}
-                onChange={e => setAnnualSalary(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1">Tax & Deductions (%)</label>
-              <input
-                type="number"
-                value={estimatedTax}
-                onChange={e => setEstimatedTax(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1">Work Hours / Week</label>
-              <input
-                type="number"
-                value={hoursPerWeek}
-                onChange={e => setHoursPerWeek(parseInt(e.target.value) || 40)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <ResultCard label="Monthly Take-Home" value={`$${monthly.toFixed(2)}`} highlight />
-            <ResultCard label="Bi-Weekly Paycheck" value={`$${biweekly.toFixed(2)}`} />
-            <ResultCard label="Net Hourly Wage" value={`$${hourly.toFixed(2)}`} />
-            <ResultCard label="Gross Hourly Rate" value={`$${grossHourly.toFixed(2)}`} />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6 animate-in fade-in">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1">Desired Net Income ($/yr)</label>
-              <input
-                type="number"
-                value={desiredAnnualNet}
-                onChange={e => setDesiredAnnualNet(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Annual Business Expenses ($)</label>
-              <input
-                type="number"
-                value={annualOverhead}
-                onChange={e => setAnnualOverhead(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Self-Employment Tax (%)</label>
-              <input
-                type="number"
-                value={taxRateFreelance}
-                onChange={e => setTaxRateFreelance(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Billable Hours / Week</label>
-              <input
-                type="number"
-                value={billableHoursPerWeek}
-                onChange={e => setBillableHoursPerWeek(parseInt(e.target.value) || 20)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700 font-bold"
-              />
-              <span className="text-[10px] text-zinc-400">Excludes admin, emails, marketing</span>
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Vacation Weeks / Year</label>
-              <input
-                type="number"
-                value={weeksVacation}
-                onChange={e => setWeeksVacation(parseInt(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Profit Buffer / Margin (%)</label>
-              <input
-                type="number"
-                value={profitMargin}
-                onChange={e => setProfitMargin(parseFloat(e.target.value) || 0)}
-                className="w-full border rounded-xl p-2.5 font-mono bg-white dark:bg-zinc-950 dark:border-zinc-700"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ResultCard label="Recommended Hourly Rate" value={`$${targetHourlyRate.toFixed(2)} / hr`} highlight />
-            <ResultCard label="Day Rate (Equiv.)" value={`$${targetDayRate.toFixed(0)} / day`} />
-            <ResultCard label="Gross Target Invoiced" value={`$${totalTargetWithMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })} / yr`} />
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <ResultCard label="Recommended Hourly Rate" value={`$${targetHourlyRate.toFixed(2)} / hr`} highlight />
+        <ResultCard label="Day Rate (Equiv.)" value={`$${targetDayRate.toFixed(0)} / day`} />
+        <ResultCard label="Gross Target Invoiced" value={`$${totalTargetWithMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })} / yr`} subtext={`Based on ${annualBillableHours} billable hours/yr`} />
+      </div>
     </div>
   );
 };
