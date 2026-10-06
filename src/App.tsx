@@ -144,6 +144,43 @@ export default function App() {
     };
   }, []);
 
+  // Slide-to-exit gesture in every view:
+  // When user swipes inward from the edge (standard mobile back/exit gesture), trigger exit alert box
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const deltaX = endX - startX;
+      const deltaY = endY - startY;
+
+      // Swiped inward from right edge (standard edge exit/back gesture)
+      const isRightEdgeSwipe = startX >= window.innerWidth - 55 && deltaX < -50 && Math.abs(deltaY) < Math.abs(deltaX) * 1.2;
+
+      if (isRightEdgeSwipe) {
+        sounds.playClick();
+        setShowExitDialog(true);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
   const handleSelectTool = (tool: ToolItem) => {
     // Preserve current scroll position
     setSavedScrollPos(window.scrollY);

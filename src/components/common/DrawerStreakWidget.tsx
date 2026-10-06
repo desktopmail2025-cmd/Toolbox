@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Sparkles, Trophy, CheckCircle2 } from 'lucide-react';
-import { StreakState, recordStreakVisit, claimDailyBoost, getWeeklyActivity } from '../../utils/streak';
+import { Flame, Sparkles, Trophy, CheckCircle2, Award, Target, ChevronRight } from 'lucide-react';
+import { StreakState, recordStreakVisit, claimDailyBoost, getWeeklyActivity, getStreakMilestoneInfo } from '../../utils/streak';
 
 export const DrawerStreakWidget: React.FC = () => {
   const [streak, setStreak] = useState<StreakState>(() => recordStreakVisit());
@@ -29,19 +29,10 @@ export const DrawerStreakWidget: React.FC = () => {
   };
 
   const streakDays = streak.currentStreak || 1;
-
-  // Motivational message
-  const motivationText =
-    streakDays >= 14
-      ? '🏆 Legendary Streak! Master of productivity and daily focus.'
-      : streakDays >= 7
-      ? '⚡ 1-Week Milestone! Your daily habits are rock solid.'
-      : streakDays >= 3
-      ? "🔥 You're on fire! Consistency creates effortless progress."
-      : '🌱 Great start! Open OmniToolbox daily to build your momentum.';
+  const milestone = getStreakMilestoneInfo(streakDays);
 
   return (
-    <div className="p-3.5 mx-3 my-2 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 dark:from-amber-500/15 dark:via-orange-500/15 dark:to-rose-500/15 border border-amber-300/40 dark:border-amber-700/50 shadow-xs space-y-2.5">
+    <div className="p-3.5 mx-3 my-2 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 dark:from-amber-500/15 dark:via-orange-500/15 dark:to-rose-500/15 border border-amber-300/40 dark:border-amber-700/50 shadow-xs space-y-3">
       {/* Top Streak Header with Flame */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -54,11 +45,11 @@ export const DrawerStreakWidget: React.FC = () => {
           </div>
 
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
                 {streakDays} Day{streakDays === 1 ? '' : 's'} Streak
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                 Active
               </span>
             </div>
@@ -69,10 +60,53 @@ export const DrawerStreakWidget: React.FC = () => {
         </div>
 
         {/* Best Record Badge */}
-        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
+        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 shrink-0">
           <Trophy className="w-3 h-3 text-amber-500" />
           <span>Best: {streak.bestStreak || streakDays}</span>
         </div>
+      </div>
+
+      {/* Earned Title Banner & Encouragement */}
+      <div className="p-2.5 rounded-xl bg-white/90 dark:bg-zinc-900/90 border border-amber-200/70 dark:border-amber-800/60 shadow-2xs space-y-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span className="text-[11px] font-extrabold text-amber-900 dark:text-amber-200 tracking-tight">
+              {milestone.title}
+            </span>
+          </div>
+          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            {milestone.badge}
+          </span>
+        </div>
+
+        {/* Milestone Goal Progress Bar */}
+        <div className="space-y-1 pt-0.5">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-600 dark:text-zinc-400">
+            <span className="flex items-center gap-1">
+              <Target className="w-3 h-3 text-indigo-500" />
+              <span>Goal: {milestone.nextGoalTitle}</span>
+            </span>
+            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+              {streakDays}/{milestone.nextGoalDays}d
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${milestone.tierColor}`}
+              style={{ width: `${milestone.progressPercent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[9px] text-zinc-400">
+            <span>{milestone.daysRemaining > 0 ? `${milestone.daysRemaining} days until next milestone` : 'Milestone Achieved! 🎉'}</span>
+            <span>{milestone.progressPercent}%</span>
+          </div>
+        </div>
+
+        {/* Unlocked Perk Tag */}
+        <p className="text-[10px] text-zinc-600 dark:text-zinc-300 pt-0.5 leading-tight font-medium">
+          {milestone.unlockedPerk}
+        </p>
       </div>
 
       {/* 7-Day Week Indicator Bar */}
@@ -97,11 +131,6 @@ export const DrawerStreakWidget: React.FC = () => {
           ))}
         </div>
       </div>
-
-      {/* Motivational Tagline */}
-      <p className="text-[11px] text-zinc-600 dark:text-zinc-300 leading-snug font-medium">
-        {motivationText}
-      </p>
 
       {/* Claim Today's Streak Boost Button */}
       <button

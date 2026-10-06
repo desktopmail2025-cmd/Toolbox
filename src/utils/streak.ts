@@ -148,3 +148,110 @@ export function getWeeklyActivity(): { dayName: string; isToday: boolean; isActi
     };
   });
 }
+
+export interface StreakMilestoneInfo {
+  title: string;
+  badge: string;
+  tierColor: string;
+  isOneWeekReached: boolean;
+  isOneMonthReached: boolean;
+  nextGoalDays: number;
+  nextGoalTitle: string;
+  progressPercent: number;
+  daysRemaining: number;
+  unlockedPerk: string;
+  celebrationMessage: string;
+}
+
+export function getStreakMilestoneInfo(streakDays: number): StreakMilestoneInfo {
+  const days = Math.max(1, streakDays || 1);
+
+  if (days >= 30) {
+    // 1 Month or more
+    const nextTarget = days < 60 ? 60 : 100;
+    const nextTargetTitle = days < 60 ? '60-Day Grandmaster' : '100-Day Century Immortal';
+    const progress = Math.min(100, Math.round(((days - 30) / (nextTarget - 30)) * 100));
+    return {
+      title: '👑 30-Day Omni Legend',
+      badge: '👑 Legendary Royalty',
+      tierColor: 'from-amber-400 via-rose-500 to-purple-600',
+      isOneWeekReached: true,
+      isOneMonthReached: true,
+      nextGoalDays: nextTarget,
+      nextGoalTitle: nextTargetTitle,
+      progressPercent: progress,
+      daysRemaining: Math.max(0, nextTarget - days),
+      unlockedPerk: '🏆 Month 1 Milestone Unlocked: Crown of Dedication & Legendary VIP Rank!',
+      celebrationMessage: 'Unstoppable! You have built a month-long unbroken daily powerhouse habit.',
+    };
+  }
+
+  if (days >= 14) {
+    // 2 Weeks
+    const progress = Math.min(100, Math.round(((days - 14) / 16) * 100));
+    return {
+      title: '🔥 2-Week Efficiency Titan',
+      badge: '🔥 Productivity Titan',
+      tierColor: 'from-orange-500 to-rose-600',
+      isOneWeekReached: true,
+      isOneMonthReached: false,
+      nextGoalDays: 30,
+      nextGoalTitle: '30-Day Omni Legend (1 Month)',
+      progressPercent: progress,
+      daysRemaining: 30 - days,
+      unlockedPerk: '⚡ 2-Week Milestone Unlocked: Fire Titan Badge & Golden Efficiency Status!',
+      celebrationMessage: 'Halfway to 1 Month! 14 days of unstoppable momentum.',
+    };
+  }
+
+  if (days >= 7) {
+    // 1 Week reached!
+    const progress = Math.min(100, Math.round(((days - 7) / 7) * 100));
+    return {
+      title: '⚡ Week 1 Habit Champion',
+      badge: '⚡ 7-Day Master',
+      tierColor: 'from-amber-500 to-orange-500',
+      isOneWeekReached: true,
+      isOneMonthReached: false,
+      nextGoalDays: 14,
+      nextGoalTitle: '14-Day Efficiency Titan (2 Weeks)',
+      progressPercent: progress,
+      daysRemaining: 14 - days,
+      unlockedPerk: '🎁 1-Week Milestone Unlocked: Golden Habit Spark badge & Champion Status!',
+      celebrationMessage: '7-Day Milestone Unlocked! You have officially formed a rock-solid habit.',
+    };
+  }
+
+  if (days >= 3) {
+    const progress = Math.min(100, Math.round((days / 7) * 100));
+    return {
+      title: '✨ Habit Spark',
+      badge: '✨ Rising Focus',
+      tierColor: 'from-indigo-500 to-sky-500',
+      isOneWeekReached: false,
+      isOneMonthReached: false,
+      nextGoalDays: 7,
+      nextGoalTitle: '7-Day Habit Champion (1 Week)',
+      progressPercent: progress,
+      daysRemaining: 7 - days,
+      unlockedPerk: 'Targeting 1-Week Champion: Reach day 7 to unlock Golden Habit Spark badge!',
+      celebrationMessage: 'Consistency is clicking! 3+ days in a row.',
+    };
+  }
+
+  // 1-2 days
+  const progress = Math.min(100, Math.round((days / 7) * 100));
+  return {
+    title: '🌱 Tool Explorer',
+    badge: '🌱 Novice',
+    tierColor: 'from-emerald-500 to-teal-500',
+    isOneWeekReached: false,
+    isOneMonthReached: false,
+    nextGoalDays: 7,
+    nextGoalTitle: '7-Day Habit Champion (1 Week)',
+    progressPercent: progress,
+    daysRemaining: 7 - days,
+    unlockedPerk: 'Targeting 1-Week Champion: Come back daily to reach 7 days and claim your first title!',
+    celebrationMessage: 'Great start! Open OmniToolbox every day to build momentum.',
+  };
+}

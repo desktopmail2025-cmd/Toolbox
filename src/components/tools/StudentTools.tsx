@@ -1144,6 +1144,16 @@ const PRESET_COLORS = [
   '#ffffff', // Chalk White
 ];
 
+export const STICKY_COLOR_PRESETS = [
+  { name: 'Yellow', bg: '#fef08a', color: '#854d0e', border: '#facc15' },
+  { name: 'Rose', bg: '#fecdd3', color: '#9f1239', border: '#fb7185' },
+  { name: 'Mint', bg: '#bbf7d0', color: '#166534', border: '#4ade80' },
+  { name: 'Sky', bg: '#bae6fd', color: '#075985', border: '#38bdf8' },
+  { name: 'Lavender', bg: '#e9d5ff', color: '#6b21a8', border: '#c084fc' },
+  { name: 'Peach', bg: '#fed7aa', color: '#9a3412', border: '#fb923c' },
+  { name: 'Slate', bg: '#f1f5f9', color: '#1e293b', border: '#cbd5e1' },
+];
+
 const StudyWhiteboardView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1157,6 +1167,10 @@ const StudyWhiteboardView: React.FC = () => {
   const [history, setHistory] = useState<ImageData[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
+
+  // Preferred Sticky Note Color State (Customizable to user's choice)
+  const [preferredStickyBg, setPreferredStickyBg] = useState('#fef08a');
+  const [preferredStickyColor, setPreferredStickyColor] = useState('#854d0e');
 
   // Movable and Resizable Objects State
   const [objects, setObjects] = useState<MovableObject[]>([
@@ -1197,9 +1211,9 @@ const StudyWhiteboardView: React.FC = () => {
       id: '4',
       type: 'circle',
       x: 35,
-      y: 40,
-      width: 22,
-      height: 32,
+      y: 38,
+      width: 18,
+      height: 18,
       text: 'Core Concept',
       color: '#dc2626',
       bg: 'rgba(220, 38, 38, 0.08)',
@@ -1378,8 +1392,8 @@ const StudyWhiteboardView: React.FC = () => {
         width: 24,
         height: 24,
         text: 'Sticky Note\n- Important concept\n- Drag anywhere!',
-        color: '#854d0e',
-        bg: '#fef08a',
+        color: preferredStickyColor,
+        bg: preferredStickyBg,
         isEditing: true,
       };
       setObjects(prev => [...prev, newObj]);
@@ -1413,8 +1427,8 @@ const StudyWhiteboardView: React.FC = () => {
         type: 'circle',
         x: relX,
         y: relY,
-        width: 24,
-        height: 30,
+        width: 18,
+        height: 18,
         text: 'Circle',
         color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
         bg: 'rgba(99, 102, 241, 0.08)',
@@ -1498,12 +1512,13 @@ const StudyWhiteboardView: React.FC = () => {
         ctx.beginPath();
         ctx.strokeRect(startPos.x, startPos.y, coords.x - startPos.x, coords.y - startPos.y);
       } else if (tool === 'circle') {
-        const radiusX = Math.abs(coords.x - startPos.x) / 2;
-        const radiusY = Math.abs(coords.y - startPos.y) / 2;
-        const centerX = Math.min(startPos.x, coords.x) + radiusX;
-        const centerY = Math.min(startPos.y, coords.y) + radiusY;
+        const dx = coords.x - startPos.x;
+        const dy = coords.y - startPos.y;
+        const radius = Math.hypot(dx, dy) / 2;
+        const centerX = (startPos.x + coords.x) / 2;
+        const centerY = (startPos.y + coords.y) / 2;
         ctx.beginPath();
-        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -1593,6 +1608,16 @@ const StudyWhiteboardView: React.FC = () => {
       if (resizingId && resizeStartRef.current) {
         const deltaW = ((clientX - resizeStartRef.current.clientX) / rect.width) * 100;
         const deltaH = ((clientY - resizeStartRef.current.clientY) / rect.height) * 100;
+        const targetObj = objects.find(o => o.id === resizingId);
+
+        if (targetObj?.type === 'circle') {
+          // Keep 1:1 diameter when resizing circle so it stays a mathematically perfect circle
+          const newDiam = Math.min(80, Math.max(6, resizeStartRef.current.startW + Math.max(deltaW, deltaH)));
+          setObjects(prev =>
+            prev.map(o => (o.id === resizingId ? { ...o, width: newDiam, height: newDiam } : o))
+          );
+          return;
+        }
 
         const newW = Math.min(85, Math.max(8, resizeStartRef.current.startW + deltaW));
         const newH = Math.min(85, Math.max(8, resizeStartRef.current.startH + deltaH));
@@ -1641,7 +1666,7 @@ const StudyWhiteboardView: React.FC = () => {
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
     };
-  }, [draggingId, resizingId]);
+  }, [draggingId, resizingId, objects]);
 
   const handleUpdateObjectText = (id: string, text: string) => {
     setObjects(prev => prev.map(o => (o.id === id ? { ...o, text } : o)));
@@ -1650,6 +1675,25 @@ const StudyWhiteboardView: React.FC = () => {
   const handleRemoveObject = (id: string) => {
     sounds.playClick();
     setObjects(prev => prev.filter(o => o.id !== id));
+  };
+
+  const handleScaleObject = (id: string, deltaPercent: number) => {
+    sounds.playClick();
+    setObjects(prev =>
+      prev.map(o => {
+        if (o.id !== id) return o;
+        const newW = Math.min(80, Math.max(6, o.width + deltaPercent));
+        const newH = o.type === 'circle' ? newW : Math.min(80, Math.max(6, o.height + deltaPercent));
+        return { ...o, width: newW, height: newH };
+      })
+    );
+  };
+
+  const handleUpdateStickyColor = (id: string, bg: string, textColor: string) => {
+    sounds.playClick();
+    setObjects(prev =>
+      prev.map(o => (o.id === id ? { ...o, bg, color: textColor } : o))
+    );
   };
 
   const handleAddStickyQuick = () => {
@@ -1662,8 +1706,8 @@ const StudyWhiteboardView: React.FC = () => {
       width: 24,
       height: 24,
       text: 'New Sticky Note',
-      color: '#854d0e',
-      bg: '#fef08a',
+      color: preferredStickyColor,
+      bg: preferredStickyBg,
       isEditing: true,
     };
     setObjects(prev => [...prev, newObj]);
@@ -1709,8 +1753,8 @@ const StudyWhiteboardView: React.FC = () => {
       type: 'circle',
       x: 30 + Math.random() * 20,
       y: 25 + Math.random() * 20,
-      width: 24,
-      height: 32,
+      width: 18,
+      height: 18,
       text: 'Circle',
       color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
       bg: 'rgba(99, 102, 241, 0.08)',
@@ -1794,13 +1838,12 @@ const StudyWhiteboardView: React.FC = () => {
           ctx.fillText(obj.text, pxX + 12, pxY + 28);
         }
       } else if (obj.type === 'circle') {
-        const radiusX = pxW / 2;
-        const radiusY = pxH / 2;
-        const centerX = pxX + radiusX;
-        const centerY = pxY + radiusY;
+        const radius = pxW / 2;
+        const centerX = pxX + radius;
+        const centerY = pxY + radius;
 
         ctx.beginPath();
-        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         if (obj.bg) {
           ctx.fillStyle = obj.bg;
           ctx.fill();
@@ -1818,7 +1861,7 @@ const StudyWhiteboardView: React.FC = () => {
         }
       } else if (obj.type === 'sticky') {
         ctx.fillStyle = obj.bg || '#fef08a';
-        ctx.strokeStyle = '#eab308';
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
         ctx.lineWidth = 2;
         ctx.fillRect(pxX, pxY, pxW, pxH);
         ctx.strokeRect(pxX, pxY, pxW, pxH);
@@ -2011,6 +2054,37 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
         </div>
 
+        {/* Sticky Note Color Selector */}
+        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl">
+          <span className="text-[10px] font-bold text-zinc-400 px-1">Note:</span>
+          {STICKY_COLOR_PRESETS.slice(0, 5).map(sp => (
+            <button
+              key={sp.name}
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setPreferredStickyBg(sp.bg);
+                setPreferredStickyColor(sp.color);
+              }}
+              className={`w-4 h-4 rounded-full border border-black/15 transition-transform cursor-pointer ${
+                preferredStickyBg === sp.bg ? 'scale-125 ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-zinc-900' : 'hover:scale-110'
+              }`}
+              style={{ backgroundColor: sp.bg }}
+              title={`${sp.name} sticky note color`}
+            />
+          ))}
+          <input
+            type="color"
+            value={preferredStickyBg}
+            onChange={e => {
+              setPreferredStickyBg(e.target.value);
+              setPreferredStickyColor('#0f172a');
+            }}
+            className="w-4 h-4 rounded-full border-0 p-0 cursor-pointer bg-transparent"
+            title="Pick custom sticky note color"
+          />
+        </div>
+
         {/* Quick Add Buttons (Clean Icons with Tooltips) */}
         <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl">
           <button
@@ -2147,7 +2221,10 @@ const StudyWhiteboardView: React.FC = () => {
         {objects.map(obj => {
           const isDraggingThis = draggingId === obj.id;
           const isResizingThis = resizingId === obj.id;
-          const isShape = obj.type === 'rect' || obj.type === 'circle';
+          const isCircle = obj.type === 'circle';
+          const isRect = obj.type === 'rect';
+          const isSticky = obj.type === 'sticky';
+          const isText = obj.type === 'text';
 
           return (
             <div
@@ -2156,47 +2233,134 @@ const StudyWhiteboardView: React.FC = () => {
                 left: `${obj.x}%`,
                 top: `${obj.y}%`,
                 width: `${obj.width}%`,
-                height: `${obj.height}%`,
-                backgroundColor: obj.bg,
-                borderColor: isShape ? obj.color : undefined,
-                borderWidth: isShape ? `${obj.strokeWidth || 3}px` : undefined,
-                borderRadius: obj.type === 'circle' ? '9999px' : obj.type === 'sticky' ? '1rem' : '0.75rem',
+                height: isCircle ? undefined : `${obj.height}%`,
+                aspectRatio: isCircle ? '1 / 1' : undefined,
               }}
               onMouseDown={e => handleObjectDragStart(obj.id, e)}
               onTouchStart={e => handleObjectDragStart(obj.id, e)}
-              className={`absolute group z-20 transition-shadow select-none flex flex-col justify-between overflow-hidden ${
+              className={`absolute group z-20 transition-shadow select-none flex flex-col justify-between ${
                 isDraggingThis || isResizingThis
                   ? 'scale-[1.01] shadow-2xl ring-2 ring-indigo-500 cursor-grabbing'
                   : 'cursor-grab'
-              } ${
-                obj.type === 'sticky'
-                  ? 'p-2 border-2 border-amber-300/80 shadow-md'
-                  : obj.type === 'text'
-                  ? 'p-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border border-zinc-300 dark:border-zinc-700 shadow-sm'
-                  : 'p-2 shadow-sm'
               }`}
             >
-              {/* Top Handle Bar */}
-              <div className="flex items-center justify-between gap-1 mb-0.5 opacity-70 group-hover:opacity-100 transition-opacity shrink-0">
-                <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-600 dark:text-zinc-300 bg-white/80 dark:bg-black/50 px-1 py-0.5 rounded-md">
+              {/* Visual Shape Background Layer */}
+              {isCircle && (
+                <div
+                  className="absolute inset-0 rounded-full pointer-events-none transition-all shadow-md"
+                  style={{
+                    backgroundColor: obj.bg || 'rgba(99, 102, 241, 0.08)',
+                    borderColor: obj.color,
+                    borderWidth: `${obj.strokeWidth || 3}px`,
+                    borderStyle: 'solid',
+                  }}
+                />
+              )}
+
+              {isRect && (
+                <div
+                  className="absolute inset-0 rounded-2xl pointer-events-none transition-all shadow-sm"
+                  style={{
+                    backgroundColor: obj.bg || 'rgba(99, 102, 241, 0.08)',
+                    borderColor: obj.color,
+                    borderWidth: `${obj.strokeWidth || 3}px`,
+                    borderStyle: 'solid',
+                  }}
+                />
+              )}
+
+              {isSticky && (
+                <div
+                  className="absolute inset-0 rounded-2xl pointer-events-none transition-all shadow-md border-2 border-amber-300/80"
+                  style={{
+                    backgroundColor: obj.bg || preferredStickyBg,
+                  }}
+                />
+              )}
+
+              {isText && (
+                <div className="absolute inset-0 rounded-xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border border-zinc-300 dark:border-zinc-700 shadow-sm pointer-events-none" />
+              )}
+
+              {/* Top Handle Bar with Move, Color Selector for Sticky, Scale -/+, and Delete X */}
+              <div className="relative z-30 flex items-center justify-between gap-1 p-1 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-700 dark:text-zinc-200 bg-white/90 dark:bg-black/70 px-1.5 py-0.5 rounded-md shadow-2xs backdrop-blur-xs">
                   <Move className="w-2.5 h-2.5" />
                   <span className="capitalize">{obj.type}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleRemoveObject(obj.id);
-                  }}
-                  className="p-1 rounded-full bg-white/80 dark:bg-black/50 text-zinc-400 hover:text-rose-600 cursor-pointer"
-                  title="Remove this object"
+
+                {/* Sticky Note Quick Color Palette Dots on the Note Itself */}
+                {isSticky && (
+                  <div
+                    className="flex items-center gap-1 bg-white/90 dark:bg-black/70 px-1 py-0.5 rounded-md shadow-2xs"
+                    onMouseDown={e => e.stopPropagation()}
+                    onTouchStart={e => e.stopPropagation()}
+                  >
+                    {STICKY_COLOR_PRESETS.slice(0, 5).map(sp => (
+                      <button
+                        key={sp.name}
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleUpdateStickyColor(obj.id, sp.bg, sp.color);
+                        }}
+                        className={`w-2.5 h-2.5 rounded-full border border-black/20 transition-transform cursor-pointer hover:scale-125 ${
+                          obj.bg === sp.bg ? 'ring-1 ring-indigo-500 scale-110' : ''
+                        }`}
+                        style={{ backgroundColor: sp.bg }}
+                        title={`${sp.name} note color`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Scale Down (-), Scale Up (+), and Delete (X) Controls */}
+                <div
+                  className="flex items-center gap-0.5 bg-white/90 dark:bg-black/70 p-0.5 rounded-md shadow-2xs backdrop-blur-xs"
+                  onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
                 >
-                  <X className="w-2.5 h-2.5" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleScaleObject(obj.id, -3);
+                    }}
+                    className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                    title="Decrease size (-)"
+                    aria-label="Decrease size"
+                  >
+                    <Minus className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleScaleObject(obj.id, 3);
+                    }}
+                    className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                    title="Increase size (+)"
+                    aria-label="Increase size"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleRemoveObject(obj.id);
+                    }}
+                    className="p-0.5 rounded hover:bg-rose-100 hover:text-rose-600 text-zinc-400 cursor-pointer"
+                    title="Delete this object"
+                    aria-label="Delete object"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
               </div>
 
               {/* Editable Text / Label Area */}
-              <div className="flex-1 min-h-0 flex items-center justify-center p-0.5">
+              <div className="relative z-20 flex-1 min-h-0 flex items-center justify-center p-1 sm:p-2">
                 <textarea
                   value={obj.text || ''}
                   onChange={e => handleUpdateObjectText(obj.id, e.target.value)}
@@ -2212,10 +2376,10 @@ const StudyWhiteboardView: React.FC = () => {
               <div
                 onMouseDown={e => handleObjectResizeStart(obj.id, e)}
                 onTouchStart={e => handleObjectResizeStart(obj.id, e)}
-                className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-zinc-800/80 dark:bg-zinc-200/80 text-white dark:text-zinc-900 flex items-center justify-center cursor-se-resize shadow-md opacity-70 group-hover:opacity-100 transition-opacity z-30"
+                className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-zinc-900/90 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center cursor-se-resize shadow-md opacity-80 group-hover:opacity-100 transition-opacity z-30 hover:scale-110 active:scale-95"
                 title="Drag to resize this object"
               >
-                <Maximize2 className="w-2.5 h-2.5" />
+                <Maximize2 className="w-3 h-3" />
               </div>
             </div>
           );
