@@ -7,7 +7,7 @@ import { PdfDocumentTools } from './PdfDocumentTools';
 import {
   Plus, Trash2, Play, Pause, RotateCcw, Shuffle, Copy, Check,
   Download, Undo2, Redo2, Square, Circle, Minus, ArrowRight,
-  Eraser, Highlighter, Pen, Grid, Type, Paintbrush, Edit2, X, Move, StickyNote,
+  Eraser, Highlighter, Pen, Grid, Type, Paintbrush, Edit2, X, Move, StickyNote, Maximize2,
   BookOpen, Bookmark, Star, Calendar, Clock, MapPin, CheckCircle2, Heart, Sparkles, Bell, ExternalLink, Filter,
   Image as ImageIcon, Upload, Camera, Eye
 } from 'lucide-react';
@@ -1120,12 +1120,15 @@ type GridStyle = 'plain' | 'dots' | 'ruled' | 'grid' | 'blackboard';
 
 interface MovableObject {
   id: string;
-  type: 'text' | 'sticky';
+  type: 'text' | 'sticky' | 'rect' | 'circle';
   x: number; // percentage 0-100
   y: number; // percentage 0-100
-  text: string;
+  width: number; // percentage 5-90
+  height: number; // percentage 5-90
+  text?: string;
   color: string;
   bg?: string;
+  strokeWidth?: number;
   isEditing?: boolean;
 }
 
@@ -1155,13 +1158,15 @@ const StudyWhiteboardView: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
 
-  // Movable Objects State
+  // Movable and Resizable Objects State
   const [objects, setObjects] = useState<MovableObject[]>([
     {
       id: '1',
       type: 'sticky',
-      x: 10,
-      y: 12,
+      x: 8,
+      y: 10,
+      width: 22,
+      height: 24,
       text: '📌 Formula:\nE = mc²\nF = ma',
       color: '#854d0e',
       bg: '#fef08a',
@@ -1169,16 +1174,44 @@ const StudyWhiteboardView: React.FC = () => {
     {
       id: '2',
       type: 'text',
-      x: 48,
-      y: 15,
+      x: 35,
+      y: 10,
+      width: 26,
+      height: 14,
       text: 'Final Exam Review Topics',
       color: '#2563eb',
     },
+    {
+      id: '3',
+      type: 'rect',
+      x: 65,
+      y: 10,
+      width: 26,
+      height: 32,
+      text: 'Architecture Block',
+      color: '#2563eb',
+      bg: 'rgba(37, 99, 235, 0.08)',
+      strokeWidth: 3,
+    },
+    {
+      id: '4',
+      type: 'circle',
+      x: 35,
+      y: 40,
+      width: 22,
+      height: 32,
+      text: 'Core Concept',
+      color: '#dc2626',
+      bg: 'rgba(220, 38, 38, 0.08)',
+      strokeWidth: 3,
+    },
   ]);
 
-  // Object dragging state
+  // Object dragging & resizing state
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [resizingId, setResizingId] = useState<string | null>(null);
   const dragStartRef = useRef<{ clientX: number; clientY: number; objX: number; objY: number } | null>(null);
+  const resizeStartRef = useRef<{ clientX: number; clientY: number; startW: number; startH: number } | null>(null);
 
   // Initialize Canvas
   useEffect(() => {
@@ -1316,7 +1349,7 @@ const StudyWhiteboardView: React.FC = () => {
     const relX = Math.min(85, Math.max(5, ((clientX - rect.left) / rect.width) * 100));
     const relY = Math.min(85, Math.max(5, ((clientY - rect.top) / rect.height) * 100));
 
-    // Handle Text or Sticky note creation directly without broken prompt()
+    // Handle Text, Sticky note, Rect or Circle creation directly
     if (tool === 'text') {
       sounds.playClick();
       const newObj: MovableObject = {
@@ -1324,6 +1357,8 @@ const StudyWhiteboardView: React.FC = () => {
         type: 'text',
         x: relX,
         y: relY,
+        width: 25,
+        height: 14,
         text: 'Type note here...',
         color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
         isEditing: true,
@@ -1340,10 +1375,50 @@ const StudyWhiteboardView: React.FC = () => {
         type: 'sticky',
         x: relX,
         y: relY,
+        width: 24,
+        height: 24,
         text: 'Sticky Note\n- Important concept\n- Drag anywhere!',
         color: '#854d0e',
         bg: '#fef08a',
         isEditing: true,
+      };
+      setObjects(prev => [...prev, newObj]);
+      setTool('select');
+      return;
+    }
+
+    if (tool === 'rect') {
+      sounds.playClick();
+      const newObj: MovableObject = {
+        id: String(Date.now()),
+        type: 'rect',
+        x: relX,
+        y: relY,
+        width: 24,
+        height: 28,
+        text: 'Rectangle',
+        color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+        bg: 'rgba(99, 102, 241, 0.08)',
+        strokeWidth,
+      };
+      setObjects(prev => [...prev, newObj]);
+      setTool('select');
+      return;
+    }
+
+    if (tool === 'circle') {
+      sounds.playClick();
+      const newObj: MovableObject = {
+        id: String(Date.now()),
+        type: 'circle',
+        x: relX,
+        y: relY,
+        width: 24,
+        height: 30,
+        text: 'Circle',
+        color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+        bg: 'rgba(99, 102, 241, 0.08)',
+        strokeWidth,
       };
       setObjects(prev => [...prev, newObj]);
       setTool('select');
@@ -1454,8 +1529,8 @@ const StudyWhiteboardView: React.FC = () => {
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
     } else if ('clientX' in e) {
-      clientX = e.clientX;
-      clientY = e.clientY;
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
     }
 
     const obj = objects.find(o => o.id === id);
@@ -1470,9 +1545,37 @@ const StudyWhiteboardView: React.FC = () => {
     };
   };
 
+  // Object Resize Handlers (Mouse & Touch on bottom-right corner)
+  const handleObjectResizeStart = (id: string, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    const container = containerRef.current;
+    if (!container) return;
+
+    let clientX = 0;
+    let clientY = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+
+    const obj = objects.find(o => o.id === id);
+    if (!obj) return;
+
+    setResizingId(id);
+    resizeStartRef.current = {
+      clientX,
+      clientY,
+      startW: obj.width,
+      startH: obj.height,
+    };
+  };
+
   useEffect(() => {
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-      if (!draggingId || !dragStartRef.current || !containerRef.current) return;
+      if (!containerRef.current) return;
 
       let clientX = 0;
       let clientY = 0;
@@ -1485,15 +1588,33 @@ const StudyWhiteboardView: React.FC = () => {
       }
 
       const rect = containerRef.current.getBoundingClientRect();
-      const deltaX = ((clientX - dragStartRef.current.clientX) / rect.width) * 100;
-      const deltaY = ((clientY - dragStartRef.current.clientY) / rect.height) * 100;
 
-      const newX = Math.min(92, Math.max(0, dragStartRef.current.objX + deltaX));
-      const newY = Math.min(92, Math.max(0, dragStartRef.current.objY + deltaY));
+      // Handle Resizing
+      if (resizingId && resizeStartRef.current) {
+        const deltaW = ((clientX - resizeStartRef.current.clientX) / rect.width) * 100;
+        const deltaH = ((clientY - resizeStartRef.current.clientY) / rect.height) * 100;
 
-      setObjects(prev =>
-        prev.map(o => (o.id === draggingId ? { ...o, x: newX, y: newY } : o))
-      );
+        const newW = Math.min(85, Math.max(8, resizeStartRef.current.startW + deltaW));
+        const newH = Math.min(85, Math.max(8, resizeStartRef.current.startH + deltaH));
+
+        setObjects(prev =>
+          prev.map(o => (o.id === resizingId ? { ...o, width: newW, height: newH } : o))
+        );
+        return;
+      }
+
+      // Handle Dragging
+      if (draggingId && dragStartRef.current) {
+        const deltaX = ((clientX - dragStartRef.current.clientX) / rect.width) * 100;
+        const deltaY = ((clientY - dragStartRef.current.clientY) / rect.height) * 100;
+
+        const newX = Math.min(92, Math.max(0, dragStartRef.current.objX + deltaX));
+        const newY = Math.min(92, Math.max(0, dragStartRef.current.objY + deltaY));
+
+        setObjects(prev =>
+          prev.map(o => (o.id === draggingId ? { ...o, x: newX, y: newY } : o))
+        );
+      }
     };
 
     const handlePointerUp = () => {
@@ -1501,9 +1622,13 @@ const StudyWhiteboardView: React.FC = () => {
         setDraggingId(null);
         dragStartRef.current = null;
       }
+      if (resizingId) {
+        setResizingId(null);
+        resizeStartRef.current = null;
+      }
     };
 
-    if (draggingId) {
+    if (draggingId || resizingId) {
       window.addEventListener('mousemove', handlePointerMove);
       window.addEventListener('mouseup', handlePointerUp);
       window.addEventListener('touchmove', handlePointerMove, { passive: false });
@@ -1516,7 +1641,7 @@ const StudyWhiteboardView: React.FC = () => {
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
     };
-  }, [draggingId]);
+  }, [draggingId, resizingId]);
 
   const handleUpdateObjectText = (id: string, text: string) => {
     setObjects(prev => prev.map(o => (o.id === id ? { ...o, text } : o)));
@@ -1534,6 +1659,8 @@ const StudyWhiteboardView: React.FC = () => {
       type: 'sticky',
       x: 35 + Math.random() * 20,
       y: 30 + Math.random() * 20,
+      width: 24,
+      height: 24,
       text: 'New Sticky Note',
       color: '#854d0e',
       bg: '#fef08a',
@@ -1549,9 +1676,45 @@ const StudyWhiteboardView: React.FC = () => {
       type: 'text',
       x: 35 + Math.random() * 20,
       y: 30 + Math.random() * 20,
+      width: 25,
+      height: 14,
       text: 'Key Exam Note',
       color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
       isEditing: true,
+    };
+    setObjects(prev => [...prev, newObj]);
+  };
+
+  const handleAddRectQuick = () => {
+    sounds.playClick();
+    const newObj: MovableObject = {
+      id: String(Date.now()),
+      type: 'rect',
+      x: 30 + Math.random() * 20,
+      y: 25 + Math.random() * 20,
+      width: 26,
+      height: 30,
+      text: 'Rectangle',
+      color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+      bg: 'rgba(99, 102, 241, 0.08)',
+      strokeWidth,
+    };
+    setObjects(prev => [...prev, newObj]);
+  };
+
+  const handleAddCircleQuick = () => {
+    sounds.playClick();
+    const newObj: MovableObject = {
+      id: String(Date.now()),
+      type: 'circle',
+      x: 30 + Math.random() * 20,
+      y: 25 + Math.random() * 20,
+      width: 24,
+      height: 32,
+      text: 'Circle',
+      color: gridStyle === 'blackboard' && color === '#0f172a' ? '#ffffff' : color,
+      bg: 'rgba(99, 102, 241, 0.08)',
+      strokeWidth,
     };
     setObjects(prev => [...prev, newObj]);
   };
@@ -1609,32 +1772,70 @@ const StudyWhiteboardView: React.FC = () => {
     // 1. Draw canvas background and strokes
     ctx.drawImage(canvas, 0, 0);
 
-    // 2. Draw movable objects over the top
+    // 2. Draw movable & resizable objects over the top
     objects.forEach(obj => {
       const pxX = (obj.x / 100) * exportCanvas.width;
       const pxY = (obj.y / 100) * exportCanvas.height;
+      const pxW = (obj.width / 100) * exportCanvas.width;
+      const pxH = (obj.height / 100) * exportCanvas.height;
 
-      if (obj.type === 'sticky') {
+      if (obj.type === 'rect') {
+        if (obj.bg) {
+          ctx.fillStyle = obj.bg;
+          ctx.fillRect(pxX, pxY, pxW, pxH);
+        }
+        ctx.strokeStyle = obj.color;
+        ctx.lineWidth = obj.strokeWidth || 3;
+        ctx.strokeRect(pxX, pxY, pxW, pxH);
+
+        if (obj.text) {
+          ctx.fillStyle = obj.color;
+          ctx.font = 'bold 15px Plus Jakarta Sans, sans-serif';
+          ctx.fillText(obj.text, pxX + 12, pxY + 28);
+        }
+      } else if (obj.type === 'circle') {
+        const radiusX = pxW / 2;
+        const radiusY = pxH / 2;
+        const centerX = pxX + radiusX;
+        const centerY = pxY + radiusY;
+
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        if (obj.bg) {
+          ctx.fillStyle = obj.bg;
+          ctx.fill();
+        }
+        ctx.strokeStyle = obj.color;
+        ctx.lineWidth = obj.strokeWidth || 3;
+        ctx.stroke();
+
+        if (obj.text) {
+          ctx.fillStyle = obj.color;
+          ctx.font = 'bold 15px Plus Jakarta Sans, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(obj.text, centerX, centerY + 5);
+          ctx.textAlign = 'start';
+        }
+      } else if (obj.type === 'sticky') {
         ctx.fillStyle = obj.bg || '#fef08a';
         ctx.strokeStyle = '#eab308';
         ctx.lineWidth = 2;
-        const boxW = 220;
-        const boxH = 140;
-        ctx.fillRect(pxX, pxY, boxW, boxH);
-        ctx.strokeRect(pxX, pxY, boxW, boxH);
+        ctx.fillRect(pxX, pxY, pxW, pxH);
+        ctx.strokeRect(pxX, pxY, pxW, pxH);
 
         ctx.fillStyle = obj.color;
-        ctx.font = 'bold 15px Plus Jakarta Sans, sans-serif';
-        const lines = obj.text.split('\n');
+        ctx.font = 'bold 14px Plus Jakarta Sans, sans-serif';
+        const lines = (obj.text || '').split('\n');
         lines.forEach((line, lIdx) => {
-          ctx.fillText(line, pxX + 15, pxY + 28 + lIdx * 20);
+          ctx.fillText(line, pxX + 12, pxY + 24 + lIdx * 18);
         });
       } else {
+        // text object
         ctx.fillStyle = obj.color;
-        ctx.font = 'bold 18px Plus Jakarta Sans, sans-serif';
-        const lines = obj.text.split('\n');
+        ctx.font = 'bold 16px Plus Jakarta Sans, sans-serif';
+        const lines = (obj.text || '').split('\n');
         lines.forEach((line, lIdx) => {
-          ctx.fillText(line, pxX, pxY + 22 + lIdx * 22);
+          ctx.fillText(line, pxX + 10, pxY + 22 + lIdx * 20);
         });
       }
     });
@@ -1810,19 +2011,43 @@ const StudyWhiteboardView: React.FC = () => {
           </button>
         </div>
 
-        {/* Quick Add Buttons */}
-        <div className="flex items-center gap-1.5">
+        {/* Quick Add Buttons (Clean Icons with Tooltips) */}
+        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl">
           <button
+            type="button"
             onClick={handleAddTextQuick}
-            className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:border-indigo-400 cursor-pointer flex items-center gap-1"
+            className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-indigo-400 cursor-pointer shadow-2xs transition-all active:scale-95"
+            title="Add Movable & Resizable Text"
+            aria-label="Add Text"
           >
-            <Plus className="w-3 h-3 text-indigo-500" /> Text
+            <Type className="w-3.5 h-3.5 text-indigo-500" />
           </button>
           <button
+            type="button"
             onClick={handleAddStickyQuick}
-            className="px-2.5 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-[11px] font-bold text-amber-800 dark:text-amber-200 hover:border-amber-500 cursor-pointer flex items-center gap-1"
+            className="p-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:border-amber-500 cursor-pointer shadow-2xs transition-all active:scale-95"
+            title="Add Movable & Resizable Sticky Note"
+            aria-label="Add Sticky Note"
           >
-            <Plus className="w-3 h-3 text-amber-600" /> Sticky
+            <StickyNote className="w-3.5 h-3.5 text-amber-600" />
+          </button>
+          <button
+            type="button"
+            onClick={handleAddRectQuick}
+            className="p-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:border-indigo-500 cursor-pointer shadow-2xs transition-all active:scale-95"
+            title="Add Movable & Resizable Rectangle"
+            aria-label="Add Rectangle"
+          >
+            <Square className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleAddCircleQuick}
+            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 hover:border-rose-500 cursor-pointer shadow-2xs transition-all active:scale-95"
+            title="Add Movable & Resizable Circle"
+            aria-label="Add Circle"
+          >
+            <Circle className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -1918,32 +2143,44 @@ const StudyWhiteboardView: React.FC = () => {
           }`}
         />
 
-        {/* Movable Objects Overlay Layer (Movable via Mouse or Touch) */}
+        {/* Movable & Resizable Objects Overlay Layer (Movable & Resizable via Mouse or Touch) */}
         {objects.map(obj => {
           const isDraggingThis = draggingId === obj.id;
+          const isResizingThis = resizingId === obj.id;
+          const isShape = obj.type === 'rect' || obj.type === 'circle';
+
           return (
             <div
               key={obj.id}
               style={{
                 left: `${obj.x}%`,
                 top: `${obj.y}%`,
+                width: `${obj.width}%`,
+                height: `${obj.height}%`,
                 backgroundColor: obj.bg,
+                borderColor: isShape ? obj.color : undefined,
+                borderWidth: isShape ? `${obj.strokeWidth || 3}px` : undefined,
+                borderRadius: obj.type === 'circle' ? '9999px' : obj.type === 'sticky' ? '1rem' : '0.75rem',
               }}
               onMouseDown={e => handleObjectDragStart(obj.id, e)}
               onTouchStart={e => handleObjectDragStart(obj.id, e)}
-              className={`absolute group z-20 transition-shadow ${
-                isDraggingThis ? 'scale-105 shadow-2xl opacity-90 ring-2 ring-indigo-500 cursor-grabbing' : 'cursor-grab'
+              className={`absolute group z-20 transition-shadow select-none flex flex-col justify-between overflow-hidden ${
+                isDraggingThis || isResizingThis
+                  ? 'scale-[1.01] shadow-2xl ring-2 ring-indigo-500 cursor-grabbing'
+                  : 'cursor-grab'
               } ${
                 obj.type === 'sticky'
-                  ? 'p-3 rounded-2xl border-2 border-amber-300/80 shadow-lg min-w-[140px] max-w-[220px]'
-                  : 'p-2 rounded-xl bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xs border border-zinc-300 dark:border-zinc-700 shadow-md min-w-[120px] max-w-[240px]'
+                  ? 'p-2 border-2 border-amber-300/80 shadow-md'
+                  : obj.type === 'text'
+                  ? 'p-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border border-zinc-300 dark:border-zinc-700 shadow-sm'
+                  : 'p-2 shadow-sm'
               }`}
             >
-              {/* Drag Handle & Delete Bar */}
-              <div className="flex items-center justify-between gap-1 mb-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center gap-1 text-[10px] font-bold text-zinc-600 dark:text-zinc-400">
-                  <Move className="w-3 h-3" />
-                  <span>Drag</span>
+              {/* Top Handle Bar */}
+              <div className="flex items-center justify-between gap-1 mb-0.5 opacity-70 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-600 dark:text-zinc-300 bg-white/80 dark:bg-black/50 px-1 py-0.5 rounded-md">
+                  <Move className="w-2.5 h-2.5" />
+                  <span className="capitalize">{obj.type}</span>
                 </div>
                 <button
                   type="button"
@@ -1951,24 +2188,35 @@ const StudyWhiteboardView: React.FC = () => {
                     e.stopPropagation();
                     handleRemoveObject(obj.id);
                   }}
-                  className="p-1 rounded text-zinc-400 hover:text-rose-600 cursor-pointer"
+                  className="p-1 rounded-full bg-white/80 dark:bg-black/50 text-zinc-400 hover:text-rose-600 cursor-pointer"
                   title="Remove this object"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </div>
 
-              {/* Editable Text Area (Direct typing without prompt!) */}
-              <textarea
-                value={obj.text}
-                onChange={e => handleUpdateObjectText(obj.id, e.target.value)}
-                rows={obj.type === 'sticky' ? 3 : 2}
-                className="w-full bg-transparent resize-none border-0 p-0 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-400/50 rounded leading-snug"
-                style={{ color: obj.color }}
-                placeholder="Type text..."
-                onMouseDown={e => e.stopPropagation()}
-                onTouchStart={e => e.stopPropagation()}
-              />
+              {/* Editable Text / Label Area */}
+              <div className="flex-1 min-h-0 flex items-center justify-center p-0.5">
+                <textarea
+                  value={obj.text || ''}
+                  onChange={e => handleUpdateObjectText(obj.id, e.target.value)}
+                  className="w-full h-full bg-transparent resize-none border-0 p-0 text-center text-xs sm:text-sm font-semibold focus:outline-none leading-snug"
+                  style={{ color: obj.color }}
+                  placeholder={obj.type === 'rect' ? 'Rectangle Label...' : obj.type === 'circle' ? 'Circle Label...' : 'Type note...'}
+                  onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
+                />
+              </div>
+
+              {/* Bottom Right Resize Handle */}
+              <div
+                onMouseDown={e => handleObjectResizeStart(obj.id, e)}
+                onTouchStart={e => handleObjectResizeStart(obj.id, e)}
+                className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-zinc-800/80 dark:bg-zinc-200/80 text-white dark:text-zinc-900 flex items-center justify-center cursor-se-resize shadow-md opacity-70 group-hover:opacity-100 transition-opacity z-30"
+                title="Drag to resize this object"
+              >
+                <Maximize2 className="w-2.5 h-2.5" />
+              </div>
             </div>
           );
         })}
@@ -1976,7 +2224,7 @@ const StudyWhiteboardView: React.FC = () => {
 
       {/* Helpful Hint */}
       <div className="flex flex-wrap items-center justify-between text-[11px] text-zinc-400 px-2">
-        <span>💡 Click <strong>Text</strong> or <strong>Sticky</strong> to place cards. Drag them freely across the board with mouse or touch!</span>
+        <span>💡 Objects (<strong>Rectangle</strong>, <strong>Circle</strong>, <strong>Text</strong>, <strong>Sticky</strong>) are movable and resizable! Drag anywhere to move, or drag bottom-right corner to resize.</span>
         <span>Resolution: 1000 × 620 HD Canvas</span>
       </div>
     </div>

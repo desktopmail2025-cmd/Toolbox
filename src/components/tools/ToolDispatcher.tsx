@@ -81,6 +81,9 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
     if (tool.id === 'package-archive-converter') {
       return <PackageArchiveConverterTool key={`${tool.id}-${resetKey}`} />;
     }
+    if (tool.id === 'whiteboard-canvas') {
+      return <StudentTools key={`${tool.id}-${resetKey}`} toolId="student-whiteboard" />;
+    }
 
     switch (tool.categoryId) {
       case 'live-score':

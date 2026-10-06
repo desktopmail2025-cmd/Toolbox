@@ -433,6 +433,15 @@ export const SportsLiveScoresTool: React.FC = () => {
       // UFC Bout Cards
       if (currentLeague.id === 'ufc') {
         for (const ev of rawEvents) {
+          // Only show upcoming or games from the past 2-3 days (skip 2-3 year old historical events)
+          if (ev.date) {
+            const evDate = new Date(ev.date);
+            if (!isNaN(evDate.getTime())) {
+              const daysAgo = (Date.now() - evDate.getTime()) / (1000 * 60 * 60 * 24);
+              if (daysAgo > 3.0) continue;
+            }
+          }
+
           const comps = ev.competitions || [];
           for (const comp of comps) {
             const competitors = comp.competitors || [];
@@ -495,8 +504,17 @@ export const SportsLiveScoresTool: React.FC = () => {
           }
         }
       } else {
-        // Football, Basketball, Baseball, Hockey, F1 & Tennis handler
+        // Football, Basketball, Cricket, Baseball, Hockey, F1 & Tennis handler
         for (const ev of rawEvents) {
+          // Only show upcoming or games from the past 2-3 days (skip 2-3 year old historical events like old IPL/World Cups)
+          if (ev.date) {
+            const evDate = new Date(ev.date);
+            if (!isNaN(evDate.getTime())) {
+              const daysAgo = (Date.now() - evDate.getTime()) / (1000 * 60 * 60 * 24);
+              if (daysAgo > 3.0) continue;
+            }
+          }
+
           const comp = ev.competitions?.[0];
           if (!comp) continue;
 
@@ -995,9 +1013,9 @@ export const SportsLiveScoresTool: React.FC = () => {
             {filteredMatches.length === 0 ? (
               <div className="py-12 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800 p-6 space-y-3">
                 <Radio className="w-8 h-8 text-zinc-400 mx-auto" />
-                <p className="font-bold text-zinc-700 dark:text-zinc-200 text-sm">No live matches currently in progress for {currentLeague.name}</p>
-                <p className="text-[11px] text-zinc-400 max-w-xs mx-auto">
-                  Follow official ball-by-ball commentary, series schedules, and live scorecards directly on Google Sports:
+                <p className="font-bold text-zinc-700 dark:text-zinc-200 text-sm">No current or upcoming matches in the active 3-day window for {currentLeague.name}</p>
+                <p className="text-[11px] text-zinc-400 max-w-sm mx-auto">
+                  Only upcoming games and games from the past 2–3 days are displayed (outdated matches from previous years are filtered out).
                 </p>
                 <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
                   <button

@@ -5,7 +5,7 @@ import { sounds } from '../../utils/audio';
 import {
   Download, Upload, Trash2, PenTool, Eye, FileText,
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Copy, Check, Printer, RefreshCw, Sparkles,
-  FileSpreadsheet, Presentation, FileCode, Layers, Split, Plus, ArrowRightLeft, FileCheck, CheckCircle2, ArrowRight, FolderOpen, ExternalLink
+  FileSpreadsheet, Presentation, FileCode, Layers, Split, Plus, ArrowRightLeft, FileCheck, CheckCircle2, ArrowRight, FolderOpen, ExternalLink, X
 } from 'lucide-react';
 
 // Configure pdfjs worker
@@ -1198,6 +1198,8 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
   const [fileQueue, setFileQueue] = useState<QueuedFileItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [previewItem, setPreviewItem] = useState<QueuedFileItem | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentPreset = INTERCHANGE_PRESETS.find(p => p.id === activeMode) || INTERCHANGE_PRESETS[0];
@@ -1392,6 +1394,11 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
 
       setProgress(100);
       sounds.playSuccess();
+      const firstDone = fileQueue.find(f => f.convertedBlobUrl);
+      if (firstDone) {
+        setPreviewItem(firstDone);
+        setExportNotice(`Conversion complete for ${fileQueue.length} files. Opening "${firstDone.convertedFileName}" in viewer below!`);
+      }
     } catch {
       sounds.playTone(180, 0.4);
     } finally {
@@ -1414,11 +1421,30 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
     if (!item.convertedBlobUrl || !item.convertedFileName) return;
     sounds.playClick();
     const filename = item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`;
+    const ext = filename.split('.').pop()?.toLowerCase() || 'pdf';
+
+    const typeConfigs: Record<string, { description: string; mime: string }> = {
+      pdf: { description: 'PDF Document (*.pdf)', mime: 'application/pdf' },
+      docx: { description: 'Microsoft Word Document (*.docx)', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+      pptx: { description: 'PowerPoint Presentation (*.pptx)', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+      csv: { description: 'CSV Spreadsheet (*.csv)', mime: 'text/csv' },
+      xlsx: { description: 'Excel Spreadsheet (*.xlsx)', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      png: { description: 'PNG Image (*.png)', mime: 'image/png' },
+      jpg: { description: 'JPEG Image (*.jpg)', mime: 'image/jpeg' },
+    };
+
+    const cfg = typeConfigs[ext] || { description: `${ext.toUpperCase()} File`, mime: 'application/octet-stream' };
 
     if ('showSaveFilePicker' in window) {
       try {
         const handle = await (window as any).showSaveFilePicker({
           suggestedName: filename,
+          types: [
+            {
+              description: cfg.description,
+              accept: { [cfg.mime]: [`.${ext}`] },
+            },
+          ],
         });
         const writable = await handle.createWritable();
         const response = await fetch(item.convertedBlobUrl);
@@ -1426,20 +1452,24 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
         await writable.write(blob);
         await writable.close();
         sounds.playSuccess();
+        setExportNotice(`File successfully saved to your chosen location as "${filename}"! Opening below.`);
+        setPreviewItem(item);
         return;
       } catch (err: any) {
         if (err.name === 'AbortError') return; // User cancelled picker
       }
     }
-    // Fallback if browser doesn't support showSaveFilePicker
+    // Direct download and open in desired in-app preview
     downloadConverted(item);
+    setExportNotice(`File exported as "${filename}". Opening in viewer below!`);
+    setPreviewItem(item);
   };
 
-  // Open converted file directly in a new tab/viewer
+  // Open converted file directly in desired viewer modal and new window
   const openInTab = (item: QueuedFileItem) => {
     if (!item.convertedBlobUrl) return;
     sounds.playClick();
-    window.open(item.convertedBlobUrl, '_blank');
+    setPreviewItem(item);
   };
 
   return (
@@ -1624,15 +1654,15 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
                         <span>Save to Folder...</span>
                       </button>
 
-                      {/* Open / Preview immediately */}
+                      {/* Open / Preview immediately in viewer */}
                       <button
                         type="button"
                         onClick={() => openInTab(item)}
                         className="px-2.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                        title="Open file directly in new tab"
+                        title="Open file directly in viewer"
                       >
                         <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>Open File</span>
+                        <span>Open & View</span>
                       </button>
 
                       {/* Fast direct download */}
@@ -1647,30 +1677,155 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
                     </>
                   )}
 
-                  {/* Add File Beside Item Button */}
+                  {/* Add File Beside Item Button (Clean Icon with title) */}
                   <button
                     type="button"
                     onClick={handleBrowseFiles}
-                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                    title="Add another file next to this"
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 text-xs font-bold flex items-center justify-center cursor-pointer shadow-2xs"
+                    title="Add another file"
+                    aria-label="Add file"
                   >
                     <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span className="hidden lg:inline">Add</span>
                   </button>
 
-                  {/* Delete File Beside Item Button */}
+                  {/* Delete File Beside Item Button (Clean Icon with title) */}
                   <button
                     type="button"
                     onClick={() => removeFile(item.id)}
-                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:border-rose-800 text-zinc-400 text-xs font-bold flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
                     title="Delete this file from queue"
+                    aria-label="Delete file"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="hidden lg:inline">Delete</span>
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Export Location Notice Banner */}
+      {exportNotice && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-3 text-xs text-emerald-800 dark:text-emerald-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{exportNotice}</span>
+          </div>
+          <button
+            onClick={() => setExportNotice(null)}
+            className="p-1 text-emerald-600 hover:text-emerald-900 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* In-App Document Viewer & Desired Location Preview Modal */}
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    {previewItem.convertedFileName || previewItem.name}
+                  </h3>
+                  <span className="text-[11px] text-zinc-400">
+                    Opened in OmniToolbox Document Viewer · {(previewItem.size / 1024).toFixed(1)} KB
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => saveAsWithPicker(previewItem)}
+                  className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  title="Choose exact folder location to save file"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Save to Folder...</span>
+                </button>
+                {previewItem.convertedBlobUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (previewItem.convertedBlobUrl) {
+                        window.open(previewItem.convertedBlobUrl, '_blank');
+                      }
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Open in new window or external viewer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="hidden sm:inline">Open in Tab</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => downloadConverted(previewItem)}
+                  className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  title="Direct download file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Download</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(null)}
+                  className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 cursor-pointer"
+                  title="Close viewer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Viewer Frame */}
+            <div className="flex-1 overflow-auto p-4 bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center min-h-[380px]">
+              {previewItem.convertedFileName?.endsWith('.pdf') ? (
+                <iframe
+                  src={previewItem.convertedBlobUrl}
+                  title="Exported PDF Viewer"
+                  className="w-full h-[520px] rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white shadow-inner"
+                />
+              ) : (
+                <div className="w-full max-w-xl p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400">
+                    <FileCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                      {previewItem.convertedFileName}
+                    </h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      Document successfully prepared and converted. You can save it to any chosen folder on your computer or open it directly in Office / Google Docs.
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => saveAsWithPicker(previewItem)}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      <span>Save to Chosen Folder...</span>
+                    </button>
+                    <button
+                      onClick={() => downloadConverted(previewItem)}
+                      className="px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download File</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

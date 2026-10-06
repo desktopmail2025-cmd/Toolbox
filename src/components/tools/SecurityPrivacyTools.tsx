@@ -518,11 +518,6 @@ const WifiQrCardView: React.FC = () => {
     }
   };
 
-  const printGuestCard = () => {
-    sounds.playClick();
-    window.print();
-  };
-
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Educational Banner: How It Works */}
@@ -661,31 +656,22 @@ const WifiQrCardView: React.FC = () => {
             </p>
           </div>
 
-          {/* Action buttons including Download PDF Now Guest Card */}
+          {/* Action buttons: Download as PDF and Download PNG */}
           <div className="space-y-2">
             <button
               onClick={downloadPdfGuestCard}
               className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
             >
               <FileText className="w-4 h-4" />
-              <span>Download PDF Now Guest Card</span>
+              <span>Download as PDF</span>
             </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={downloadQrPng}
-                className="py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download PNG</span>
-              </button>
-              <button
-                onClick={printGuestCard}
-                className="py-2 px-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 hover:border-indigo-400 transition-all cursor-pointer shadow-xs active:scale-95"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Card</span>
-              </button>
-            </div>
+            <button
+              onClick={downloadQrPng}
+              className="w-full py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PNG</span>
+            </button>
           </div>
         </div>
       </div>

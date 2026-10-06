@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Zap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -24,7 +24,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      <div className="relative flex flex-col items-center text-center p-6 space-y-6 max-w-sm">
+      <div className="relative flex flex-col items-center text-center p-6 space-y-4 max-w-sm">
         {/* Glowing Logo Icon */}
         <div className="relative">
           <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-xl animate-pulse" />
@@ -33,36 +33,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           </div>
         </div>
 
-        {/* Wordmark */}
-        <div className="space-y-1.5">
+        {/* Wordmark Name Only */}
+        <div>
           <h1 className="text-3xl font-black tracking-tight text-white">
             OmniToolbox
           </h1>
-          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
-            All-in-One Utility Suite
-          </p>
         </div>
-
-        <p className="text-xs text-zinc-400 leading-relaxed max-w-xs">
-          100+ High-Performance Calculators, Scientific Solvers, Converters & Creative Utilities.
-        </p>
-
-        {/* Loading Progress Bar */}
-        <div className="w-48 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-[progress_1s_ease-in-out_infinite]" />
-        </div>
-
-        {/* Quick skip */}
-        <button
-          onClick={() => {
-            setFading(true);
-            setTimeout(onFinish, 200);
-          }}
-          className="text-[11px] text-zinc-500 hover:text-zinc-300 font-semibold cursor-pointer pt-2"
-        >
-          Skip Intro →
-        </button>
       </div>
     </div>
   );
 };
+

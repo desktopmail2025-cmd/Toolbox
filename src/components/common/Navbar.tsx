@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme } from '../../utils/themeColors';
+import { DrawerStreakWidget } from './DrawerStreakWidget';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -21,6 +22,7 @@ interface NavbarProps {
   favoriteCount?: number;
   toolFilter?: 'all' | 'offline' | 'online';
   onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
+  onOpenExitDialog?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   favoriteCount = 0,
   toolFilter = 'all',
   onSelectToolFilter,
+  onOpenExitDialog,
 }) => {
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -352,12 +355,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 sm:w-80 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 sm:w-80 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col overflow-y-auto ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Drawer Header with same logo and name at the top */}
-        <div className="p-4 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+        <div className="p-4 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -389,6 +392,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* User Engagement Streak System */}
+        <DrawerStreakWidget />
 
         {/* Quick Settings Bar in Drawer: Mood (theme), Question Mark (help), and Sound */}
         <div className="p-3 border-b border-zinc-100 dark:border-zinc-850">
@@ -574,6 +580,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 shrink-0 ml-2">
               {TOOLS.filter(t => !t.isOnline).length}
             </span>
+          </button>
+        </div>
+
+        {/* Exit Application Button */}
+        <div className="p-3 border-t border-zinc-200/80 dark:border-zinc-800/80 mt-auto bg-zinc-50/50 dark:bg-zinc-900/50">
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setIsDrawerOpen(false);
+              if (onOpenExitDialog) {
+                onOpenExitDialog();
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-900/80 transition-all cursor-pointer shadow-2xs active:scale-95"
+            title="Exit OmniToolbox session"
+          >
+            <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <span>Exit OmniToolbox</span>
           </button>
         </div>
       </aside>

@@ -6,6 +6,7 @@ import { FloatingNotesButton } from './components/common/FloatingNotesButton';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingModal } from './components/common/OnboardingModal';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
+import { ExitConfirmModal } from './components/common/ExitConfirmModal';
 import { CategoryExplorer } from './components/views/CategoryExplorer';
 import { FavoritesView } from './components/views/FavoritesView';
 import { NotesView } from './components/views/NotesView';
@@ -38,6 +39,7 @@ export default function App() {
   // Splash Screen & Professional Onboarding
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [showExitDialog, setShowExitDialog] = useState<boolean>(false);
 
   const handleFinishSplash = () => {
     setShowSplash(false);
@@ -243,6 +245,17 @@ export default function App() {
         handleGoHome();
         return;
       }
+
+      // Root level exit prompt
+      if (!activeTool && activeTab === 'categories') {
+        setShowExitDialog(true);
+        try {
+          window.history.pushState({ root: true }, '', '/');
+        } catch {
+          // ignore
+        }
+        return;
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -321,6 +334,7 @@ export default function App() {
         onOpenOnboarding={() => setShowOnboarding(true)}
         toolFilter={toolFilter}
         onSelectToolFilter={setToolFilter}
+        onOpenExitDialog={() => setShowExitDialog(true)}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
@@ -441,6 +455,12 @@ export default function App() {
 
       {/* Network Connectivity & Offline Indicator */}
       <OfflineIndicator />
+
+      {/* Exit App Confirmation Dialogue */}
+      <ExitConfirmModal
+        isOpen={showExitDialog}
+        onClose={() => setShowExitDialog(false)}
+      />
     </div>
   );
 }

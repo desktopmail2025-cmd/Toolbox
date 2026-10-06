@@ -1384,91 +1384,73 @@ const ExpenseSplitterView: React.FC = () => {
   );
 };
 
-// 11. 50/30/20 Budget Calculator (With Editable Percentages & Custom Presets)
-interface CustomBudgetPreset {
+// 11. 50/30/20 Budget Calculator (With Individual Selection & Custom Input Options)
+interface BudgetPreset {
   id: string;
   name: string;
   needs: number;
   wants: number;
   savings: number;
+  description: string;
 }
 
-const DEFAULT_PRESETS = [
-  { name: '50/30/20 Standard', needs: 50, wants: 30, savings: 20 },
-  { name: '60/20/20 High-Cost Living', needs: 60, wants: 20, savings: 20 },
-  { name: '70/20/10 Tight Margin', needs: 70, wants: 20, savings: 10 },
-  { name: '80/20 Simple (Needs+Wants / Save)', needs: 50, wants: 30, savings: 20 },
-  { name: '40/30/30 FIRE Saver', needs: 40, wants: 30, savings: 30 },
+const BUDGET_PRESETS: BudgetPreset[] = [
+  { id: 'standard', name: '50/30/20 Standard', needs: 50, wants: 30, savings: 20, description: 'Classic balanced formula for sustainable wealth' },
+  { id: 'high-cost', name: '60/20/20 High Cost', needs: 60, wants: 20, savings: 20, description: 'Urban areas with high rent and living costs' },
+  { id: 'tight-margin', name: '70/20/10 Tight Margin', needs: 70, wants: 20, savings: 10, description: 'Debt paydown or high mandatory expenses' },
+  { id: 'simple-80-20', name: '80/20 Simple Plan', needs: 50, wants: 30, savings: 20, description: '80% Living & Lifestyle / 20% Automated Savings' },
+  { id: 'fire-saver', name: '40/30/30 FIRE Saver', needs: 40, wants: 30, savings: 30, description: 'Aggressive early retirement accumulation' },
 ];
 
 const BudgetCalcView: React.FC = () => {
   const [monthlyIncome, setMonthlyIncome] = useState(4500);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('standard');
+  const [allocationMode, setAllocationMode] = useState<'preset' | 'custom'>('preset');
   const [needsPct, setNeedsPct] = useState(50);
   const [wantsPct, setWantsPct] = useState(30);
   const [savingsPct, setSavingsPct] = useState(20);
-
-  // Custom User Presets
-  const [customPresets, setCustomPresets] = useState<CustomBudgetPreset[]>(() => {
-    try {
-      const saved = localStorage.getItem('omni_custom_budget_presets');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [newPresetName, setNewPresetName] = useState('');
-  const [showAddPreset, setShowAddPreset] = useState(false);
 
   const totalPct = needsPct + wantsPct + savingsPct;
   const needs = (monthlyIncome * needsPct) / 100;
   const wants = (monthlyIncome * wantsPct) / 100;
   const savings = (monthlyIncome * savingsPct) / 100;
 
-  const setPreset = (n: number, w: number, s: number) => {
+  const handleSelectPreset = (preset: BudgetPreset) => {
     sounds.playClick();
-    setNeedsPct(n);
-    setWantsPct(w);
-    setSavingsPct(s);
+    setSelectedPresetId(preset.id);
+    setAllocationMode('preset');
+    setNeedsPct(preset.needs);
+    setWantsPct(preset.wants);
+    setSavingsPct(preset.savings);
   };
 
-  const handleSaveCustomPreset = () => {
-    if (!newPresetName.trim()) return;
-    sounds.playSuccess();
-    const newPreset: CustomBudgetPreset = {
-      id: String(Date.now()),
-      name: newPresetName.trim(),
-      needs: needsPct,
-      wants: wantsPct,
-      savings: savingsPct,
-    };
-    const updated = [...customPresets, newPreset];
-    setCustomPresets(updated);
-    try {
-      localStorage.setItem('omni_custom_budget_presets', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-    setNewPresetName('');
-    setShowAddPreset(false);
+  const handleCustomNeeds = (val: number) => {
+    setAllocationMode('custom');
+    setSelectedPresetId('custom');
+    setNeedsPct(Math.max(0, Math.min(100, val)));
   };
 
-  const handleDeleteCustomPreset = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    sounds.playClick();
-    const updated = customPresets.filter(p => p.id !== id);
-    setCustomPresets(updated);
-    try {
-      localStorage.setItem('omni_custom_budget_presets', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+  const handleCustomWants = (val: number) => {
+    setAllocationMode('custom');
+    setSelectedPresetId('custom');
+    setWantsPct(Math.max(0, Math.min(100, val)));
   };
+
+  const handleCustomSavings = (val: number) => {
+    setAllocationMode('custom');
+    setSelectedPresetId('custom');
+    setSavingsPct(Math.max(0, Math.min(100, val)));
+  };
+
+  const selectedPreset = BUDGET_PRESETS.find(p => p.id === selectedPresetId);
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+    <div className="max-w-xl mx-auto space-y-6 select-none">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 space-y-5">
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1">Monthly After-Tax Income ($)</label>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1">
+            Monthly After-Tax Income ($)
+          </label>
           <input
             type="number"
             value={monthlyIncome}
@@ -1477,136 +1459,189 @@ const BudgetCalcView: React.FC = () => {
           />
         </div>
 
-        {/* Budget Allocation Presets & Custom Presets */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        {/* Mode Selector: Individual Presets vs Custom Input Option */}
+        <div className="flex rounded-xl p-1 bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700/60">
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setAllocationMode('preset');
+              if (selectedPreset) {
+                setNeedsPct(selectedPreset.needs);
+                setWantsPct(selectedPreset.wants);
+                setSavingsPct(selectedPreset.savings);
+              }
+            }}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              allocationMode === 'preset'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            Individual Presets Selection
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setAllocationMode('custom');
+              setSelectedPresetId('custom');
+            }}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              allocationMode === 'custom'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            Custom Input Option
+          </button>
+        </div>
+
+        {/* Individual Preset Selection Cards */}
+        {allocationMode === 'preset' && (
+          <div className="space-y-2.5">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              Budget Allocation Presets
+              Select Preset Allocation
             </label>
-            <button
-              type="button"
-              onClick={() => { sounds.playClick(); setShowAddPreset(!showAddPreset); }}
-              className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
-            >
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>{showAddPreset ? 'Cancel' : '+ Save Custom Preset'}</span>
-            </button>
-          </div>
-
-          {/* Form to save current split as a custom preset */}
-          {showAddPreset && (
-            <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 flex items-center gap-2">
-              <input
-                type="text"
-                value={newPresetName}
-                onChange={e => setNewPresetName(e.target.value)}
-                placeholder={`e.g. My ${needsPct}/${wantsPct}/${savingsPct} Plan`}
-                className="flex-1 px-3 py-1.5 text-xs rounded-lg border bg-white dark:bg-zinc-900 dark:border-zinc-700 font-medium"
-              />
-              <button
-                type="button"
-                onClick={handleSaveCustomPreset}
-                disabled={!newPresetName.trim()}
-                className="px-3 py-1.5 bg-indigo-600 text-white font-semibold text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50 cursor-pointer flex items-center gap-1 shrink-0"
-              >
-                <Save className="w-3.5 h-3.5" /> Save
-              </button>
-            </div>
-          )}
-
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {DEFAULT_PRESETS.map(p => {
-              const isActive = needsPct === p.needs && wantsPct === p.wants && savingsPct === p.savings;
-              return (
-                <button
-                  key={p.name}
-                  onClick={() => setPreset(p.needs, p.wants, p.savings)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-all ${
-                    isActive
-                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent shadow-xs'
-                      : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400'
-                  }`}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
-
-            {/* User Custom Saved Presets */}
-            {customPresets.map(cp => {
-              const isActive = needsPct === cp.needs && wantsPct === cp.wants && savingsPct === cp.savings;
-              return (
-                <div
-                  key={cp.id}
-                  onClick={() => setPreset(cp.needs, cp.wants, cp.savings)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-all ${
-                    isActive
-                      ? 'bg-indigo-600 text-white border-transparent shadow-xs'
-                      : 'bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 hover:border-indigo-400'
-                  }`}
-                >
-                  <Bookmark className="w-3 h-3" />
-                  <span>{cp.name} ({cp.needs}/{cp.wants}/{cp.savings})</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {BUDGET_PRESETS.map(preset => {
+                const isSelected = selectedPresetId === preset.id;
+                return (
                   <button
+                    key={preset.id}
                     type="button"
-                    onClick={(e) => handleDeleteCustomPreset(cp.id, e)}
-                    className="p-0.5 rounded text-zinc-400 hover:text-red-500 cursor-pointer"
-                    title="Delete preset"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-indigo-600 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/40 ring-1 ring-indigo-500'
+                        : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 hover:border-zinc-300'
+                    }`}
                   >
-                    <X className="w-3 h-3" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        {preset.name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                        {preset.needs}/{preset.wants}/{preset.savings}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                      {preset.description}
+                    </p>
                   </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Editable Percentage Inputs */}
-        <div className="grid grid-cols-3 gap-3 pt-2">
-          <div>
-            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Needs (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={needsPct}
-              onChange={e => setNeedsPct(parseFloat(e.target.value) || 0)}
-              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Wants (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={wantsPct}
-              onChange={e => setWantsPct(parseFloat(e.target.value) || 0)}
-              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-zinc-500 mb-1">Savings (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={savingsPct}
-              onChange={e => setSavingsPct(parseFloat(e.target.value) || 0)}
-              className="w-full border rounded-xl p-2 font-mono text-center font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
-            />
-          </div>
-        </div>
-
-        {totalPct !== 100 && (
-          <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-xl text-center">
-            Total allocation is {totalPct}% (adjust inputs so they total 100% for a balanced budget)
+                );
+              })}
+            </div>
           </div>
         )}
+
+        {/* Custom Input Option: Individual sliders & number inputs */}
+        <div className="space-y-3 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+              {allocationMode === 'custom' ? 'Custom Allocation Inputs' : 'Fine-Tune Split'}
+            </span>
+            <span className={`text-xs font-mono font-bold ${totalPct === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
+              Total: {totalPct}%
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Needs */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300">Needs (Essentials)</span>
+                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{needsPct}% · ${(monthlyIncome * needsPct / 100).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={needsPct}
+                onChange={e => handleCustomNeeds(parseInt(e.target.value) || 0)}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+            </div>
+
+            {/* Wants */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300">Wants (Lifestyle)</span>
+                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{wantsPct}% · ${(monthlyIncome * wantsPct / 100).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={wantsPct}
+                onChange={e => handleCustomWants(parseInt(e.target.value) || 0)}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+            </div>
+
+            {/* Savings */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300">Savings & Debt Payoff</span>
+                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{savingsPct}% · ${(monthlyIncome * savingsPct / 100).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={savingsPct}
+                onChange={e => handleCustomSavings(parseInt(e.target.value) || 0)}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Quick Direct Number Inputs */}
+          <div className="grid grid-cols-3 gap-2.5 pt-2">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 mb-0.5">Needs %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={needsPct}
+                onChange={e => handleCustomNeeds(parseInt(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2 font-mono text-center text-sm font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 mb-0.5">Wants %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={wantsPct}
+                onChange={e => handleCustomWants(parseInt(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2 font-mono text-center text-sm font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 mb-0.5">Savings %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={savingsPct}
+                onChange={e => handleCustomSavings(parseInt(e.target.value) || 0)}
+                className="w-full border rounded-xl p-2 font-mono text-center text-sm font-bold bg-white dark:bg-zinc-950 dark:border-zinc-700"
+              />
+            </div>
+          </div>
+
+          {totalPct !== 100 && (
+            <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl text-center">
+              Total allocation is {totalPct}%. (Adjust so percentages sum to 100% for a balanced budget)
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <ResultCard label={`Needs (${needsPct}%)`} value={`$${needs.toFixed(2)}`} subtext="Rent, food, utilities, health" highlight />
         <ResultCard label={`Wants (${wantsPct}%)`} value={`$${wants.toFixed(2)}`} subtext="Dining, travel, hobbies" />
         <ResultCard label={`Savings & Debt (${savingsPct}%)`} value={`$${savings.toFixed(2)}`} subtext="Investments, emergency fund" />

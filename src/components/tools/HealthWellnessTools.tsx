@@ -835,17 +835,20 @@ const HIIT_PRESETS: HiitPreset[] = [
   { id: 'tabata', name: 'Tabata Standard', work: 20, rest: 10, rounds: 8, tag: '4 min · High Burn' },
   { id: 'emom', name: 'EMOM Power', work: 50, rest: 10, rounds: 10, tag: '10 min · Endurance' },
   { id: 'gibala', name: 'Gibala Sprint', work: 30, rest: 60, rounds: 5, tag: '7.5 min · VO2 Max' },
-  { id: 'boxing', name: 'Boxing 3-Min Rounds', work: 180, rest: 60, rounds: 3, tag: '12 min · Combat' },
+  { id: 'boxing', name: 'Boxing 3-Min', work: 180, rest: 60, rounds: 3, tag: '12 min · Combat' },
+  { id: 'custom', name: 'Custom Timer', work: 45, rest: 15, rounds: 6, tag: 'Custom Workout' },
 ];
 
 const HiitWorkoutTimerView: React.FC = () => {
+  const [timerMode, setTimerMode] = useState<'presets' | 'custom'>('presets');
   const [activePreset, setActivePreset] = useState<string>('tabata');
   const [workSecs, setWorkSecs] = useState(20);
   const [restSecs, setRestSecs] = useState(10);
+  const [prepSecs, setPrepSecs] = useState(5);
   const [totalRounds, setTotalRounds] = useState(8);
   const [currentRound, setCurrentRound] = useState(1);
   const [phase, setPhase] = useState<'prepare' | 'work' | 'rest' | 'complete'>('prepare');
-  const [timeLeft, setTimeLeft] = useState(5); // 5s preparation
+  const [timeLeft, setTimeLeft] = useState(5); // preparation
   const [isActive, setIsActive] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
@@ -856,6 +859,7 @@ const HiitWorkoutTimerView: React.FC = () => {
     setIsActive(false);
     setWorkSecs(preset.work);
     setRestSecs(preset.rest);
+    setPrepSecs(5);
     setTotalRounds(preset.rounds);
     setPhase('prepare');
     setCurrentRound(1);
@@ -907,7 +911,7 @@ const HiitWorkoutTimerView: React.FC = () => {
     if (phase === 'complete') {
       setPhase('prepare');
       setCurrentRound(1);
-      setTimeLeft(5);
+      setTimeLeft(prepSecs);
     }
     setIsActive(!isActive);
   };
@@ -917,57 +921,212 @@ const HiitWorkoutTimerView: React.FC = () => {
     setIsActive(false);
     setPhase('prepare');
     setCurrentRound(1);
-    setTimeLeft(5);
+    setTimeLeft(prepSecs);
   };
 
-  const totalWorkoutTimeSecs = 5 + (workSecs + restSecs) * totalRounds - restSecs;
+  const totalWorkoutTimeSecs = prepSecs + (workSecs + restSecs) * totalRounds - restSecs;
   const totalMins = Math.floor(totalWorkoutTimeSecs / 60);
   const totalSecsRem = totalWorkoutTimeSecs % 60;
 
   // Approximate calorie burn for intense HIIT ~ 12-14 kcal/min
   const estCalories = Math.round((totalWorkoutTimeSecs / 60) * 12.5);
 
-  const phaseMaxTime = phase === 'prepare' ? 5 : phase === 'work' ? workSecs : restSecs;
+  const phaseMaxTime = phase === 'prepare' ? prepSecs : phase === 'work' ? workSecs : restSecs;
   const progressPercent = Math.max(0, Math.min(100, (1 - timeLeft / (phaseMaxTime || 1)) * 100));
 
   return (
     <div className="max-w-lg mx-auto space-y-5 text-center select-none">
-      {/* 1-Click HIIT Routines Bar */}
-      <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 shadow-xs space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Workout Protocols & Presets
-          </span>
-          <span className="text-[11px] text-zinc-400">1-Tap Apply</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {HIIT_PRESETS.map(preset => {
-            const isSel = activePreset === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyPreset(preset)}
-                className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                  isSel
-                    ? 'border-indigo-600 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
-                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 hover:border-zinc-300'
-                }`}
-              >
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-50 truncate">
-                  {preset.name}
-                </div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">
-                  {preset.work}s / {preset.rest}s × {preset.rounds}R
-                </div>
-                <span className="inline-block mt-1 text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                  {preset.tag}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* Mode Switch: Popular Presets vs Custom Timer */}
+      <div className="flex rounded-2xl p-1 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            setTimerMode('presets');
+          }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            timerMode === 'presets'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-xs'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          Preset Protocols
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            setTimerMode('custom');
+            setActivePreset('custom');
+          }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            timerMode === 'custom'
+              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs ring-1 ring-indigo-500/30'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          ⚡ Custom Timer Designer
+        </button>
       </div>
+
+      {/* Preset Routines Shelf */}
+      {timerMode === 'presets' ? (
+        <div className="rounded-3xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Workout Protocols
+            </span>
+            <span className="text-[11px] text-zinc-400">1-Tap Apply</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {HIIT_PRESETS.filter(p => p.id !== 'custom').map(preset => {
+              const isSel = activePreset === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    isSel
+                      ? 'border-indigo-600 bg-indigo-50/70 dark:border-indigo-500 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 hover:border-zinc-300'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-50 truncate">
+                    {preset.name}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">
+                    {preset.work}s / {preset.rest}s × {preset.rounds}R
+                  </div>
+                  <span className="inline-block mt-1 text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    {preset.tag}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Custom Timer Controls Bar */
+        <div className="rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/30 dark:bg-indigo-950/20 p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              Custom Interval Parameters
+            </span>
+            <span className="text-xs font-mono font-bold text-zinc-500">
+              Total: {totalMins}m {totalSecsRem}s
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-left">
+            {/* Work */}
+            <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-400 block mb-1">Work (sec)</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  step={5}
+                  disabled={isActive}
+                  value={workSecs}
+                  onChange={e => {
+                    setWorkSecs(Math.max(5, parseInt(e.target.value) || 20));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full font-mono text-center font-black text-sm bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+
+            {/* Rest */}
+            <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-400 block mb-1">Rest (sec)</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={600}
+                  step={5}
+                  disabled={isActive}
+                  value={restSecs}
+                  onChange={e => {
+                    setRestSecs(Math.max(0, parseInt(e.target.value) || 10));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full font-mono text-center font-black text-sm bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+
+            {/* Rounds */}
+            <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-400 block mb-1">Rounds</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  disabled={isActive}
+                  value={totalRounds}
+                  onChange={e => {
+                    setTotalRounds(Math.max(1, Math.min(50, parseInt(e.target.value) || 8)));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full font-mono text-center font-black text-sm bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+
+            {/* Prepare */}
+            <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-400 block mb-1">Get Ready (s)</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  disabled={isActive}
+                  value={prepSecs}
+                  onChange={e => {
+                    const p = Math.max(1, parseInt(e.target.value) || 5);
+                    setPrepSecs(p);
+                    if (!isActive && phase === 'prepare') setTimeLeft(p);
+                  }}
+                  className="w-full font-mono text-center font-black text-sm bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Custom Interval Dials */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+            {[
+              { label: '30s / 30s × 8R', w: 30, r: 30, rnds: 8 },
+              { label: '45s / 15s × 6R', w: 45, r: 15, rnds: 6 },
+              { label: '40s / 20s × 10R', w: 40, r: 20, rnds: 10 },
+              { label: '60s / 30s × 5R', w: 60, r: 30, rnds: 5 },
+            ].map(shortcut => (
+              <button
+                key={shortcut.label}
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  sounds.playClick();
+                  setWorkSecs(shortcut.w);
+                  setRestSecs(shortcut.r);
+                  setTotalRounds(shortcut.rnds);
+                  setActivePreset('custom');
+                  handleReset();
+                }}
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-400 cursor-pointer shadow-2xs transition-all"
+              >
+                {shortcut.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Round Indicators Shelf */}
       <div className="flex items-center justify-center gap-1.5 flex-wrap px-2">
@@ -1054,10 +1213,36 @@ const HiitWorkoutTimerView: React.FC = () => {
         </button>
       </div>
 
-      {/* Customizable Interval Settings */}
-      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-3 text-left shadow-xs">
+      {/* Customizable Interval & Timer Settings */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-left shadow-xs">
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Work Phase (sec)</label>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-[11px] font-bold text-zinc-400">Work Interval (sec)</label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setWorkSecs(w => Math.max(5, w - 5));
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                -5s
+              </button>
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setWorkSecs(w => w + 5);
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                +5s
+              </button>
+            </div>
+          </div>
           <input
             type="number"
             disabled={isActive}
@@ -1069,8 +1254,35 @@ const HiitWorkoutTimerView: React.FC = () => {
             className="w-full border rounded-xl p-2.5 font-mono text-center font-black bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50 text-base"
           />
         </div>
+
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Rest Phase (sec)</label>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-[11px] font-bold text-zinc-400">Rest Interval (sec)</label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setRestSecs(r => Math.max(5, r - 5));
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                -5s
+              </button>
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setRestSecs(r => r + 5);
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                +5s
+              </button>
+            </div>
+          </div>
           <input
             type="number"
             disabled={isActive}
@@ -1082,8 +1294,35 @@ const HiitWorkoutTimerView: React.FC = () => {
             className="w-full border rounded-xl p-2.5 font-mono text-center font-black bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-700 disabled:opacity-50 text-base"
           />
         </div>
+
         <div>
-          <label className="block text-[11px] font-bold text-zinc-400 mb-1">Total Rounds</label>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-[11px] font-bold text-zinc-400">Total Rounds</label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setTotalRounds(r => Math.max(1, r - 1));
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                -1
+              </button>
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={() => {
+                  setActivePreset('custom');
+                  setTotalRounds(r => r + 1);
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                +1
+              </button>
+            </div>
+          </div>
           <input
             type="number"
             disabled={isActive}

@@ -122,28 +122,17 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
             }}
             className="absolute w-11 h-11 flex items-center justify-center"
           >
-            {/* Action Button */}
+            {/* Action Button (Icon Only) */}
             <button
               type="button"
               onClick={() => handleSelectOption(option.id)}
               aria-label={option.label}
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 hover:scale-105 transition-all duration-150 cursor-pointer border ${option.colorClass}`}
+              className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 hover:scale-105 transition-all duration-150 cursor-pointer border ${option.colorClass}`}
               title={option.label}
             >
               {option.icon}
-            </button>
-
-            {/* Label Pill positioned with non-overlapping clearance */}
-            <button
-              type="button"
-              onClick={() => handleSelectOption(option.id)}
-              className={`absolute ${option.labelPositionClass} whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold bg-white/95 dark:bg-zinc-900/95 text-zinc-800 dark:text-zinc-100 shadow-md border border-zinc-200/90 dark:border-zinc-800 select-none flex items-center gap-1.5 transition-all duration-200 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 ${
-                isExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-              }`}
-            >
-              <span>{option.label}</span>
               {option.badge !== undefined && (
-                <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-bold">
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-zinc-950 text-[9px] font-mono font-black shadow-xs">
                   {option.badge}
                 </span>
               )}
