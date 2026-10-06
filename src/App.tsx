@@ -20,6 +20,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
+  const [toolSessionId, setToolSessionId] = useState<number>(() => Date.now());
   const [lastOpenedToolId, setLastOpenedToolId] = useState<string | null>(() => {
     try {
       return localStorage.getItem('omni_last_tool') || null;
@@ -121,6 +122,155 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab]);
 
+  // Universal input field hint vanish on focus & restore on blur / click outside / back:
+  // Shows default value in the field as a hint; vanishes as soon as user clicks to input;
+  // restores default hint if user clears or leaves it empty and blurs/presses back.
+  useEffect(() => {
+    // Install prototype interceptors once so React re-renders don't prematurely re-inject '0' / default while user is actively focused to type
+    if (typeof window !== 'undefined' && !(window as unknown as { __omniHintEngineInit?: boolean }).__omniHintEngineInit) {
+      (window as unknown as { __omniHintEngineInit?: boolean }).__omniHintEngineInit = true;
+
+      const inputProto = window.HTMLInputElement?.prototype;
+      const originalInputSetter = inputProto ? Object.getOwnPropertyDescriptor(inputProto, 'value')?.set : null;
+      if (inputProto && originalInputSetter) {
+        Object.defineProperty(inputProto, 'value', {
+          set(val) {
+            // If input is actively focused and marked as hint-vanished, suppress re-populating default/zero during render
+            if (
+              this.dataset?.hintVanished === 'true' &&
+              document.activeElement === this &&
+              (String(val) === this.dataset.defaultVal || String(val) === '0' || String(val) === '')
+            ) {
+              return originalInputSetter.call(this, '');
+            }
+            return originalInputSetter.call(this, val);
+          },
+          configurable: true,
+        });
+      }
+
+      const textareaProto = window.HTMLTextAreaElement?.prototype;
+      const originalTextareaSetter = textareaProto ? Object.getOwnPropertyDescriptor(textareaProto, 'value')?.set : null;
+      if (textareaProto && originalTextareaSetter) {
+        Object.defineProperty(textareaProto, 'value', {
+          set(val) {
+            if (
+              this.dataset?.hintVanished === 'true' &&
+              document.activeElement === this &&
+              (String(val) === this.dataset.defaultVal || String(val) === '')
+            ) {
+              return originalTextareaSetter.call(this, '');
+            }
+            return originalTextareaSetter.call(this, val);
+          },
+          configurable: true,
+        });
+      }
+    }
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+      if (!target) return;
+      const tag = target.tagName.toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea') return;
+
+      const type = (target.getAttribute('type') || 'text').toLowerCase();
+      if (['password', 'checkbox', 'radio', 'file', 'button', 'submit', 'range', 'color', 'hidden', 'search'].includes(type)) return;
+      if (target.dataset.noAutoClear === 'true') return;
+      if (target.closest('[role="search"]') || target.closest('.search-container')) return;
+
+      // Remember initial default hint value
+      if (target.dataset.defaultVal === undefined) {
+        target.dataset.defaultVal = target.value || target.placeholder || '';
+      }
+
+      const defaultVal = target.dataset.defaultVal;
+      // When user clicks in the tool to give input:
+      // If the field shows the initial default hint (or user hasn't typed yet, or value matches default/0/placeholder), vanish the hint immediately!
+      const isDefaultHint = !target.dataset.userHasTyped ||
+        target.dataset.userHasTyped === 'false' ||
+        target.value === defaultVal ||
+        target.value === '0' ||
+        target.value === target.placeholder;
+
+      if (defaultVal && isDefaultHint) {
+        target.dataset.hintVanished = 'true';
+        target.dataset.userHasTyped = 'false';
+        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (nativeSetter) {
+          nativeSetter.call(target, '');
+          target.dispatchEvent(new Event('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          target.value = '';
+        }
+      }
+    };
+
+    const handleInput = (e: Event) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+      if (!target) return;
+      // As soon as the user enters actual input, cancel hint-vanished state and mark edited
+      target.dataset.hintVanished = 'false';
+      target.dataset.userHasTyped = 'true';
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+      if (!target) return;
+      const tag = target.tagName.toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea') return;
+
+      target.dataset.hintVanished = 'false';
+      const defaultVal = target.dataset.defaultVal;
+      if (!defaultVal) return;
+
+      // If user left it empty or only whitespace, or didn't type anything, restore the default hint value!
+      if (target.value.trim() === '' || target.dataset.userHasTyped !== 'true') {
+        target.dataset.userHasTyped = 'false';
+        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (nativeSetter) {
+          nativeSetter.call(target, defaultVal);
+          target.dispatchEvent(new Event('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          target.value = defaultVal;
+        }
+      }
+    };
+
+    const handleInputKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+      if (!target) return;
+      // If user presses Escape while in field, restore default hint value and blur
+      if (e.key === 'Escape' && target.dataset.defaultVal) {
+        const defaultVal = target.dataset.defaultVal;
+        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (nativeSetter) {
+          nativeSetter.call(target, defaultVal);
+          target.dispatchEvent(new Event('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        target.blur();
+      }
+    };
+
+    window.addEventListener('focusin', handleFocusIn, true);
+    window.addEventListener('input', handleInput, true);
+    window.addEventListener('focusout', handleFocusOut, true);
+    window.addEventListener('keydown', handleInputKeyDown, true);
+
+    return () => {
+      window.removeEventListener('focusin', handleFocusIn, true);
+      window.removeEventListener('input', handleInput, true);
+      window.removeEventListener('focusout', handleFocusOut, true);
+      window.removeEventListener('keydown', handleInputKeyDown, true);
+    };
+  }, []);
+
   // If user selected something and touched anywhere of the app, the selection vanishes immediately
   useEffect(() => {
     const handleGlobalDeselect = (e: MouseEvent | TouchEvent) => {
@@ -144,27 +294,48 @@ export default function App() {
     };
   }, []);
 
-  // Slide-to-exit gesture in every view:
-  // When user swipes inward from the edge (standard mobile back/exit gesture), trigger exit alert box
+  // Slide-to-exit gesture:
+  // When user deliberately swipes inward from the far edge (standard mobile back/exit gesture), trigger exit alert box
   useEffect(() => {
     let startX = 0;
     let startY = 0;
+    let isIgnoredTarget = false;
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
+      const target = e.target as HTMLElement | null;
+      // Do not trigger exit gesture when touching inputs, search bar, buttons, or scrollables
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.closest('input') ||
+          target.closest('button') ||
+          target.closest('header') ||
+          target.closest('aside') ||
+          target.closest('[data-search-container]') ||
+          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen)
+      ) {
+        isIgnoredTarget = true;
+        return;
+      }
+
+      isIgnoredTarget = false;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      if (isIgnoredTarget || !e.changedTouches || e.changedTouches.length === 0) return;
       const endX = e.changedTouches[0].clientX;
       const endY = e.changedTouches[0].clientY;
       const deltaX = endX - startX;
       const deltaY = endY - startY;
 
-      // Swiped inward from right edge (standard edge exit/back gesture)
-      const isRightEdgeSwipe = startX >= window.innerWidth - 55 && deltaX < -50 && Math.abs(deltaY) < Math.abs(deltaX) * 1.2;
+      // Deliberate inward swipe from the very edge of the viewport
+      const isRightEdgeSwipe =
+        startX >= window.innerWidth - 35 && deltaX < -65 && Math.abs(deltaY) < 40;
 
       if (isRightEdgeSwipe) {
         sounds.playClick();
@@ -209,7 +380,15 @@ export default function App() {
   };
 
   const handleBackToOverview = () => {
+    const closedToolId = activeTool?.id || lastOpenedToolId;
     setActiveTool(null);
+    if (closedToolId) {
+      setLastOpenedToolId(closedToolId);
+      const closedTool = TOOLS.find(t => t.id === closedToolId);
+      if (closedTool) {
+        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
+      }
+    }
     const targetTab = toolReturnTab || 'categories';
     setActiveTab(targetTab);
     try {
@@ -395,6 +574,7 @@ export default function App() {
               onSelectTool={handleSelectTool}
               onToggleFavorite={handleToggleFavorite}
               onBrowseAll={handleGoHome}
+              selectedToolId={lastOpenedToolId}
             />
           </div>
         ) : activeTab === 'games' ? (
@@ -424,19 +604,33 @@ export default function App() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {TOOLS.filter(t => t.categoryId === 'games').map(tool => (
-                <div
-                  key={tool.id}
-                  onClick={() => {
-                    sounds.playClick();
-                    handleSelectTool(tool);
-                  }}
-                  className="p-5 rounded-2xl border border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 cursor-pointer active:scale-[0.98] transition-all duration-200 shadow-xs"
-                >
-                  <h3 className="font-semibold text-sm mb-1 text-zinc-900 dark:text-zinc-100">{tool.name}</h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{tool.description}</p>
-                </div>
-              ))}
+              {TOOLS.filter(t => t.categoryId === 'games').map(tool => {
+                const isSelected = tool.id === lastOpenedToolId;
+                return (
+                  <div
+                    key={tool.id}
+                    onClick={() => {
+                      sounds.playClick();
+                      handleSelectTool(tool);
+                    }}
+                    className={`p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer active:scale-[0.98] ${
+                      isSelected
+                        ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40'
+                        : 'border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{tool.name}</h3>
+                      {isSelected && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{tool.description}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -451,6 +645,7 @@ export default function App() {
             onCollapseAll={handleCollapseAll}
             toolFilter={toolFilter}
             onSelectToolFilter={setToolFilter}
+            selectedToolId={lastOpenedToolId}
           />
         )}
       </main>

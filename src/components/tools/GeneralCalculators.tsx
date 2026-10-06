@@ -876,14 +876,14 @@ const ScientificCalcView: React.FC = () => {
 
 // 3. Percentage Calculator (3 modes)
 const PercentageCalcView: React.FC = () => {
-  const [val1, setVal1] = useState(0);
-  const [val2, setVal2] = useState(0);
+  const [val1, setVal1] = useState(20);
+  const [val2, setVal2] = useState(150);
 
-  const [val3, setVal3] = useState(0);
-  const [val4, setVal4] = useState(0);
+  const [val3, setVal3] = useState(30);
+  const [val4, setVal4] = useState(120);
 
-  const [fromVal, setFromVal] = useState(0);
-  const [toVal, setToVal] = useState(0);
+  const [fromVal, setFromVal] = useState(50);
+  const [toVal, setToVal] = useState(75);
 
   const res1 = (val1 * val2) / 100;
   const res2 = val4 !== 0 ? (val3 / val4) * 100 : 0;
@@ -989,11 +989,11 @@ const PercentageCalcView: React.FC = () => {
 
 // 4. Fraction Calculator
 const FractionCalcView: React.FC = () => {
-  const [n1, setN1] = useState(0);
-  const [d1, setD1] = useState(1);
+  const [n1, setN1] = useState(1);
+  const [d1, setD1] = useState(2);
   const [op, setOp] = useState<'+' | '-' | '×' | '÷'>('+');
-  const [n2, setN2] = useState(0);
-  const [d2, setD2] = useState(1);
+  const [n2, setN2] = useState(1);
+  const [d2, setD2] = useState(4);
 
   const gcd = (a: number, b: number): number => (b === 0 ? Math.abs(a) : gcd(b, a % b));
 
@@ -1089,9 +1089,9 @@ const FractionCalcView: React.FC = () => {
 
 // 5. Ratio Calculator
 const RatioCalcView: React.FC = () => {
-  const [a, setA] = useState<string>('0');
-  const [b, setB] = useState<string>('0');
-  const [c, setC] = useState<string>('0');
+  const [a, setA] = useState<string>('4');
+  const [b, setB] = useState<string>('3');
+  const [c, setC] = useState<string>('12');
   const [d, setD] = useState<string>('');
 
   const solveProportion = () => {
@@ -1162,7 +1162,7 @@ const RatioCalcView: React.FC = () => {
 
 // 6. Average & Statistics Calculator
 const AverageCalcView: React.FC = () => {
-  const [inputStr, setInputStr] = useState('');
+  const [inputStr, setInputStr] = useState('85, 92, 78, 90');
 
   const numbers = inputStr
     .split(/[\s,]+/)
@@ -1978,10 +1978,10 @@ const TipCalcView: React.FC = () => {
 
 // 12. Unit Price Comparison
 const UnitPriceCalcView: React.FC = () => {
-  const [p1, setP1] = useState(0);
-  const [q1, setQ1] = useState(0);
-  const [p2, setP2] = useState(0);
-  const [q2, setQ2] = useState(0);
+  const [p1, setP1] = useState(12);
+  const [q1, setQ1] = useState(4);
+  const [p2, setP2] = useState(18);
+  const [q2, setQ2] = useState(8);
 
   const unitPrice1 = q1 > 0 ? p1 / q1 : 0;
   const unitPrice2 = q2 > 0 ? p2 / q2 : 0;

@@ -2,10 +2,28 @@ import { CategoryMeta, ToolItem } from '../types';
 
 export const CATEGORIES: CategoryMeta[] = [
   {
+    id: 'quick',
+    name: 'Everyday Quick Tools',
+    iconName: 'Wrench',
+    description: 'Stopwatch, multi-timer, coin toss, 3D dice & decision wheel',
+  },
+  {
+    id: 'hot-picks',
+    name: "Today's Hot Picks",
+    iconName: 'Flame',
+    description: "Breaking headlines & trending picks from Forbes, The Guardian, CNN, BBC, Reuters & Bloomberg",
+  },
+  {
     id: 'general',
     name: 'General Calculators',
     iconName: 'Calculator',
     description: 'Everyday mathematical & numerical calculations',
+  },
+  {
+    id: 'pdf',
+    name: 'PDF & Document Tools',
+    iconName: 'FileSpreadsheet',
+    description: 'Universal document & PDF interchange suite, conversions, viewer & signature pad',
   },
   {
     id: 'finance',
@@ -20,6 +38,18 @@ export const CATEGORIES: CategoryMeta[] = [
     description: 'Unified converter across 15 scientific & metric domains',
   },
   {
+    id: 'text',
+    name: 'Text & Writing',
+    iconName: 'FileText',
+    description: 'Live text statistics, case converters, cleaners & encodings',
+  },
+  {
+    id: 'date-reminder',
+    name: 'Date Reminder',
+    iconName: 'CalendarDays',
+    description: 'Universal date organizer: customizable date reminders, event countdowns, recurring alerts & milestones',
+  },
+  {
     id: 'health',
     name: 'Health & Wellness',
     iconName: 'Heart',
@@ -32,16 +62,10 @@ export const CATEGORIES: CategoryMeta[] = [
     description: 'GPA, grades, attendance tracking, timers & citations',
   },
   {
-    id: 'home',
-    name: 'Home & Daily Life',
-    iconName: 'Home',
-    description: 'Interactive checklists, electricity, kitchen & inventory',
-  },
-  {
-    id: 'diy',
-    name: 'DIY & Construction',
-    iconName: 'Hammer',
-    description: 'Paint, tile, flooring, concrete, bricks & stairs',
+    id: 'camera',
+    name: 'Camera & Image Tools',
+    iconName: 'Camera',
+    description: 'Image compressor, color eyedropper, palette & metadata',
   },
   {
     id: 'smartphone',
@@ -50,52 +74,16 @@ export const CATEGORIES: CategoryMeta[] = [
     description: 'QR scanner/generator, screen ruler, level & magnifier',
   },
   {
-    id: 'camera',
-    name: 'Camera & Image Tools',
-    iconName: 'Camera',
-    description: 'Image compressor, color eyedropper, palette & metadata',
-  },
-  {
-    id: 'text',
-    name: 'Text & Writing',
-    iconName: 'FileText',
-    description: 'Live text statistics, case converters, cleaners & encodings',
-  },
-  {
     id: 'security',
     name: 'Security & Privacy',
     iconName: 'ShieldCheck',
     description: 'Password generator, Wi-Fi QR, PIN & secure private notes',
   },
   {
-    id: 'travel',
-    name: 'Travel & Transport',
-    iconName: 'Navigation',
-    description: 'Fuel cost, trip estimates, speed-distance & world clock',
-  },
-  {
-    id: 'internet',
-    name: 'Internet & Connectivity',
-    iconName: 'Wifi',
-    description: 'Download speeds, bandwidth usage, IP info & ping latency',
-  },
-  {
     id: 'games',
     name: 'Game Zone',
     iconName: 'Gamepad2',
-    description: 'Offline mini-games: 2048, Tic-Tac-Toe, Minesweeper & more',
-  },
-  {
-    id: 'quick',
-    name: 'Everyday Quick Tools',
-    iconName: 'Wrench',
-    description: 'Stopwatch, multi-timer, coin toss, 3D dice & decision wheel',
-  },
-  {
-    id: 'pdf',
-    name: 'PDF & Document Tools',
-    iconName: 'FileSpreadsheet',
-    description: 'Convert images/text to PDF, viewer & signature pad',
+    description: 'UNO, Blackjack 21, Card War, 2048, Sudoku, Minesweeper & more',
   },
   {
     id: 'developer',
@@ -110,16 +98,34 @@ export const CATEGORIES: CategoryMeta[] = [
     description: 'Live weather, crypto monitor, AQI, Wikipedia, NASA APOD, quotes & global data',
   },
   {
+    id: 'internet',
+    name: 'Internet & Connectivity',
+    iconName: 'Wifi',
+    description: 'Download speeds, bandwidth usage, IP info & ping latency',
+  },
+  {
+    id: 'travel',
+    name: 'Travel & Transport',
+    iconName: 'Navigation',
+    description: 'Fuel cost, trip estimates, speed-distance & world clock',
+  },
+  {
     id: 'audio-music',
     name: 'Audio & Sound Studio',
     iconName: 'Music',
     description: 'Metronome, piano keyboard, ambient focus noise, guitar pitch pipe & decibel meter',
   },
   {
-    id: 'hot-picks',
-    name: "Today's Hot Picks",
-    iconName: 'Flame',
-    description: "Breaking headlines & trending picks from Forbes, The Guardian, CNN, BBC, Reuters & Bloomberg",
+    id: 'home',
+    name: 'Home & Daily Life',
+    iconName: 'Home',
+    description: 'Interactive checklists, electricity, kitchen & inventory',
+  },
+  {
+    id: 'diy',
+    name: 'DIY & Construction',
+    iconName: 'Hammer',
+    description: 'Paint, tile, flooring, concrete, bricks & stairs',
   },
   {
     id: 'professional',
@@ -138,12 +144,6 @@ export const CATEGORIES: CategoryMeta[] = [
     name: 'Love Management',
     iconName: 'Heart',
     description: 'Couples hub: relationship goals, special anniversaries, meet-ups, memories & love tracker',
-  },
-  {
-    id: 'date-reminder',
-    name: 'Date Reminder',
-    iconName: 'CalendarDays',
-    description: 'Universal date organizer: customizable date reminders, event countdowns, recurring alerts & milestones',
   },
 ];
 
@@ -493,14 +493,6 @@ export const TOOLS: ToolItem[] = [
     description: 'Collect, track and manage books to read later with progress tracker, ratings, notes, and add/delete controls beside each item',
     iconName: 'Bookmark',
     keywords: ['book', 'reading list', 'books', 'book lovers', 'reading vault', 'shelf', 'novel', 'literature'],
-  },
-  {
-    id: 'pdf-converter-suite',
-    name: 'Document & PDF Interchange Suite',
-    categoryId: 'student',
-    description: 'Universal document interchange: PDF to PPT, PPT to Word, Word to PDF, Images to PDF, Excel to PDF with Add and Delete buttons beside each task',
-    iconName: 'FileSpreadsheet',
-    keywords: ['pdf', 'ppt', 'word', 'powerpoint', 'convert', 'interchange', 'document', 'pdf to ppt', 'ppt to word'],
   },
 
   // 5. Home & Daily Life
@@ -867,12 +859,39 @@ export const TOOLS: ToolItem[] = [
 
   // 13. Game Zone
   {
+    id: 'game-uno',
+    name: 'UNO Battle Royale (Bot & Friends)',
+    categoryId: 'games',
+    description: 'Color & number matching, action cards (+2, +4, Skip, Reverse), UNO shout with bot or online friends',
+    iconName: 'Flame',
+    keywords: ['uno', 'cards', 'card game', 'uno battle', 'color match', 'bot', 'online friends', 'multiplayer', 'room code'],
+    isOnline: true,
+  },
+  {
+    id: 'game-card-games',
+    name: 'Classic Card Games (Blackjack & War)',
+    categoryId: 'games',
+    description: 'Blackjack 21 and Card War Duel against bot dealer or online friends in multiplayer rooms',
+    iconName: 'Gamepad2',
+    keywords: ['blackjack', '21', 'card war', 'cards', 'high low', 'bot dealer', 'online friends', 'multiplayer'],
+    isOnline: true,
+  },
+  {
     id: 'game-2048',
     name: '2048 Puzzle',
     categoryId: 'games',
     description: 'Classic 2048 sliding number tile game with swipe and keyboard controls',
-    iconName: 'Grid3X3',
+    iconName: 'Game2048',
     keywords: ['2048', 'puzzle', 'tiles', 'number game', 'brain'],
+  },
+  {
+    id: 'game-sudoku',
+    name: 'Classic Sudoku Solver & Player',
+    categoryId: 'games',
+    description: 'Interactive 9x9 logic number placement grid game with cell verification',
+    iconName: 'SudokuGrid',
+    keywords: ['sudoku', 'number puzzle', 'logic grid', 'brain game'],
+    isOnline: false,
   },
   {
     id: 'game-tictactoe',
@@ -982,6 +1001,14 @@ export const TOOLS: ToolItem[] = [
   },
 
   // 15. PDF & Document Tools
+  {
+    id: 'pdf-converter-suite',
+    name: 'Document & PDF Interchange Suite',
+    categoryId: 'pdf',
+    description: 'Universal document interchange: PDF to PPT, PPT to Word, Word to PDF, Images to PDF, Excel to PDF with Add and Delete buttons beside each task',
+    iconName: 'FileSpreadsheet',
+    keywords: ['pdf', 'ppt', 'word', 'powerpoint', 'convert', 'interchange', 'document', 'pdf to ppt', 'ppt to word', 'excel to pdf'],
+  },
   {
     id: 'pdf-images-to-pdf',
     name: 'Images → PDF Converter',
@@ -1524,15 +1551,6 @@ export const TOOLS: ToolItem[] = [
     description: '4-color audio-visual sequence memory repetition challenge with increasing speed',
     iconName: 'Brain',
     keywords: ['simon', 'simon says', 'memory game', 'audio game', 'pattern game'],
-    isOnline: false,
-  },
-  {
-    id: 'game-sudoku',
-    name: 'Classic Sudoku Solver & Player',
-    categoryId: 'games',
-    description: 'Interactive 9x9 logic number placement grid game with cell verification',
-    iconName: 'Grid3X3',
-    keywords: ['sudoku', 'number puzzle', 'logic grid', 'brain game'],
     isOnline: false,
   },
   {

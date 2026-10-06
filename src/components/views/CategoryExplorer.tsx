@@ -17,6 +17,7 @@ interface CategoryExplorerProps {
   onCollapseAll: () => void;
   toolFilter?: 'all' | 'offline' | 'online';
   onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
+  selectedToolId?: string | null;
 }
 
 export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
@@ -30,7 +31,9 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onCollapseAll,
   toolFilter = 'all',
   onSelectToolFilter,
+  selectedToolId,
 }) => {
+  // The tool card is styled with active selection badge and ring without disruptive page jumping
   const recentToolItems = recents
     .map(id => TOOLS.find(t => t.id === id))
     .filter((t): t is ToolItem => t !== undefined)
@@ -223,6 +226,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-3.5">
                     {tools.map(tool => {
                       const isFav = favorites.includes(tool.id);
+                      const isSelected = selectedToolId === tool.id;
                       const catTheme = getCategoryTheme(category.id);
                       const iconTheme = getToolIconTheme(tool.id, tool.iconName);
 
@@ -230,12 +234,17 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                         <div
                           id={`tool-card-${tool.id}`}
                           key={tool.id}
+                          tabIndex={0}
                           onClick={() => {
                             sounds.playClick();
                             onSelectTool(tool);
                           }}
                           style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
-                          className="group relative flex flex-col justify-between rounded-2xl p-4.5 border border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)] transition-all duration-200 cursor-pointer select-none active:scale-[0.98]"
+                          className={`group relative flex flex-col justify-between rounded-2xl p-4.5 border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+                            isSelected
+                              ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40 dark:border-indigo-400'
+                              : 'border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)]'
+                          }`}
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3">
@@ -244,6 +253,12 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                               </div>
 
                               <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                {isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
+                                    Selected
+                                  </span>
+                                )}
+
                                 {/* Online/Offline Badges */}
                                 {tool.isOnline ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">

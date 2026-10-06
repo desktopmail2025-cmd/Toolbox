@@ -11,6 +11,7 @@ interface FavoritesViewProps {
   onSelectTool: (tool: ToolItem) => void;
   onToggleFavorite: (toolId: string) => void;
   onBrowseAll: () => void;
+  selectedToolId?: string | null;
 }
 
 export const FavoritesView: React.FC<FavoritesViewProps> = ({
@@ -18,6 +19,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   onSelectTool,
   onToggleFavorite,
   onBrowseAll,
+  selectedToolId,
 }) => {
   const favoriteTools = TOOLS.filter(t => favorites.includes(t.id));
 
@@ -64,15 +66,21 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
           {favoriteTools.map(tool => {
+            const isSelected = selectedToolId === tool.id;
             const cat = CATEGORIES.find(c => c.id === tool.categoryId);
             return (
               <div
+                id={`favorite-tool-${tool.id}`}
                 key={tool.id}
                 onClick={() => {
                   sounds.playClick();
                   onSelectTool(tool);
                 }}
-                className="group flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4.5 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 transition-all cursor-pointer shadow-xs"
+                className={`group flex flex-col justify-between rounded-2xl border p-4.5 transition-all cursor-pointer shadow-xs ${
+                  isSelected
+                    ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40'
+                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700'
+                }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -80,6 +88,11 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                       <IconRenderer name={tool.iconName} size={20} />
                     </div>
                     <div className="flex items-center gap-1.5">
+                      {isSelected && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
+                          Selected
+                        </span>
+                      )}
                       {tool.isOnline ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
                           <Globe className="w-2.5 h-2.5" />

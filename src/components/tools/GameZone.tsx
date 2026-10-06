@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { sounds } from '../../utils/audio';
 import { RotateCcw, Trophy, Zap, Play, Bomb, Flag, Sparkles, Flame, Check, HelpCircle, Undo2, Eye, Star, Info } from 'lucide-react';
 import { ExtendedUtilities } from './ExtendedUtilities';
+import { UnoBattleView, ClassicCardGamesView, UnoAndCardGamesArenaView } from './UnoAndCardGamesTool';
 
 interface ToolComponentProps {
   toolId: string;
@@ -10,6 +11,15 @@ interface ToolComponentProps {
 
 export const GameZone: React.FC<ToolComponentProps> = ({ toolId }) => {
   switch (toolId) {
+    case 'game-uno':
+    case 'uno':
+      return <UnoBattleView />;
+    case 'game-card-games':
+    case 'game-cards':
+    case 'game-blackjack':
+      return <ClassicCardGamesView />;
+    case 'game-uno-cards':
+      return <UnoAndCardGamesArenaView />;
     case 'game-2048':
       return <Game2048View />;
     case 'game-tictactoe':

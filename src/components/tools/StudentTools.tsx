@@ -618,7 +618,9 @@ const AttendanceCalcView: React.FC = () => {
 
 // 4. Pomodoro Study Timer
 const PomodoroTimerView: React.FC = () => {
-  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
+  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak' | 'custom'>('work');
+  const [customMinutes, setCustomMinutes] = useState<number>(30);
+  const [customSeconds, setCustomSeconds] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
@@ -629,6 +631,7 @@ const PomodoroTimerView: React.FC = () => {
     work: 25 * 60,
     shortBreak: 5 * 60,
     longBreak: 15 * 60,
+    custom: Math.max(1, (customMinutes || 0) * 60 + (customSeconds || 0)),
   };
 
   useEffect(() => {
@@ -642,6 +645,9 @@ const PomodoroTimerView: React.FC = () => {
               setSessionsCompleted(s => s + 1);
               setMode('shortBreak');
               return durations.shortBreak;
+            } else if (mode === 'custom') {
+              setSessionsCompleted(s => s + 1);
+              return Math.max(1, (customMinutes || 0) * 60 + (customSeconds || 0));
             } else {
               setMode('work');
               return durations.work;
@@ -657,57 +663,161 @@ const PomodoroTimerView: React.FC = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRunning, mode]);
+  }, [isRunning, mode, customMinutes, customSeconds]);
 
-  const switchMode = (newMode: 'work' | 'shortBreak' | 'longBreak') => {
+  const switchMode = (newMode: 'work' | 'shortBreak' | 'longBreak' | 'custom') => {
     sounds.playClick();
     setIsRunning(false);
     setMode(newMode);
-    setTimeLeft(durations[newMode]);
+    if (newMode === 'custom') {
+      const cTime = Math.max(1, (customMinutes || 0) * 60 + (customSeconds || 0));
+      setTimeLeft(cTime);
+    } else {
+      setTimeLeft(durations[newMode]);
+    }
+  };
+
+  const handleApplyCustomTime = (m: number, s: number) => {
+    sounds.playClick();
+    const clampedM = Math.max(0, Math.min(360, m));
+    const clampedS = Math.max(0, Math.min(59, s));
+    setCustomMinutes(clampedM);
+    setCustomSeconds(clampedS);
+    const total = Math.max(1, clampedM * 60 + clampedS);
+    if (!isRunning) {
+      setTimeLeft(total);
+    }
   };
 
   const resetTimer = () => {
     sounds.playClick();
     setIsRunning(false);
-    setTimeLeft(durations[mode]);
+    if (mode === 'custom') {
+      setTimeLeft(Math.max(1, (customMinutes || 0) * 60 + (customSeconds || 0)));
+    } else {
+      setTimeLeft(durations[mode]);
+    }
   };
+
+  const currentDuration = mode === 'custom'
+    ? Math.max(1, (customMinutes || 0) * 60 + (customSeconds || 0))
+    : durations[mode];
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const progressPercent = ((durations[mode] - timeLeft) / durations[mode]) * 100;
+  const progressPercent = Math.min(100, Math.max(0, ((currentDuration - timeLeft) / currentDuration) * 100));
 
   return (
     <div className="max-w-md mx-auto rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 shadow-sm text-center space-y-6">
-      <div className="flex justify-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-medium">
+      {/* Mode Selectors */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-medium">
         <button
           onClick={() => switchMode('work')}
-          className={`px-3 py-1.5 rounded-lg transition-colors ${mode === 'work' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold' : 'text-zinc-500'}`}
+          className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${mode === 'work' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-800'}`}
         >
           Study (25m)
         </button>
         <button
           onClick={() => switchMode('shortBreak')}
-          className={`px-3 py-1.5 rounded-lg transition-colors ${mode === 'shortBreak' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold' : 'text-zinc-500'}`}
+          className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${mode === 'shortBreak' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-800'}`}
         >
-          Short Break (5m)
+          Short (5m)
         </button>
         <button
           onClick={() => switchMode('longBreak')}
-          className={`px-3 py-1.5 rounded-lg transition-colors ${mode === 'longBreak' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold' : 'text-zinc-500'}`}
+          className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${mode === 'longBreak' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-800'}`}
         >
-          Long Break (15m)
+          Long (15m)
+        </button>
+        <button
+          onClick={() => switchMode('custom')}
+          className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${mode === 'custom' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-800'}`}
+        >
+          Custom
         </button>
       </div>
 
+      {/* Custom Time Input System */}
+      {mode === 'custom' && (
+        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200/80 dark:border-zinc-800 space-y-3 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Custom Time Setup
+            </span>
+            <span className="text-[11px] text-zinc-400">Total: {customMinutes}m {customSeconds}s</span>
+          </div>
+
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center">
+              <label className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Minutes</label>
+              <input
+                type="number"
+                min={0}
+                max={360}
+                value={customMinutes}
+                onChange={e => handleApplyCustomTime(parseInt(e.target.value) || 0, customSeconds)}
+                className="w-20 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-2 text-center font-mono text-xl font-bold text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              />
+            </div>
+            <span className="text-2xl font-bold text-zinc-400 mt-4">:</span>
+            <div className="flex flex-col items-center">
+              <label className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Seconds</label>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={customSeconds}
+                onChange={e => handleApplyCustomTime(customMinutes, parseInt(e.target.value) || 0)}
+                className="w-20 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-2 text-center font-mono text-xl font-bold text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Quick presets for custom duration */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+            {[10, 20, 30, 45, 50, 60, 90].map(mins => (
+              <button
+                key={mins}
+                type="button"
+                onClick={() => handleApplyCustomTime(mins, 0)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                  customMinutes === mins && customSeconds === 0
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                }`}
+              >
+                {mins}m
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => handleApplyCustomTime(customMinutes + 5, customSeconds)}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+              title="Add 5 minutes"
+            >
+              +5m
+            </button>
+            <button
+              type="button"
+              onClick={() => handleApplyCustomTime(Math.max(1, customMinutes - 5), customSeconds)}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+              title="Minus 5 minutes"
+            >
+              -5m
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Big Circular or Digital Timer Display */}
-      <div className="py-4">
+      <div className="py-2">
         <div className="text-6xl sm:text-7xl font-mono font-bold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums">
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
         <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden mt-6">
           <div
             style={{ width: `${progressPercent}%` }}
-            className="h-full bg-emerald-500 transition-all duration-300"
+            className={`h-full transition-all duration-300 ${mode === 'custom' ? 'bg-indigo-500' : 'bg-emerald-500'}`}
           />
         </div>
       </div>
@@ -718,15 +828,15 @@ const PomodoroTimerView: React.FC = () => {
             sounds.playClick();
             setIsRunning(!isRunning);
           }}
-          className="h-12 px-6 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-semibold flex items-center gap-2 hover:opacity-90 shadow-sm transition-opacity"
+          className="h-12 px-6 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-semibold flex items-center gap-2 hover:opacity-90 shadow-sm transition-opacity cursor-pointer active:scale-95"
         >
           {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          <span>{isRunning ? 'Pause' : 'Start Focus'}</span>
+          <span>{isRunning ? 'Pause' : mode === 'custom' ? 'Start Timer' : 'Start Focus'}</span>
         </button>
 
         <button
           onClick={resetTimer}
-          className="h-12 w-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400"
+          className="h-12 w-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 cursor-pointer active:scale-95 transition-all"
           title="Reset timer"
         >
           <RotateCcw className="w-4 h-4" />
@@ -1790,16 +1900,29 @@ const StudyWhiteboardView: React.FC = () => {
   };
 
   const handleClear = () => {
-    if (window.confirm('Clear whiteboard drawings and movable notes?')) {
-      sounds.playClick();
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      redrawBackground(ctx, canvas.width, canvas.height, gridStyle);
-      setObjects([]);
-      saveHistoryStep();
-    }
+    sounds.playClick();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    redrawBackground(ctx, canvas.width, canvas.height, gridStyle);
+    setObjects([]);
+    saveHistoryStep();
+  };
+
+  const handleResetWhiteboard = () => {
+    sounds.playClick();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    setGridStyle('grid');
+    setColor('#0f172a');
+    setStrokeWidth(3);
+    setTool('pen');
+    redrawBackground(ctx, canvas.width, canvas.height, 'grid');
+    setObjects([]);
+    saveHistoryStep();
   };
 
   // Render combined high-res canvas with drawings AND movable objects
@@ -1942,11 +2065,18 @@ const StudyWhiteboardView: React.FC = () => {
             <Redo2 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={handleClear}
-            className="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1 cursor-pointer"
-            title="Clear all drawings"
+            onClick={handleResetWhiteboard}
+            className="px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            title="Reset whiteboard to default blank state"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Clear
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
+          </button>
+          <button
+            onClick={handleClear}
+            className="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            title="Delete all drawings and movable notes"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete
           </button>
           <button
             onClick={handleCopyImage}

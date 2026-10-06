@@ -43,16 +43,42 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Lock body scroll and prevent touch through when drawer is open
+  // Lock body and html scroll and prevent touch through when drawer is open
   useEffect(() => {
     if (isDrawerOpen) {
-      const prevOverflow = document.body.style.overflow;
+      const scrollY = window.scrollY;
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
       const prevTouchAction = document.body.style.touchAction;
+      const prevBodyPosition = document.body.style.position;
+      const prevBodyTop = document.body.style.top;
+      const prevBodyWidth = document.body.style.width;
+
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+
+      const preventBackgroundScroll = (e: TouchEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (!target?.closest('aside')) {
+          e.preventDefault();
+        }
+      };
+
+      document.addEventListener('touchmove', preventBackgroundScroll, { passive: false });
+
       return () => {
-        document.body.style.overflow = prevOverflow;
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
         document.body.style.touchAction = prevTouchAction;
+        document.body.style.position = prevBodyPosition;
+        document.body.style.top = prevBodyTop;
+        document.body.style.width = prevBodyWidth;
+        window.scrollTo(0, scrollY);
+        document.removeEventListener('touchmove', preventBackgroundScroll);
       };
     }
   }, [isDrawerOpen]);
@@ -104,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isClosingViaBackRef = useRef(false);
 
   // Helper to completely reset search to unopened and unselected
-  const resetSearchToUnopened = (options?: { fromPopState?: boolean }) => {
+  const resetSearchToUnopened = () => {
     if (inputRef.current) {
       inputRef.current.blur();
     }
@@ -117,33 +143,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (selection) {
       selection.removeAllRanges();
     }
-
-    // Safely sync history if entry was pushed and closing wasn't caused by popstate
-    if (searchHistoryPushedRef.current) {
-      searchHistoryPushedRef.current = false;
-      if (!options?.fromPopState) {
-        isClosingViaBackRef.current = true;
-        try {
-          window.history.back();
-        } catch {
-          // ignore
-        }
-      }
-    }
   };
 
   const handleOpenSearch = () => {
     setIsSearchOpen(true);
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
-
-    if (!searchHistoryPushedRef.current) {
-      try {
-        window.history.pushState({ omniSearchOpen: true }, '', window.location.href);
-        searchHistoryPushedRef.current = true;
-      } catch {
-        // ignore
-      }
-    }
   };
 
   // Close search and unselect if user touches/clicks anywhere outside
@@ -162,21 +166,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       document.removeEventListener('pointerdown', handleInteractionOutside);
     };
   }, [isSearchOpen]);
-
-  // Back button / gesture handler: if user presses back while search is active, dismiss and return to unopened
-  useEffect(() => {
-    const handlePopState = () => {
-      if (isClosingViaBackRef.current) {
-        isClosingViaBackRef.current = false;
-        return;
-      }
-      if (isSearchOpen || searchHistoryPushedRef.current || document.activeElement === inputRef.current || query) {
-        resetSearchToUnopened({ fromPopState: true });
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSearchOpen, query]);
 
   // Keyboard shortcut listener: Cmd/Ctrl+K opens/focuses search, ESC closes it
   useEffect(() => {
@@ -245,7 +234,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Zone 2: Search Bar directly to the right of the app name */}
-          <div ref={searchContainerRef} className={`flex-1 max-w-md relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
+          <div ref={searchContainerRef} data-search-container="true" className={`flex-1 max-w-md relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
             <div className={`flex items-center rounded-xl border bg-zinc-50 dark:bg-zinc-900 transition-all overflow-hidden h-9 px-2.5 ${
               isSearchOpen
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-white dark:bg-zinc-900'
@@ -255,6 +244,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <input
                 ref={inputRef}
                 type="text"
+                data-no-auto-clear="true"
+                data-search-input="true"
                 value={query}
                 onChange={e => {
                   setQuery(e.target.value);
@@ -314,48 +305,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
-              <kbd className="hidden sm:inline-flex items-center rounded bg-zinc-200/70 dark:bg-zinc-800 px-1.5 py-0.5 text-[9px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0 ml-1">
-                ⌘K
-              </kbd>
             </div>
-          </div>
-
-          {/* Zone 3: Mode, Question, and Sound buttons — Desktop Only (Moved to drawer on mobile) */}
-          <div className="hidden md:flex items-center gap-1.5 shrink-0">
-            {/* Mode button (Dark/Light toggle) */}
-            <button
-              onClick={onToggleDarkMode}
-              aria-label="Toggle color theme"
-              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
-              title="Switch Dark/Light Mode"
-            >
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Question button (Help & Guide) */}
-            {onOpenOnboarding && (
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  onOpenOnboarding();
-                }}
-                aria-label="Quick Tour & Guide"
-                className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
-                title="Quick App Tour & Guide (?)"
-              >
-                <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              </button>
-            )}
-
-            {/* Sound button */}
-            <button
-              onClick={onToggleSound}
-              aria-label="Toggle sound effects"
-              className="flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
-              title={soundEnabled ? 'Mute tactile audio' : 'Enable tactile audio'}
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
-            </button>
           </div>
         </div>
       </header>

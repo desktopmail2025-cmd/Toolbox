@@ -4642,28 +4642,51 @@ const SudokuView: React.FC = () => {
 // 33. Digital Whiteboard Sketchpad
 const WhiteboardCanvasView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [color, setColor] = useState('#000000');
+  const [color, setColor] = useState('#0f172a');
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const startDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    if ('touches' in e) {
+      const touch = e.touches[0] || e.changedTouches[0];
+      return {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    ctx.moveTo(x, y);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    const { x, y } = getCanvasCoords(e);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 
@@ -4674,28 +4697,81 @@ const WhiteboardCanvasView: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
   };
 
+  const resetCanvas = () => {
+    sounds.playClick();
+    setColor('#0f172a');
+    clearCanvas();
+  };
+
+  useEffect(() => {
+    // Fill white background on mount
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  }, []);
+
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
+    <div className="space-y-4 max-w-xl mx-auto select-none">
       <div className="flex justify-between items-center pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Digital Whiteboard Sketchpad</h2>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Digital Whiteboard Sketchpad</h2>
+          <span className="text-[11px] text-zinc-400">Sketch & draw with mouse or touch</span>
+        </div>
         <div className="flex gap-2 items-center">
-          <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-7 h-7 rounded-lg cursor-pointer" />
-          <button onClick={clearCanvas} className="px-3 py-1 text-xs border rounded-lg hover:bg-zinc-100">Clear</button>
+          <input
+            type="color"
+            value={color}
+            onChange={e => setColor(e.target.value)}
+            className="w-7 h-7 rounded-lg cursor-pointer"
+            title="Pick color"
+          />
+          <button
+            type="button"
+            onClick={resetCanvas}
+            className="px-2.5 py-1 text-xs font-bold border border-amber-300 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-400 cursor-pointer transition-colors"
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={clearCanvas}
+            className="px-2.5 py-1 text-xs font-bold border border-rose-300 dark:border-rose-800 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 cursor-pointer transition-colors"
+          >
+            Delete All
+          </button>
         </div>
       </div>
 
       <canvas
         ref={canvasRef}
-        width={500}
-        height={320}
+        width={750}
+        height={480}
         onMouseDown={startDraw}
         onMouseMove={draw}
         onMouseUp={stopDraw}
         onMouseLeave={stopDraw}
-        className="w-full h-80 rounded-3xl border border-zinc-300 dark:border-zinc-700 bg-white cursor-crosshair shadow-sm"
+        onTouchStart={e => {
+          e.preventDefault();
+          startDraw(e);
+        }}
+        onTouchMove={e => {
+          e.preventDefault();
+          draw(e);
+        }}
+        onTouchEnd={stopDraw}
+        className="w-full h-80 rounded-3xl border border-zinc-300 dark:border-zinc-700 bg-white cursor-crosshair shadow-sm touch-none"
       />
     </div>
   );

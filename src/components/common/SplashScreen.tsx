@@ -9,11 +9,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Fade out after 1.1s
+    // Fade out after 650ms for a swift, professional launch
     const timer = setTimeout(() => {
       setFading(true);
-      setTimeout(onFinish, 400);
-    }, 1100);
+      setTimeout(onFinish, 250);
+    }, 650);
 
     return () => clearTimeout(timer);
   }, [onFinish]);

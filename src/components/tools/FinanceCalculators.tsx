@@ -48,9 +48,9 @@ export const FinanceCalculators: React.FC<ToolComponentProps> = ({ toolId }) => 
 
 // 1. EMI / Loan Calculator
 const LoanEmiCalcView: React.FC = () => {
-  const [loanAmount, setLoanAmount] = useState(0);
-  const [interestRate, setInterestRate] = useState(0);
-  const [tenureYears, setTenureYears] = useState(0);
+  const [loanAmount, setLoanAmount] = useState(10000);
+  const [interestRate, setInterestRate] = useState(7.5);
+  const [tenureYears, setTenureYears] = useState(3);
 
   const monthlyRate = interestRate / 12 / 100;
   const totalMonths = tenureYears * 12;
