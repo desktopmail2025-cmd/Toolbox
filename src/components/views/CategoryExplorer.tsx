@@ -240,10 +240,10 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             onSelectTool(tool);
                           }}
                           style={{ '--cat-accent': catTheme.accent } as React.CSSProperties}
-                          className={`group relative flex flex-col justify-between rounded-2xl p-4.5 border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+                          className={`group relative flex flex-col justify-between rounded-2xl p-4.5 border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] tool-card-hover ${
                             isSelected
                               ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40 dark:border-indigo-400'
-                              : 'border-zinc-200/90 bg-white hover:border-[var(--cat-accent)] hover:ring-2 hover:ring-[var(--cat-accent)]/20 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-[var(--cat-accent)]'
+                              : 'border-zinc-200/90 bg-white dark:border-zinc-800/90 dark:bg-zinc-900'
                           }`}
                         >
                           <div>

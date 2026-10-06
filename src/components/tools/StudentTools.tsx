@@ -40,6 +40,7 @@ export const StudentTools: React.FC<ToolComponentProps> = ({ toolId }) => {
     case 'group-generator':
       return <GroupGeneratorView />;
     case 'student-whiteboard':
+    case 'whiteboard-canvas':
       return <StudyWhiteboardView />;
     case 'book-reading-list':
     case 'book-lover-list':
@@ -540,23 +541,21 @@ const AttendanceCalcView: React.FC = () => {
   const [totalClasses, setTotalClasses] = useState(48);
   const [targetPercent, setTargetPercent] = useState(75);
 
-  const currentPercent = totalClasses > 0 ? (attended / totalClasses) * 100 : 0;
+  const safeTotal = Math.max(1, totalClasses);
+  const currentPercent = (attended / safeTotal) * 100;
 
-  // If below target: how many consecutive classes to attend?
-  // (attended + x) / (total + x) >= target/100
-  // attended + x >= 0.75 total + 0.75 x
-  // 0.25 x >= 0.75 total - attended
-  // x = (target * total - 100 * attended) / (100 - target)
+  // Safe percentage goal between 1% and 99.9%
+  const safeTarget = Math.min(99.9, Math.max(1, targetPercent));
+
   let neededClasses = 0;
   let canBunk = 0;
 
   if (currentPercent < targetPercent) {
-    neededClasses = Math.ceil((targetPercent * totalClasses - 100 * attended) / (100 - targetPercent));
+    const rawNeeded = (safeTarget * safeTotal - 100 * attended) / (100 - safeTarget);
+    neededClasses = isFinite(rawNeeded) ? Math.max(0, Math.ceil(rawNeeded)) : 0;
   } else {
-    // If above target: how many classes can you miss?
-    // attended / (total + y) >= target/100
-    // total + y <= 100 * attended / target
-    canBunk = Math.floor((100 * attended) / targetPercent - totalClasses);
+    const rawBunk = (100 * attended) / safeTarget - safeTotal;
+    canBunk = isFinite(rawBunk) ? Math.max(0, Math.floor(rawBunk)) : 0;
   }
 
   return (
@@ -879,6 +878,13 @@ const ExamCountdownView: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState('');
 
+  // Live timer interval to keep countdowns ticking every second
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const saveExamsToStorage = (updated: ExamItem[]) => {
     setExams(updated);
     try {
@@ -1159,9 +1165,10 @@ const GroupGeneratorView: React.FC = () => {
     // Shuffle
     const shuffled = [...list].sort(() => Math.random() - 0.5);
 
-    const groups: string[][] = Array.from({ length: numGroups }, () => []);
+    const safeCount = Math.max(1, Math.min(50, numGroups || 1));
+    const groups: string[][] = Array.from({ length: safeCount }, () => []);
     shuffled.forEach((name, index) => {
-      groups[index % numGroups].push(name);
+      groups[index % safeCount].push(name);
     });
 
     setGeneratedGroups(groups);
@@ -1977,13 +1984,21 @@ const StudyWhiteboardView: React.FC = () => {
     const exportCanvas = getCombinedCanvas();
     if (!exportCanvas) return;
     try {
-      exportCanvas.toBlob(blob => {
-        if (!blob) return;
-        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        sounds.playSuccess();
-        setCopiedSuccess(true);
-        setTimeout(() => setCopiedSuccess(false), 2000);
-      });
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        exportCanvas.toBlob(async blob => {
+          if (!blob) return;
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            sounds.playSuccess();
+            setCopiedSuccess(true);
+            setTimeout(() => setCopiedSuccess(false), 2000);
+          } catch {
+            handleDownload();
+          }
+        });
+      } else {
+        handleDownload();
+      }
     } catch {
       handleDownload();
     }
@@ -2611,7 +2626,7 @@ const BookReadingListView: React.FC = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (PNG, JPG, WebP).');
+      sounds.playTone(300, 0.2);
       return;
     }
 

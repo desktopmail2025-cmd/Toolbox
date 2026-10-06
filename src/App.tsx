@@ -446,6 +446,7 @@ export default function App() {
       }
 
       if (state?.tab) {
+        setStarredSelectedToolId(null);
         if (state.tab === 'categories') {
           setActiveTool(null);
           setActiveTab('categories');
