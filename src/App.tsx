@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/common/Navbar';
-import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
 import { SplashScreen } from './components/common/SplashScreen';
@@ -295,8 +294,181 @@ export default function App() {
     };
   }, []);
 
-  // Slide-to-exit gesture:
-  // When user deliberately swipes inward from the far edge (standard mobile back/exit gesture), trigger exit alert box
+  // Initialize root and home history entries so Android system back won't immediately exit app
+  useEffect(() => {
+    try {
+      if (!window.history.state || !window.history.state.__omniApp) {
+        window.history.replaceState({ __omniApp: true, level: 'root' }, '');
+        window.history.pushState({ __omniApp: true, level: 'home' }, '');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSelectTool = (tool: ToolItem) => {
+    sounds.playClick();
+    // Preserve current scroll position
+    setSavedScrollPos(window.scrollY);
+
+    // Remember the tab the tool was opened from (e.g. 'favorites' if opened from Starred screen)
+    const sourceTab = activeTab;
+    setToolReturnTab(sourceTab);
+
+    setLastOpenedToolId(tool.id);
+    try {
+      localStorage.setItem('omni_last_tool', tool.id);
+    } catch {
+      // ignore
+    }
+    setActiveTool(tool);
+    addStoredRecent(tool.id);
+    setRecents(getStoredRecents());
+    try {
+      window.history.pushState(
+        { __omniApp: true, level: 'tool', toolId: tool.id, returnTab: sourceTab },
+        '',
+        `?tool=${tool.id}`
+      );
+    } catch {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const handleBackToOverview = (pushState: boolean = true) => {
+    const closedToolId = activeTool?.id || lastOpenedToolId;
+    setActiveTool(null);
+    if (closedToolId) {
+      setLastOpenedToolId(closedToolId);
+      const closedTool = TOOLS.find(t => t.id === closedToolId);
+      if (closedTool) {
+        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
+      }
+    }
+    const targetTab = toolReturnTab || 'categories';
+    setActiveTab(targetTab);
+    if (targetTab === 'favorites') {
+      setStarredSelectedToolId(closedToolId || null);
+    } else {
+      setStarredSelectedToolId(null);
+    }
+    if (pushState) {
+      try {
+        window.history.pushState(
+          { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab },
+          '',
+          targetTab === 'categories' ? '/' : `?tab=${targetTab}`
+        );
+      } catch {
+        // ignore
+      }
+    }
+    // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
+    if (targetTab === 'categories') {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  };
+
+  const handleGoHome = (pushState: boolean = true) => {
+    sounds.playClick();
+    setActiveTool(null);
+    setStarredSelectedToolId(null);
+    setActiveTab('categories');
+    setToolReturnTab('categories');
+    if (pushState) {
+      try {
+        window.history.pushState({ __omniApp: true, level: 'home', tab: 'categories' }, '', '/');
+      } catch {
+        // ignore
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  // Unified Back Handler:
+  // 1. If Exit Dialog is open: close it
+  // 2. If Search is open: close it
+  // 3. If a tool is open: close tool and return to home/overview, PLAY SOUND, DO NOT EXIT APP!
+  // 4. If on Notes/Starred/Games: return to home screen, DO NOT EXIT APP!
+  // 5. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
+  const handleBackAction = (viaHistoryPop: boolean = false) => {
+    if (showExitDialog) {
+      setShowExitDialog(false);
+      return;
+    }
+
+    if (isSearchOpen) {
+      setIsSearchOpen(false);
+      return;
+    }
+
+    // A tool is opened -> Close the tool and return to overview!
+    if (activeTool) {
+      sounds.playClick();
+      handleBackToOverview(!viaHistoryPop);
+      return;
+    }
+
+    // Other tab is opened -> Return to home screen!
+    if (activeTab !== 'categories') {
+      sounds.playClick();
+      handleGoHome(!viaHistoryPop);
+      return;
+    }
+
+    // User is on home screen: Show the exit alert dialogue!
+    sounds.playClick();
+    setShowExitDialog(true);
+    if (viaHistoryPop) {
+      try {
+        window.history.pushState({ __omniApp: true, level: 'home' }, '');
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Browser back button / popstate handler
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      // If search in navbar was open when back was pressed, close it
+      if ((window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen || e.state?.omniSearchOpen) {
+        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+        return;
+      }
+
+      handleBackAction(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeTool, activeTab, isSearchOpen, showExitDialog, toolReturnTab, savedScrollPos]);
+
+  // Native Android & Capacitor Back Button Listener
+  useEffect(() => {
+    const handleNativeBack = (e: Event) => {
+      e.preventDefault();
+      handleBackAction(false);
+    };
+
+    document.addEventListener('backbutton', handleNativeBack);
+    window.addEventListener('ionBackButton', handleNativeBack);
+
+    return () => {
+      document.removeEventListener('backbutton', handleNativeBack);
+      window.removeEventListener('ionBackButton', handleNativeBack);
+    };
+  }, [activeTool, activeTab, isSearchOpen, showExitDialog]);
+
+  // Universal Edge Slide Gesture (swiping back from left or right screen edge):
+  // When in a tool: returns to home/overview
+  // When in another tab: returns to home
+  // When on home screen: shows the exit confirmation dialogue!
   useEffect(() => {
     let startX = 0;
     let startY = 0;
@@ -305,7 +477,7 @@ export default function App() {
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       const target = e.target as HTMLElement | null;
-      // Do not trigger exit gesture when touching inputs, search bar, buttons, or scrollables
+      // Do not trigger edge back gesture when touching inputs, search, buttons, or scroll sliders
       if (
         target &&
         (target.tagName === 'INPUT' ||
@@ -334,13 +506,13 @@ export default function App() {
       const deltaX = endX - startX;
       const deltaY = endY - startY;
 
-      // Deliberate inward swipe from the very edge of the viewport
-      const isRightEdgeSwipe =
-        startX >= window.innerWidth - 35 && deltaX < -65 && Math.abs(deltaY) < 40;
+      // Deliberate inward swipe from the edge (standard mobile back gesture):
+      // Left edge swipe (swiping right from screen left) OR Right edge swipe (swiping left from screen right)
+      const isLeftEdgeSwipe = startX <= 45 && deltaX > 55 && Math.abs(deltaY) < 45;
+      const isRightEdgeSwipe = startX >= window.innerWidth - 45 && deltaX < -55 && Math.abs(deltaY) < 45;
 
-      if (isRightEdgeSwipe) {
-        sounds.playClick();
-        setShowExitDialog(true);
+      if (isLeftEdgeSwipe || isRightEdgeSwipe) {
+        handleBackAction(false);
       }
     };
 
@@ -351,138 +523,7 @@ export default function App() {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
-
-  const handleSelectTool = (tool: ToolItem) => {
-    // Preserve current scroll position
-    setSavedScrollPos(window.scrollY);
-
-    // Remember the tab the tool was opened from (e.g. 'favorites' if opened from Starred screen)
-    const sourceTab = activeTab;
-    setToolReturnTab(sourceTab);
-
-    // Categories remain in collapsed form always unless user explicitly clicks expand/collapse
-
-    setLastOpenedToolId(tool.id);
-    try {
-      localStorage.setItem('omni_last_tool', tool.id);
-    } catch {
-      // ignore
-    }
-    setActiveTool(tool);
-    addStoredRecent(tool.id);
-    setRecents(getStoredRecents());
-    try {
-      window.history.pushState({ toolId: tool.id, returnTab: sourceTab }, '', `?tool=${tool.id}`);
-    } catch {
-      // ignore
-    }
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  };
-
-  const handleBackToOverview = () => {
-    const closedToolId = activeTool?.id || lastOpenedToolId;
-    setActiveTool(null);
-    if (closedToolId) {
-      setLastOpenedToolId(closedToolId);
-      const closedTool = TOOLS.find(t => t.id === closedToolId);
-      if (closedTool) {
-        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
-      }
-    }
-    const targetTab = toolReturnTab || 'categories';
-    setActiveTab(targetTab);
-    if (targetTab === 'favorites') {
-      setStarredSelectedToolId(closedToolId || null);
-    } else {
-      setStarredSelectedToolId(null);
-    }
-    try {
-      window.history.pushState({ tab: targetTab }, '', targetTab === 'categories' ? '/' : `?tab=${targetTab}`);
-    } catch {
-      // ignore
-    }
-    // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
-    if (targetTab === 'categories') {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
-      });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }
-  };
-
-  // Browser back button / gesture handler: first return to tool left off, then on another press to home
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      // If search in navbar was open when back was pressed, it was closed - don't navigate away
-      if ((window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen || e.state?.omniSearchOpen) {
-        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
-        return;
-      }
-
-      // If full search modal was open, close it
-      if (isSearchOpen) {
-        setIsSearchOpen(false);
-        return;
-      }
-
-      const state = e.state;
-      if (state?.toolId) {
-        const found = TOOLS.find(t => t.id === state.toolId);
-        if (found) {
-          setActiveTool(found);
-          if (state.returnTab) {
-            setToolReturnTab(state.returnTab);
-          }
-          return;
-        }
-      }
-
-      // If returning from tool, navigate back to the tab it was opened from (e.g. Starred)
-      if (activeTool) {
-        handleBackToOverview();
-        return;
-      }
-
-      if (state?.tab) {
-        setStarredSelectedToolId(null);
-        if (state.tab === 'categories') {
-          setActiveTool(null);
-          setActiveTab('categories');
-          setToolReturnTab('categories');
-        } else {
-          setActiveTool(null);
-          setActiveTab(state.tab);
-          setToolReturnTab(state.tab);
-        }
-        return;
-      }
-      // If user came from a tool to notes/starred, back takes them to tool
-      if (activeTab !== 'categories' && activeTool) {
-        setActiveTab('categories');
-        return;
-      }
-      // If user was on notes/starred/games, back takes them to home
-      if (activeTab !== 'categories') {
-        handleGoHome();
-        return;
-      }
-
-      // Root level exit prompt
-      if (!activeTool && activeTab === 'categories') {
-        setShowExitDialog(true);
-        try {
-          window.history.pushState({ root: true }, '', '/');
-        } catch {
-          // ignore
-        }
-        return;
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [activeTool, activeTab, savedScrollPos, isSearchOpen, toolReturnTab]);
+  }, [activeTool, activeTab, isSearchOpen, showExitDialog]);
 
   const handleToggleFavorite = (toolId: string) => {
     const updated = favorites.includes(toolId)
@@ -500,20 +541,6 @@ export default function App() {
   const handleToggleDarkMode = () => {
     sounds.playClick();
     setDarkMode(prev => !prev);
-  };
-
-  const handleGoHome = () => {
-    sounds.playClick();
-    setActiveTool(null);
-    setStarredSelectedToolId(null);
-    setActiveTab('categories');
-    setToolReturnTab('categories');
-    try {
-      window.history.pushState({ tab: 'categories' }, '', '/');
-    } catch {
-      // ignore
-    }
-    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleSelectTab = (tab: string) => {
@@ -564,7 +591,7 @@ export default function App() {
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
         {activeTool ? (
           <ToolDispatcher
             tool={activeTool}
@@ -592,7 +619,7 @@ export default function App() {
             <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
               <button
                 type="button"
-                onClick={handleGoHome}
+                onClick={() => handleGoHome()}
                 className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
                 title="Back to Home"
                 aria-label="Back to Home"
@@ -668,13 +695,6 @@ export default function App() {
         onBackToOverview={handleBackToOverview}
         favoriteCount={favorites.length}
         activeToolName={activeTool?.name}
-      />
-
-      {/* Mobile Bottom Navigation (Tools, Starred, Notes) */}
-      <MobileBottomNav
-        activeTab={activeTab}
-        onSelectTab={handleSelectTab}
-        favoriteCount={favorites.length}
       />
 
       {/* Keyboard Quick Search Modal (preserved via ⌘K) */}

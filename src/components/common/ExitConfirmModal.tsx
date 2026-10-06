@@ -13,6 +13,16 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
   const handleConfirmExit = () => {
     sounds.playTone(200, 0.3);
     try {
+      const cap = (window as unknown as { Capacitor?: { Plugins?: { App?: { exitApp: () => void } } } }).Capacitor;
+      if (cap?.Plugins?.App?.exitApp) {
+        cap.Plugins.App.exitApp();
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
       window.close();
     } catch {
       // ignore

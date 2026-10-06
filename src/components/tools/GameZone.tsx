@@ -1420,7 +1420,7 @@ const WordChallengeView: React.FC = () => {
 
 // 5. Reaction Time Test
 const ReactionTestView: React.FC = () => {
-  const [state, setState] = useState<'idle' | 'waiting' | 'ready' | 'finished'>('idle');
+  const [state, setState] = useState<'idle' | 'waiting' | 'ready' | 'finished' | 'early'>('idle');
   const [reactionTime, setReactionTime] = useState<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const timeoutRef = useRef<number | null>(null);
@@ -1439,8 +1439,7 @@ const ReactionTestView: React.FC = () => {
   const handleClick = () => {
     if (state === 'waiting') {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      setState('idle');
-      alert('Too soon! Wait for the screen to turn GREEN.');
+      setState('early');
     } else if (state === 'ready') {
       const diff = Math.round(performance.now() - startTimeRef.current);
       sounds.playSuccess();
@@ -1453,12 +1452,14 @@ const ReactionTestView: React.FC = () => {
   return (
     <div className="max-w-md mx-auto space-y-4">
       <div
-        onClick={state === 'idle' || state === 'finished' ? startTest : handleClick}
+        onClick={state === 'idle' || state === 'finished' || state === 'early' ? startTest : handleClick}
         className={`w-full h-72 rounded-3xl flex flex-col items-center justify-center p-6 text-center cursor-pointer select-none transition-colors duration-100 shadow-sm ${
           state === 'waiting'
             ? 'bg-rose-500 text-white'
             : state === 'ready'
             ? 'bg-emerald-500 text-white'
+            : state === 'early'
+            ? 'bg-amber-600 text-white'
             : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
         }`}
       >
@@ -1472,6 +1473,12 @@ const ReactionTestView: React.FC = () => {
         {state === 'waiting' && (
           <div>
             <h3 className="font-bold text-2xl">Wait for green...</h3>
+          </div>
+        )}
+        {state === 'early' && (
+          <div>
+            <h3 className="font-bold text-2xl mb-1">Too soon!</h3>
+            <p className="text-xs opacity-90">Wait for the screen to turn GREEN. Tap to try again.</p>
           </div>
         )}
         {state === 'ready' && (

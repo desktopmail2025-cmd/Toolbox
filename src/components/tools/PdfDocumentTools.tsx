@@ -1780,19 +1780,16 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
                   <span className="hidden sm:inline">Save to Folder...</span>
                 </button>
                 {previewItem.convertedBlobUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (previewItem.convertedBlobUrl) {
-                        window.open(previewItem.convertedBlobUrl, '_blank');
-                      }
-                    }}
+                  <a
+                    href={previewItem.convertedBlobUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-2.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     title="Open in new window or external viewer"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
                     <span className="hidden sm:inline">Open in Tab</span>
-                  </button>
+                  </a>
                 )}
                 <button
                   type="button"

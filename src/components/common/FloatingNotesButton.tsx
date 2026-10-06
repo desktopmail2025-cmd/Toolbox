@@ -64,7 +64,7 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
         : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-500/60 shadow-indigo-600/30',
       x: 0,
       y: -108,
-      delay: '0.04s',
+      delay: '0.02s',
       labelPositionClass: 'bottom-full mb-2.5 left-1/2 -translate-x-1/2',
     },
     {
@@ -77,7 +77,7 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
         : 'bg-amber-500 hover:bg-amber-600 border-amber-400/60 shadow-amber-500/30',
       x: -76,
       y: -76,
-      delay: '0.02s',
+      delay: '0.01s',
       labelPositionClass: 'right-full mr-3 top-1/2 -translate-y-1/2',
     },
     {
@@ -99,13 +99,13 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
       {/* Outside click backdrop when speed dial is open */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/45 backdrop-blur-[1px] transition-opacity duration-200 animate-in fade-in"
+          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/45 backdrop-blur-[1px] transition-opacity duration-150 animate-in fade-in"
           onClick={() => setIsExpanded(false)}
           aria-hidden="true"
         />
       )}
 
-      <div className="floating-notes-btn fixed z-40 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-8 right-[max(1rem,env(safe-area-inset-right,0px))] md:right-8 w-14 h-14">
+      <div className="floating-notes-btn fixed z-40 bottom-[max(1.25rem,calc(1.25rem+env(safe-area-inset-bottom,0px)))] right-[max(1.25rem,env(safe-area-inset-right,0px))] md:bottom-8 md:right-8 w-14 h-14">
         {/* Circle Menu Options fanning out in equal geometric arc */}
         {menuOptions.map(option => (
           <div
@@ -118,7 +118,7 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
                 : 'translate3d(0, 0, 0) scale(0)',
               opacity: isExpanded ? 1 : 0,
               pointerEvents: isExpanded ? 'auto' : 'none',
-              transition: `transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) ${option.delay}, opacity 0.25s ease ${option.delay}`,
+              transition: `transform 0.16s cubic-bezier(0.16, 1, 0.3, 1) ${option.delay}, opacity 0.12s ease ${option.delay}`,
             }}
             className="absolute w-11 h-11 flex items-center justify-center"
           >
@@ -127,7 +127,7 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
               type="button"
               onClick={() => handleSelectOption(option.id)}
               aria-label={option.label}
-              className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 hover:scale-105 transition-all duration-150 cursor-pointer border ${option.colorClass}`}
+              className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 hover:scale-105 transition-all duration-100 cursor-pointer border ${option.colorClass}`}
               title={option.label}
             >
               {option.icon}
@@ -146,14 +146,14 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
           onClick={handleToggle}
           aria-label={isExpanded ? 'Close quick menu' : 'Quick access options (Home, Starred, Notes)'}
           aria-expanded={isExpanded}
-          className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-zinc-950/25 active:scale-95 transition-all duration-300 cursor-pointer border relative ${
+          className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-zinc-950/25 active:scale-95 transition-all duration-150 cursor-pointer border relative ${
             isExpanded
               ? 'bg-zinc-900 border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300 rotate-45 scale-105'
               : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 hover:scale-105 rotate-0'
           }`}
           title={isExpanded ? 'Close' : 'Quick Access (Home, Starred, Notes)'}
         >
-          <Plus className="w-6 h-6 transition-transform duration-300 ease-out" />
+          <Plus className="w-6 h-6 transition-transform duration-150 ease-out" />
         </button>
       </div>
     </>

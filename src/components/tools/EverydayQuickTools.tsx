@@ -559,13 +559,15 @@ const RandomNumberView: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [unique, setUnique] = useState(true);
   const [results, setResults] = useState<number[]>([42]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const generate = () => {
     sounds.playClick();
     if (unique && quantity > max - min + 1) {
-      alert('Range is smaller than requested quantity of unique numbers.');
+      setErrorMsg('Range is smaller than requested quantity of unique numbers.');
       return;
     }
+    setErrorMsg(null);
 
     const set = new Set<number>();
     const res: number[] = [];
@@ -585,6 +587,11 @@ const RandomNumberView: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      {errorMsg && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-600 dark:text-rose-400 font-medium text-center">
+          {errorMsg}
+        </div>
+      )}
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs text-zinc-500 mb-1">Minimum</label>

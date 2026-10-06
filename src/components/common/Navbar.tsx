@@ -210,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         />
       )}
 
-      <header className={`sticky top-0 w-full border-b border-zinc-200/80 bg-white/90 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/90 transition-colors ${
+      <header className={`sticky top-0 w-full border-b border-zinc-200/80 bg-white/95 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/95 transition-colors pt-[max(env(safe-area-inset-top,0px),1.75rem)] sm:pt-[env(safe-area-inset-top,0px)] ${
         isSearchOpen ? 'z-50' : 'z-40'
       }`}>
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
@@ -324,7 +324,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         {/* Drawer Header with same logo and name at the top */}
-        <div className="p-4 sm:p-5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xs">
+        <div className="p-4 sm:p-5 pt-[max(env(safe-area-inset-top,0px),2.25rem)] sm:pt-5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xs">
           <button
             type="button"
             onClick={() => {

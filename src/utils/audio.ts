@@ -19,19 +19,28 @@ class SoundEngine {
     if (typeof window === 'undefined') return;
 
     const unlock = () => {
-      this.initCtx();
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().then(() => {
+      try {
+        const ctx = this.initCtx();
+        if (ctx) {
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+          // Play a micro silent buffer to force hardware audio route activation on iOS and Android
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
           this.isUnlocked = true;
-        }).catch(() => {});
-      } else if (this.ctx) {
-        this.isUnlocked = true;
+        }
+      } catch {
+        // ignore
       }
     };
 
     const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
     events.forEach(evt => {
-      window.addEventListener(evt, unlock, { passive: true });
+      window.addEventListener(evt, unlock, { passive: true, once: false });
     });
   }
 
@@ -42,20 +51,15 @@ class SoundEngine {
     const handleGlobalInteraction = (e: Event) => {
       if (!this.enabled) return;
 
-      // Throttle rapid repeated sounds (e.g. within 60ms)
-      const now = Date.now();
-      if (now - this.lastSoundTime < 60) return;
-
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      // Check if clicked element or its closest ancestor is an interactive button/link/tab
+      // Check if clicked element or its closest ancestor is an interactive button/link/tab/card
       const interactiveEl = target.closest(
-        'button, a, [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], select'
+        'button, a, [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], select, summary'
       );
 
       if (interactiveEl) {
-        this.lastSoundTime = now;
         this.playClick(650, 0.035);
       }
     };
@@ -96,6 +100,10 @@ class SoundEngine {
 
   public playClick(freq = 600, duration = 0.04) {
     if (!this.enabled) return;
+    const now = Date.now();
+    if (now - this.lastSoundTime < 40) return;
+    this.lastSoundTime = now;
+
     try {
       const ctx = this.initCtx();
       if (!ctx) return;
@@ -104,20 +112,21 @@ class SoundEngine {
         ctx.resume().catch(() => {});
       }
 
+      const startTime = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + duration);
+      osc.frequency.setValueAtTime(freq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(120, startTime + duration);
 
-      gain.gain.setValueAtTime(0.09, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      gain.gain.setValueAtTime(0.09, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
     } catch {
       // ignore
     }
