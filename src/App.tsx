@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Navbar } from './components/common/Navbar';
 import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
@@ -66,7 +66,7 @@ export default function App() {
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
   const savedScrollPosRef = useRef<number>(0);
 
-  // Return origin tracker: remembers exactly where user came from (tab, scrollY, search state & query)
+  // Return origin tracker: remembers exactly where user came from (tab, scrollY, search state & query, and suite)
   interface ToolReturnOrigin {
     tab: string;
     scrollY: number;
@@ -74,10 +74,16 @@ export default function App() {
     searchQuery: string;
     searchMode: 'navbar' | 'modal' | 'none';
     selectedCategoryId?: CategoryId;
+    tier?: 'all' | 'basic' | 'pro';
   }
   const [toolReturnOrigin, setToolReturnOrigin] = useState<ToolReturnOrigin | null>(null);
   const toolReturnOriginRef = useRef<ToolReturnOrigin | null>(null);
   toolReturnOriginRef.current = toolReturnOrigin;
+
+  // Active suite filter: 'all' | 'basic' | 'pro' (persisted so entering a tool returns to the suite)
+  const [tierFilter, setTierFilter] = useState<'all' | 'basic' | 'pro'>('all');
+  const tierFilterRef = useRef<'all' | 'basic' | 'pro'>('all');
+  tierFilterRef.current = tierFilter;
 
   // Set browser scroll restoration to manual so mobile browsers do not force scroll to top on back
   useEffect(() => {
@@ -88,6 +94,21 @@ export default function App() {
     }
   }, []);
 
+  // Continuous real-time scroll tracking for the overview screen (when no tool is active)
+  const overviewScrollRef = useRef<number>(0);
+  useEffect(() => {
+    const handleOverviewScroll = () => {
+      if (!activeToolRef.current) {
+        overviewScrollRef.current = window.scrollY || document.documentElement.scrollTop || window.pageYOffset || 0;
+      }
+    };
+    window.addEventListener('scroll', handleOverviewScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleOverviewScroll);
+  }, []);
+
+  // Pending scroll restoration target queue
+  const pendingRestoreScrollRef = useRef<{ scrollY: number; toolId?: string | null } | null>(null);
+
   // Expanded sub-overlays & animation state
   const [isNavbarSearchOpen, setIsNavbarSearchOpen] = useState(false);
   const [closeNavbarSearchTrigger, setCloseNavbarSearchTrigger] = useState(0);
@@ -95,8 +116,53 @@ export default function App() {
   const [closeDrawerTrigger, setCloseDrawerTrigger] = useState(0);
   const [isFABExpanded, setIsFABExpanded] = useState(false);
   const [closeFABTrigger, setCloseFABTrigger] = useState(0);
-  const [isExitingTool, setIsExitingTool] = useState(false);
+  const [isReturningFromTool, setIsReturningFromTool] = useState(false);
   const isTransitioningRef = useRef(false);
+
+  // Rock-Solid Instant Scroll Restoration on Tool Exit:
+  // Runs synchronously in useLayoutEffect before the browser paints frame 0,
+  // ensuring the overview is ALREADY at the user's exact scroll position with zero jump or trip to top!
+  useLayoutEffect(() => {
+    if (!activeTool && pendingRestoreScrollRef.current) {
+      const { scrollY, toolId } = pendingRestoreScrollRef.current;
+
+      const performRestore = () => {
+        const html = document.documentElement;
+        const body = document.body;
+        html.style.scrollBehavior = 'auto';
+        body.style.scrollBehavior = 'auto';
+
+        if (scrollY > 0) {
+          window.scrollTo({ top: scrollY, behavior: 'instant' });
+          html.scrollTop = scrollY;
+          body.scrollTop = scrollY;
+        }
+
+        // Secondary guarantee: if tool card exists in DOM and scroll was slightly offset, align tool card
+        if (toolId && (scrollY === 0 || Math.abs((window.scrollY || 0) - scrollY) > 80)) {
+          const cardEl = document.getElementById(`tool-card-${toolId}`);
+          if (cardEl) {
+            cardEl.scrollIntoView({ block: 'center', behavior: 'instant' });
+          }
+        }
+      };
+
+      // 1. Synchronously before initial paint
+      performRestore();
+
+      // 2. Next animation frames to confirm layout stability
+      const raf1 = requestAnimationFrame(() => {
+        performRestore();
+        const raf2 = requestAnimationFrame(() => {
+          performRestore();
+          pendingRestoreScrollRef.current = null;
+        });
+        return () => cancelAnimationFrame(raf2);
+      });
+
+      return () => cancelAnimationFrame(raf1);
+    }
+  }, [activeTool]);
 
   // Splash Screen & Professional Onboarding
   const [showSplash, setShowSplash] = useState<boolean>(true);
@@ -287,7 +353,12 @@ export default function App() {
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
 
     // Record current scroll position with maximum precision across all devices
-    const currentY = window.scrollY || document.documentElement.scrollTop || window.pageYOffset || 0;
+    const currentY = Math.max(
+      window.scrollY || 0,
+      document.documentElement.scrollTop || 0,
+      window.pageYOffset || 0,
+      overviewScrollRef.current || 0
+    );
     savedScrollPosRef.current = currentY;
     setSavedScrollPos(currentY);
 
@@ -301,7 +372,8 @@ export default function App() {
       fromSearch: !!originMeta?.fromSearch,
       searchQuery: originMeta?.searchQuery || (originMeta?.searchMode === 'navbar' ? navbarSearchQuery : originMeta?.searchMode === 'modal' ? modalSearchQuery : ''),
       searchMode: originMeta?.searchMode || (originMeta?.fromSearch ? 'navbar' : 'none'),
-      selectedCategoryId: originMeta?.categoryId,
+      selectedCategoryId: originMeta?.categoryId || tool.categoryId,
+      tier: tierFilterRef.current,
     };
     setToolReturnOrigin(origin);
     toolReturnOriginRef.current = origin;
@@ -327,93 +399,93 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  const handleBackToOverview = (pushState: boolean = true) => {
+  const handleBackToOverview = (pushState: boolean = true, overrideTab?: string) => {
     if (isTransitioningRef.current) return;
     isTransitioningRef.current = true;
     justNavigatedToHomeRef.current = true;
     lastBackActionTimeRef.current = Date.now();
-    setIsExitingTool(true);
 
-    // Capture target position before unmounting tool
+    const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
+    if (closedToolId) {
+      setLastOpenedToolId(closedToolId);
+      const closedTool = TOOLS.find(t => t.id === closedToolId);
+      if (closedTool) {
+        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
+      }
+    }
+
+    // Capture target scroll, tab, and suite from origin
     const origin = toolReturnOriginRef.current;
-    const targetPos = origin ? origin.scrollY : savedScrollPosRef.current;
+    const targetPos = (origin && typeof origin.scrollY === 'number' && origin.scrollY >= 0)
+      ? origin.scrollY
+      : (overviewScrollRef.current > 0 ? overviewScrollRef.current : savedScrollPosRef.current);
+
+    // Restore suite (Basic or Pro) if user came from a suite
+    if (origin?.tier) {
+      setTierFilter(origin.tier);
+      tierFilterRef.current = origin.tier;
+    }
+
+    let finalTab = 'categories';
+    if (overrideTab) {
+      finalTab = overrideTab;
+      setActiveTab(overrideTab);
+      activeTabRef.current = overrideTab;
+      setStarredSelectedToolId(null);
+    } else {
+      finalTab = origin?.tab || toolReturnTabRef.current || 'categories';
+      setActiveTab(finalTab);
+      activeTabRef.current = finalTab;
+      if (finalTab === 'favorites') {
+        setStarredSelectedToolId(closedToolId || null);
+      } else {
+        setStarredSelectedToolId(null);
+      }
+    }
+
+    // Always reset any open search popups or dropdowns cleanly
+    setIsNavbarSearchOpen(false);
+    isNavbarSearchOpenRef.current = false;
+    setNavbarSearchQuery('');
+    navbarSearchQueryRef.current = '';
+    setIsSearchOpen(false);
+    isSearchOpenRef.current = false;
+    setModalSearchQuery('');
+    modalSearchQueryRef.current = '';
+    setCloseNavbarSearchTrigger(prev => prev + 1);
+    (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+
+    if (pushState) {
+      try {
+        window.history.pushState(
+          {
+            __omniApp: true,
+            level: finalTab === 'categories' ? 'home' : 'tab',
+            tab: finalTab,
+          },
+          '',
+          finalTab === 'categories' ? '/' : `?tab=${finalTab}`
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    // Set pending scroll restoration target so useLayoutEffect restores it before paint!
+    pendingRestoreScrollRef.current = {
+      scrollY: targetPos,
+      toolId: closedToolId,
+    };
+
+    // Immediately close the active tool and trigger the exact entering animation on the destination view
+    setActiveTool(null);
+    activeToolRef.current = null;
+    setIsReturningFromTool(true);
 
     setTimeout(() => {
-      const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
-      setActiveTool(null);
-      setIsExitingTool(false);
+      setIsReturningFromTool(false);
       isTransitioningRef.current = false;
-
-      if (closedToolId) {
-        setLastOpenedToolId(closedToolId);
-        const closedTool = TOOLS.find(t => t.id === closedToolId);
-        if (closedTool) {
-          setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
-        }
-      }
-
-      // Restore destination tab from origin
-      if (origin?.fromSearch) {
-        // As requested: If user opens a tool from suggestions and presses back or slides back, return directly to HOME
-        setActiveTab('categories');
-        activeTabRef.current = 'categories';
-        setStarredSelectedToolId(null);
-        setIsNavbarSearchOpen(false);
-        isNavbarSearchOpenRef.current = false;
-        setNavbarSearchQuery('');
-        navbarSearchQueryRef.current = '';
-        setIsSearchOpen(false);
-        isSearchOpenRef.current = false;
-        setModalSearchQuery('');
-        modalSearchQueryRef.current = '';
-        setCloseNavbarSearchTrigger(prev => prev + 1);
-        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
-      } else {
-        const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
-        setActiveTab(targetTab);
-        activeTabRef.current = targetTab;
-        if (targetTab === 'favorites') {
-          setStarredSelectedToolId(closedToolId || null);
-        } else {
-          setStarredSelectedToolId(null);
-        }
-      }
-
-      const finalTab = origin?.fromSearch ? 'categories' : (origin?.tab || toolReturnTabRef.current || 'categories');
-
-      if (pushState) {
-        try {
-          window.history.pushState(
-            {
-              __omniApp: true,
-              level: finalTab === 'categories' ? 'home' : 'tab',
-              tab: finalTab,
-            },
-            '',
-            finalTab === 'categories' ? '/' : `?tab=${finalTab}`
-          );
-        } catch {
-          // ignore
-        }
-      }
-
-      // Restore exact scroll position: if from search, go cleanly to top of home (0)
-      const effectiveScroll = origin?.fromSearch ? 0 : targetPos;
-      const restoreScroll = () => {
-        if (effectiveScroll >= 0) {
-          window.scrollTo({ top: effectiveScroll, behavior: 'instant' });
-        }
-      };
-
-      restoreScroll();
-      requestAnimationFrame(() => {
-        restoreScroll();
-        setTimeout(restoreScroll, 25);
-        setTimeout(restoreScroll, 75);
-        setTimeout(restoreScroll, 160);
-        setTimeout(restoreScroll, 320);
-      });
-    }, 260);
+    }, 220);
 
     setTimeout(() => {
       justNavigatedToHomeRef.current = false;
@@ -434,6 +506,10 @@ export default function App() {
 
   const handleGoHome = (pushState: boolean = true) => {
     sounds.playClick();
+    if (activeToolRef.current) {
+      handleBackToOverview(pushState);
+      return;
+    }
     isTransitioningRef.current = true;
     justNavigatedToHomeRef.current = true;
     lastBackActionTimeRef.current = Date.now();
@@ -453,6 +529,8 @@ export default function App() {
     toolReturnTabRef.current = 'categories';
     setToolFilter('all');
     toolFilterRef.current = 'all';
+    setTierFilter('all');
+    tierFilterRef.current = 'all';
     try {
       if (pushState) {
         window.history.pushState({ __omniApp: true, level: 'home', tab: 'categories' }, '', '/');
@@ -499,11 +577,10 @@ export default function App() {
     }
 
     // 3. A tool is currently active -> Close tool and return!
-    // (If tool was entered from search suggestions, returns directly to home)
     if (activeToolRef.current) {
       sounds.playClick();
       const origin = toolReturnOriginRef.current;
-      const targetTab = origin?.fromSearch ? 'categories' : (origin?.tab || toolReturnTabRef.current || 'categories');
+      const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
       handleBackToOverview(false);
       if (viaHistoryPop) {
         replenishHistoryBuffer(targetTab === 'categories' ? 'home' : 'tab', targetTab);
@@ -568,9 +645,15 @@ export default function App() {
       return;
     }
 
-    // 7. Sub-tab / Sub-page is open (Starred, Notes, Games, or filter) -> Return to Home screen from everywhere!
-    if (activeTabRef.current !== 'categories' || toolFilterRef.current !== 'all') {
+    // 7. Sub-tab / Sub-page is open (Starred, Notes, Games, filter, or suite) -> Return to Home screen from everywhere!
+    if (activeTabRef.current !== 'categories' || toolFilterRef.current !== 'all' || tierFilterRef.current !== 'all') {
       sounds.playClick();
+      if (tierFilterRef.current !== 'all') {
+        setTierFilter('all');
+        tierFilterRef.current = 'all';
+        replenishHistoryBuffer('home', 'categories');
+        return;
+      }
       handleGoHome(false);
       setToolFilter('all');
       toolFilterRef.current = 'all';
@@ -718,6 +801,10 @@ export default function App() {
       handleGoHome();
       return;
     }
+    if (activeToolRef.current) {
+      handleBackToOverview(true, tab);
+      return;
+    }
     setActiveTool(null);
     activeToolRef.current = null;
     setActiveTab(tab);
@@ -730,7 +817,7 @@ export default function App() {
     } catch {
       // ignore
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleToggleFloatingNotes = () => {
@@ -744,7 +831,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
+    <div className={`min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200 ${isDrawerOpen ? 'overflow-hidden max-h-[100dvh]' : ''}`}>
       {/* Top Bar with Expandable Search & Live Suggestions */}
       <Navbar
         onOpenSearch={() => {
@@ -802,101 +889,112 @@ export default function App() {
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-[calc(3.5rem+max(env(safe-area-inset-top,0px),26px)+0.75rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.25rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
-        {activeTool ? (
-          <div className={isExitingTool ? 'animate-tool-slide-out' : 'animate-tool-slide-in'}>
+      <main className={`flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-[calc(3.5rem+max(env(safe-area-inset-top,0px),26px)+0.75rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.25rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 ${isDrawerOpen ? 'pointer-events-none select-none overflow-hidden max-h-[100dvh]' : ''}`}>
+        {/* Destination View: Kept mounted in DOM and hidden when activeTool is open, so all DOM nodes & layout are ready immediately on exit */}
+        <div
+          className={`${activeTool ? 'hidden' : isReturningFromTool ? 'animate-tool-slide-in' : 'w-full'}`}
+          aria-hidden={!!activeTool}
+        >
+            {activeTab === 'notes' ? (
+              <div className="space-y-4">
+                <NotesView onBackToHome={handleGoHome} />
+              </div>
+            ) : activeTab === 'favorites' ? (
+              <div className="space-y-4">
+                <FavoritesView
+                  favorites={favorites}
+                  onSelectTool={handleSelectTool}
+                  onToggleFavorite={handleToggleFavorite}
+                  onBrowseAll={handleGoHome}
+                  selectedToolId={starredSelectedToolId}
+                />
+              </div>
+            ) : activeTab === 'games' ? (
+              <div className="space-y-6 max-w-4xl mx-auto pb-24">
+                <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleGoHome()}
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
+                    title="Back to Home"
+                    aria-label="Back to Home"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+                      <span>Offline Arcade</span>
+                      <span aria-hidden="true">·</span>
+                      <span>Brain & Reflex Challenges</span>
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                      Lightweight Game Zone
+                    </h2>
+                    <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                      Zero lag, 100% offline mini-games: 2048, Tic-Tac-Toe AI, Minesweeper, Memory Match, reaction time reflex tests & mental math.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {TOOLS.filter(t => t.categoryId === 'games').map(tool => {
+                    const isSelected = tool.id === lastOpenedToolId;
+                    return (
+                      <div
+                        key={tool.id}
+                        onClick={() => {
+                          sounds.playClick();
+                          handleSelectTool(tool);
+                        }}
+                        className={`p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer active:scale-[0.98] ${
+                          isSelected
+                            ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40'
+                            : 'border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{tool.name}</h3>
+                          {isSelected && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{tool.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <CategoryExplorer
+                  onSelectTool={handleSelectTool}
+                  favorites={favorites}
+                  onToggleFavorite={handleToggleFavorite}
+                  recents={recents}
+                  expandedCatIds={expandedCatIds}
+                  onToggleCategory={handleToggleCategory}
+                  onExpandAll={handleExpandAll}
+                  onCollapseAll={handleCollapseAll}
+                  toolFilter={toolFilter}
+                  onSelectToolFilter={setToolFilter}
+                  tierFilter={tierFilter}
+                  onSelectTierFilter={setTierFilter}
+                  selectedToolId={lastOpenedToolId}
+                />
+              </div>
+            )}
+        </div>
+
+        {/* Tool View: Smooth slide-in on entry */}
+        {activeTool && (
+          <div className="animate-tool-slide-in">
             <ToolDispatcher
               tool={activeTool}
               onBack={() => handleBackToOverview(true)}
               isFavorite={favorites.includes(activeTool.id)}
               onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
               onSelectTool={handleSelectTool}
-            />
-          </div>
-        ) : activeTab === 'notes' ? (
-          <div className="space-y-4 animate-view-fade-in">
-            <NotesView onBackToHome={handleGoHome} />
-          </div>
-        ) : activeTab === 'favorites' ? (
-          <div className="space-y-4 animate-view-fade-in">
-            <FavoritesView
-              favorites={favorites}
-              onSelectTool={handleSelectTool}
-              onToggleFavorite={handleToggleFavorite}
-              onBrowseAll={handleGoHome}
-              selectedToolId={starredSelectedToolId}
-            />
-          </div>
-        ) : activeTab === 'games' ? (
-          <div className="space-y-6 max-w-4xl mx-auto pb-24 animate-view-fade-in">
-            <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => handleGoHome()}
-                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors shadow-xs cursor-pointer"
-                title="Back to Home"
-                aria-label="Back to Home"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <div>
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
-                  <span>Offline Arcade</span>
-                  <span aria-hidden="true">·</span>
-                  <span>Brain & Reflex Challenges</span>
-                </div>
-                <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                  Lightweight Game Zone
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                  Zero lag, 100% offline mini-games: 2048, Tic-Tac-Toe AI, Minesweeper, Memory Match, reaction time reflex tests & mental math.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {TOOLS.filter(t => t.categoryId === 'games').map(tool => {
-                const isSelected = tool.id === lastOpenedToolId;
-                return (
-                  <div
-                    key={tool.id}
-                    onClick={() => {
-                      sounds.playClick();
-                      handleSelectTool(tool);
-                    }}
-                    className={`p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer active:scale-[0.98] ${
-                      isSelected
-                        ? 'border-indigo-500 ring-2 ring-indigo-500 shadow-xl bg-indigo-50/40 dark:bg-indigo-950/40'
-                        : 'border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-md hover:-translate-y-0.5 dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{tool.name}</h3>
-                      {isSelected && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{tool.description}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="animate-view-fade-in">
-            <CategoryExplorer
-              onSelectTool={handleSelectTool}
-              favorites={favorites}
-              onToggleFavorite={handleToggleFavorite}
-              recents={recents}
-              expandedCatIds={expandedCatIds}
-              onToggleCategory={handleToggleCategory}
-              onExpandAll={handleExpandAll}
-              onCollapseAll={handleCollapseAll}
-              toolFilter={toolFilter}
-              onSelectToolFilter={setToolFilter}
-              selectedToolId={lastOpenedToolId}
             />
           </div>
         )}
@@ -912,6 +1010,7 @@ export default function App() {
         activeToolName={activeTool?.name}
         onExpandedChange={setIsFABExpanded}
         closeTrigger={closeFABTrigger}
+        isDrawerOpen={isDrawerOpen}
       />
 
       {/* Keyboard Quick Search Modal (preserved via ⌘K) */}

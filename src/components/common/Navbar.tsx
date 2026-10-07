@@ -75,11 +75,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   }, [closeDrawerTrigger]);
 
-  // Prevent background touch scrolling when drawer is open without moving body position
+  // Prevent background touch and mouse wheel scrolling when drawer is open across all devices (mobile, tablet, web)
   useEffect(() => {
     if (isDrawerOpen) {
       const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      const prevBodyTouchAction = document.body.style.touchAction;
+
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+
+      // Prevent mouse wheel scrolling anywhere outside aside
+      const handleWheel = (e: WheelEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (!target?.closest('aside')) {
+          e.preventDefault();
+        }
+      };
 
       const preventBackgroundScroll = (e: TouchEvent) => {
         const target = e.target as HTMLElement | null;
@@ -89,10 +102,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       };
 
       document.addEventListener('touchmove', preventBackgroundScroll, { passive: false });
+      window.addEventListener('wheel', handleWheel, { passive: false });
 
       return () => {
         document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.touchAction = prevBodyTouchAction;
         document.removeEventListener('touchmove', preventBackgroundScroll);
+        window.removeEventListener('wheel', handleWheel);
       };
     }
   }, [isDrawerOpen]);
@@ -466,12 +483,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="w-full text-xs bg-transparent text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none font-medium truncate"
               />
 
-              {!query && (
-                <kbd className="hidden sm:inline-flex items-center text-[10px] font-mono text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700/80 shrink-0 mr-1 select-none">
-                  ⌘K
-                </kbd>
-              )}
-
               {(query || isSearchOpen) && (
                 <button
                   type="button"
@@ -500,65 +511,25 @@ export const Navbar: React.FC<NavbarProps> = ({
               onHoverIndex={setSelectedIndex}
             />
           </div>
-
-          {/* Zone 3: Figma-style Desktop Toolbar Actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Theme Toggle (Figma Style) */}
-            <button
-              type="button"
-              onClick={() => {
-                sounds.playClick();
-                onToggleDarkMode();
-              }}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
-            </button>
-
-            {/* Sound Toggle (Figma Style) */}
-            <button
-              type="button"
-              onClick={() => {
-                sounds.playClick();
-                onToggleSound();
-              }}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              title={soundEnabled ? 'Mute Sounds' : 'Enable Audio Feedback'}
-            >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-indigo-500" /> : <VolumeX className="w-3.5 h-3.5 text-zinc-400" />}
-            </button>
-
-            {/* Help & Guide */}
-            {onOpenOnboarding && (
-              <button
-                type="button"
-                onClick={() => {
-                  sounds.playClick();
-                  onOpenOnboarding();
-                }}
-                className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Tour Guide & Shortcuts"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
         </div>
       </header>
 
       {/* Slide-out Drawer to the Left Layout (Triggered by clicking the app logo or sliding from left) */}
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in touch-none"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in touch-none overscroll-none"
           onClick={() => setDrawerState(false)}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-[19rem] sm:w-[22rem] bg-white dark:bg-zinc-950 rounded-r-3xl sm:rounded-r-[2rem] border-r border-zinc-200 dark:border-zinc-800 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col overflow-hidden ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-[19rem] sm:w-[22rem] md:w-[25rem] h-[100dvh] max-h-[100dvh] bg-white dark:bg-zinc-950 rounded-r-3xl sm:rounded-r-[2rem] border-r border-zinc-200 dark:border-zinc-800 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col overflow-hidden ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{
+          height: '100dvh',
+          maxHeight: '100dvh',
+        }}
       >
         {/* Dedicated Notch / Status-bar Guard Band */}
         <div
@@ -600,8 +571,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Drawer Body with Generous Spacing */}
-        <div className="flex-1 overflow-y-auto overscroll-contain py-3 space-y-4">
+        {/* Scrollable Drawer Body with smooth scrolling and visible scrollbar for Tablet & Mobile Scrolling */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-3 space-y-4 touch-pan-y drawer-scrollbar"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+          }}
+        >
           {/* User Engagement Streak System with 1-Week and 1-Month Milestone Goals */}
           <DrawerStreakWidget />
 
@@ -793,8 +770,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Exit Application Button */}
-        <div className="p-4 border-t border-zinc-200/80 dark:border-zinc-800/80 mt-auto bg-zinc-50/70 dark:bg-zinc-900/70 shrink-0">
+        {/* Pinned Bottom Exit Application Button — Guaranteed visible at the bottom of the drawer on all tablets & mobile screens without scrolling */}
+        <div className="p-3.5 sm:p-4 border-t border-zinc-200/90 dark:border-zinc-800/90 bg-zinc-50/98 dark:bg-zinc-900/98 backdrop-blur-md shrink-0 z-20 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           <button
             type="button"
             onClick={() => {
@@ -804,7 +781,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenExitDialog();
               }
             }}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-900/80 transition-all cursor-pointer shadow-2xs active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/70 text-rose-700 dark:text-rose-300 font-bold text-xs sm:text-sm border border-rose-200 dark:border-rose-900/80 transition-all cursor-pointer shadow-2xs active:scale-95"
             title="Exit OmniToolbox session"
           >
             <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400" />

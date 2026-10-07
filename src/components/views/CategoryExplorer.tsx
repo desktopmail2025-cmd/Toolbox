@@ -17,6 +17,8 @@ interface CategoryExplorerProps {
   onCollapseAll: () => void;
   toolFilter?: 'all' | 'offline' | 'online';
   onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
+  tierFilter?: 'all' | 'basic' | 'pro';
+  onSelectTierFilter?: (tier: 'all' | 'basic' | 'pro') => void;
   selectedToolId?: string | null;
 }
 
@@ -31,6 +33,8 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   onCollapseAll,
   toolFilter = 'all',
   onSelectToolFilter,
+  tierFilter: propTierFilter,
+  onSelectTierFilter,
   selectedToolId,
 }) => {
   // The tool card is styled with active selection badge and ring without disruptive page jumping
@@ -103,8 +107,16 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
     });
   };
 
-  // Tier filter: 'all' | 'basic' | 'pro'
-  const [tierFilter, setTierFilter] = useState<'all' | 'basic' | 'pro'>('all');
+  // Tier filter: 'all' | 'basic' | 'pro' (synced with App state so returning from a tool preserves suite)
+  const [localTierFilter, setLocalTierFilter] = useState<'all' | 'basic' | 'pro'>('all');
+  const tierFilter = propTierFilter !== undefined ? propTierFilter : localTierFilter;
+  const setTierFilter = (newTier: 'all' | 'basic' | 'pro') => {
+    if (onSelectTierFilter) {
+      onSelectTierFilter(newTier);
+    } else {
+      setLocalTierFilter(newTier);
+    }
+  };
 
   // Only display categories that contain tools for the selected filter & tier
   const visibleCategories = CATEGORIES.filter(cat => {

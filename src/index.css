@@ -55,9 +55,9 @@
     text-shadow: none !important;
   }
 
-  /* Smooth scrolling */
+  /* Default root scrolling behavior: auto for instant, precise programmatic restorations */
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 }
 
@@ -220,7 +220,7 @@ html.dark .tool-card-hover:hover {
   right: 0;
 }
 
-/* Smooth Hardware-Accelerated Mobile Slide Transitions for Tools */
+/* Universal Hardware-Accelerated Smooth Transitions for Tools (All Devices & Views) */
 @keyframes toolSlideInRight {
   from {
     opacity: 0;
@@ -232,37 +232,38 @@ html.dark .tool-card-hover:hover {
   }
 }
 
-@keyframes toolSlideOutRight {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(36px, 0, 0) scale(0.985);
-  }
-}
-
-@keyframes viewFadeInScale {
+@keyframes viewFadeIn {
   from {
-    opacity: 0;
-    transform: scale(0.985) translate3d(0, 4px, 0);
+    opacity: 0.92;
   }
   to {
     opacity: 1;
-    transform: scale(1) translate3d(0, 0, 0);
   }
 }
 
 .animate-tool-slide-in {
-  animation: toolSlideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: toolSlideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
-.animate-tool-slide-out {
-  animation: toolSlideOutRight 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  will-change: transform, opacity;
-  pointer-events: none;
+.animate-view-fade-in {
+  animation: viewFadeIn 0.15s ease-out forwards;
+}
+
+/* Visible, smooth scrollbar for drawer sidebar on tablet & desktop */
+.drawer-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 150, 160, 0.4) transparent;
+}
+.drawer-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.drawer-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 160, 0.4);
+  border-radius: 9999px;
+}
+.drawer-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(150, 150, 160, 0.6);
 }
 
 .animate-view-fade-in {

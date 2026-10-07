@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Home, FileText, Star } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -13,6 +14,7 @@ interface FloatingNotesButtonProps {
   favoriteCount?: number;
   onExpandedChange?: (expanded: boolean) => void;
   closeTrigger?: number;
+  isDrawerOpen?: boolean;
 }
 
 export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
@@ -23,18 +25,24 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
   favoriteCount = 0,
   onExpandedChange,
   closeTrigger,
+  isDrawerOpen = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const setExpandedState = (expanded: boolean) => {
     setIsExpanded(expanded);
     onExpandedChange?.(expanded);
   };
 
-  // Close when switching tabs
+  // Close when switching tabs or when drawer opens
   useEffect(() => {
     setExpandedState(false);
-  }, [activeTab]);
+  }, [activeTab, isDrawerOpen]);
 
   // Close when parent triggers close
   useEffect(() => {
@@ -109,19 +117,29 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
     },
   ];
 
-  return (
+  if (!mounted || typeof document === 'undefined') {
+    return null;
+  }
+
+  // Hide completely when drawer is open
+  if (isDrawerOpen) {
+    return null;
+  }
+
+  const content = (
     <>
       {/* Outside click backdrop when speed dial is open */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-30 bg-black/30 dark:bg-black/60 backdrop-blur-[2px] transition-opacity duration-250 animate-in fade-in"
+          className="fixed inset-0 z-40 bg-black/30 dark:bg-black/60 backdrop-blur-[2px] transition-opacity duration-250 animate-in fade-in"
           onClick={() => setExpandedState(false)}
           aria-hidden="true"
         />
       )}
 
-      <div className="floating-notes-btn fixed z-40 bottom-[max(1.25rem,calc(1.25rem+env(safe-area-inset-bottom,0px)))] right-[max(1.25rem,env(safe-area-inset-right,0px))] md:bottom-8 md:right-8 w-14 h-14 select-none">
-        {/* Circle Menu Options fanning out in equal geometric arc (clean circular icons with no text labels) */}
+      {/* Floating Add (+) FAB Button: Firmly pinned at the viewport bottom across mobile, tablet, and PC */}
+      <div className="floating-notes-btn fixed z-40 bottom-[max(1.25rem,calc(1.25rem+env(safe-area-inset-bottom,0px)))] right-[max(1.25rem,env(safe-area-inset-right,0px))] md:bottom-8 md:right-8 w-14 h-14 select-none pointer-events-auto">
+        {/* Circle Menu Options fanning out in equal geometric arc */}
         {menuOptions.map(option => (
           <div
             key={option.id}
@@ -175,4 +193,6 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
       </div>
     </>
   );
+
+  return createPortal(content, document.body);
 };
