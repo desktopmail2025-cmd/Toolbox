@@ -37,9 +37,24 @@ export default function App() {
   const [favorites, setFavorites] = useState<string[]>(getStoredFavorites);
   const [recents, setRecents] = useState<string[]>(getStoredRecents);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+  const [navbarSearchQuery, setNavbarSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(sounds.enabled);
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
   const savedScrollPosRef = useRef<number>(0);
+
+  // Return origin tracker: remembers exactly where user came from (tab, scrollY, search state & query)
+  interface ToolReturnOrigin {
+    tab: string;
+    scrollY: number;
+    fromSearch: boolean;
+    searchQuery: string;
+    searchMode: 'navbar' | 'modal' | 'none';
+    selectedCategoryId?: CategoryId;
+  }
+  const [toolReturnOrigin, setToolReturnOrigin] = useState<ToolReturnOrigin | null>(null);
+  const toolReturnOriginRef = useRef<ToolReturnOrigin | null>(null);
+  toolReturnOriginRef.current = toolReturnOrigin;
 
   // Set browser scroll restoration to manual so mobile browsers do not force scroll to top on back
   useEffect(() => {
@@ -228,16 +243,30 @@ export default function App() {
     }
   }, []);
 
-  const handleSelectTool = (tool: ToolItem) => {
+  const handleSelectTool = (
+    tool: ToolItem,
+    originMeta?: { fromSearch?: boolean; searchQuery?: string; searchMode?: 'navbar' | 'modal'; categoryId?: CategoryId }
+  ) => {
     sounds.playClick();
     // Record current scroll position with maximum precision across all devices
     const currentY = window.scrollY || document.documentElement.scrollTop || window.pageYOffset || 0;
     savedScrollPosRef.current = currentY;
     setSavedScrollPos(currentY);
 
-    // Remember the tab the tool was opened from (e.g. 'favorites' if opened from Starred screen)
+    // Save origin location: active tab, scroll position, search query & mode
     const sourceTab = activeTab;
     setToolReturnTab(sourceTab);
+
+    const origin: ToolReturnOrigin = {
+      tab: sourceTab,
+      scrollY: currentY,
+      fromSearch: !!originMeta?.fromSearch,
+      searchQuery: originMeta?.searchQuery || (originMeta?.searchMode === 'navbar' ? navbarSearchQuery : originMeta?.searchMode === 'modal' ? modalSearchQuery : ''),
+      searchMode: originMeta?.searchMode || (originMeta?.fromSearch ? 'navbar' : 'none'),
+      selectedCategoryId: originMeta?.categoryId,
+    };
+    setToolReturnOrigin(origin);
+    toolReturnOriginRef.current = origin;
 
     setLastOpenedToolId(tool.id);
     try {
@@ -250,7 +279,7 @@ export default function App() {
     setRecents(getStoredRecents());
     try {
       window.history.pushState(
-        { __omniApp: true, level: 'tool', toolId: tool.id, returnTab: sourceTab },
+        { __omniApp: true, level: 'tool', toolId: tool.id, returnTab: sourceTab, origin },
         '',
         `?tool=${tool.id}`
       );
@@ -268,7 +297,8 @@ export default function App() {
     setIsExitingTool(true);
 
     // Capture target position before unmounting tool
-    const targetPos = savedScrollPosRef.current;
+    const origin = toolReturnOriginRef.current;
+    const targetPos = origin ? origin.scrollY : savedScrollPosRef.current;
 
     setTimeout(() => {
       const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
@@ -283,17 +313,31 @@ export default function App() {
           setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
         }
       }
-      const targetTab = toolReturnTabRef.current || 'categories';
+
+      // Restore destination tab from origin
+      const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
       setActiveTab(targetTab);
       if (targetTab === 'favorites') {
         setStarredSelectedToolId(closedToolId || null);
       } else {
         setStarredSelectedToolId(null);
       }
+
+      // If user entered via search suggestions or search modal, restore search state!
+      if (origin?.fromSearch) {
+        if (origin.searchMode === 'navbar') {
+          setIsNavbarSearchOpen(true);
+          setNavbarSearchQuery(origin.searchQuery);
+        } else if (origin.searchMode === 'modal') {
+          setIsSearchOpen(true);
+          setModalSearchQuery(origin.searchQuery);
+        }
+      }
+
       if (pushState) {
         try {
           window.history.pushState(
-            { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab },
+            { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab, origin },
             '',
             targetTab === 'categories' ? '/' : `?tab=${targetTab}`
           );
@@ -407,6 +451,8 @@ export default function App() {
       sounds.playClick();
       setIsSearchOpen(false);
       setIsNavbarSearchOpen(false);
+      setNavbarSearchQuery('');
+      setModalSearchQuery('');
       setCloseNavbarSearchTrigger(prev => prev + 1);
       (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
       isTransitioningRef.current = true;
@@ -619,7 +665,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Top Bar with Expandable Search */}
+      {/* Top Bar with Expandable Search & Live Suggestions */}
       <Navbar
         onOpenSearch={() => {
           sounds.playClick();
@@ -633,7 +679,12 @@ export default function App() {
         onClearSearch={() => {
           setIsSearchOpen(false);
           setIsNavbarSearchOpen(false);
+          setNavbarSearchQuery('');
+          setModalSearchQuery('');
         }}
+        searchQuery={navbarSearchQuery}
+        onSearchQueryChange={setNavbarSearchQuery}
+        isSearchOpen={isNavbarSearchOpen}
         darkMode={darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         soundEnabled={soundEnabled}
@@ -667,6 +718,8 @@ export default function App() {
           }
         }}
         closeDrawerTrigger={closeDrawerTrigger}
+        favorites={favorites}
+        recents={recents}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
@@ -785,7 +838,11 @@ export default function App() {
       {/* Keyboard Quick Search Modal (preserved via ⌘K) */}
       <SearchModal
         isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
+        initialQuery={modalSearchQuery}
+        onClose={() => {
+          setIsSearchOpen(false);
+          setModalSearchQuery('');
+        }}
         onSelectTool={handleSelectTool}
         favorites={favorites}
         onToggleFavorite={handleToggleFavorite}

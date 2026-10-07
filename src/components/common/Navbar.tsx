@@ -1,36 +1,43 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut, Star } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme } from '../../utils/themeColors';
 import { DrawerStreakWidget } from './DrawerStreakWidget';
+import { SearchSuggestions } from './SearchSuggestions';
 
 interface NavbarProps {
   onOpenSearch: () => void;
   onClearSearch?: () => void;
   searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   activeTab: string;
   onSelectTab: (tab: string) => void;
-  onSelectTool?: (tool: ToolItem) => void;
+  onSelectTool?: (tool: ToolItem, origin?: { fromSearch: boolean; searchQuery: string; searchMode: 'navbar' | 'modal' }) => void;
   onOpenOnboarding?: () => void;
   favoriteCount?: number;
   toolFilter?: 'all' | 'offline' | 'online';
   onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
   onOpenExitDialog?: () => void;
+  isSearchOpen?: boolean;
   onSearchOpenChange?: (open: boolean) => void;
   closeSearchTrigger?: number;
   onDrawerOpenChange?: (open: boolean) => void;
   closeDrawerTrigger?: number;
+  favorites?: string[];
+  recents?: string[];
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenSearch,
+  searchQuery,
+  onSearchQueryChange,
   darkMode,
   onToggleDarkMode,
   soundEnabled,
@@ -43,10 +50,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   toolFilter = 'all',
   onSelectToolFilter,
   onOpenExitDialog,
+  isSearchOpen: controlledIsSearchOpen,
   onSearchOpenChange,
   closeSearchTrigger,
   onDrawerOpenChange,
   closeDrawerTrigger,
+  favorites = [],
+  recents = [],
 }) => {
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -124,21 +134,102 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isDrawerOpen]);
 
   // Search state
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [internalIsSearchOpen, setInternalIsSearchOpen] = useState(false);
+  const isSearchOpen = controlledIsSearchOpen !== undefined ? controlledIsSearchOpen : internalIsSearchOpen;
+
+  const [internalQuery, setInternalQuery] = useState(searchQuery || '');
+  const query = searchQuery !== undefined ? searchQuery : internalQuery;
+
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchHistoryPushedRef = useRef(false);
-  const isClosingViaBackRef = useRef(false);
+
+  // Sync external search query if provided
+  useEffect(() => {
+    if (searchQuery !== undefined && searchQuery !== internalQuery) {
+      setInternalQuery(searchQuery);
+    }
+  }, [searchQuery]);
+
+  // Sync external search open state if provided
+  useEffect(() => {
+    if (controlledIsSearchOpen !== undefined && controlledIsSearchOpen !== internalIsSearchOpen) {
+      setInternalIsSearchOpen(controlledIsSearchOpen);
+      if (controlledIsSearchOpen) {
+        setSelectedIndex(0);
+      }
+    }
+  }, [controlledIsSearchOpen]);
+
+  // Computed matches for keyboard navigation
+  const currentMatches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      const recentsTools = recents
+        .map(id => TOOLS.find(t => t.id === id))
+        .filter((t): t is ToolItem => t !== undefined)
+        .slice(0, 4);
+      const popularIds = [
+        'calc-scientific',
+        'currency-converter',
+        'study-formulas',
+        'prime-checker',
+        'qr-code-pro',
+        'discount-calc',
+      ];
+      const popularTools = popularIds
+        .filter(id => !recents.includes(id))
+        .map(id => TOOLS.find(t => t.id === id))
+        .filter((t): t is ToolItem => t !== undefined)
+        .slice(0, 4);
+      return [...recentsTools, ...popularTools];
+    }
+
+    return TOOLS.map(tool => {
+      let score = 0;
+      const nameLower = tool.name.toLowerCase();
+      const descLower = tool.description.toLowerCase();
+      const cat = CATEGORIES.find(c => c.id === tool.categoryId);
+      const catLower = cat ? cat.name.toLowerCase() : '';
+
+      if (nameLower === q) score += 1000;
+      else if (nameLower.startsWith(q)) score += 600;
+      else if (nameLower.split(/\s+/).some(w => w.startsWith(q))) score += 400;
+      else if (nameLower.includes(q)) score += 250;
+
+      for (const kw of tool.keywords) {
+        const kwLower = kw.toLowerCase();
+        if (kwLower === q) score += 300;
+        else if (kwLower.startsWith(q)) score += 180;
+        else if (kwLower.includes(q)) score += 90;
+      }
+      if (catLower.includes(q)) score += 70;
+      if (descLower.includes(q)) score += 40;
+
+      return { tool, score };
+    })
+      .filter(i => i.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map(i => i.tool);
+  }, [query, recents]);
+
+  const updateQuery = (newQuery: string) => {
+    setInternalQuery(newQuery);
+    onSearchQueryChange?.(newQuery);
+    setSelectedIndex(0);
+  };
 
   // Helper to completely reset search to unopened and unselected
   const resetSearchToUnopened = () => {
     if (inputRef.current) {
       inputRef.current.blur();
     }
-    setIsSearchOpen(false);
+    setInternalIsSearchOpen(false);
     onSearchOpenChange?.(false);
-    setQuery('');
+    updateQuery('');
+    setSelectedIndex(0);
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
 
     // Remove any text selection on page
@@ -156,9 +247,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [closeSearchTrigger]);
 
   const handleOpenSearch = () => {
-    setIsSearchOpen(true);
+    setInternalIsSearchOpen(true);
     onSearchOpenChange?.(true);
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
+  };
+
+  // Selection from suggestions with origin tracking!
+  const handleSelectSuggestedTool = (tool: ToolItem) => {
+    sounds.playClick();
+    if (onSelectTool) {
+      onSelectTool(tool, {
+        fromSearch: true,
+        searchQuery: query,
+        searchMode: 'navbar',
+      });
+    }
   };
 
   // Close search and unselect if user touches/clicks anywhere outside
@@ -207,7 +310,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Outside Touch/Click Backdrop for Search: Returns search instantly to unopened state */}
       {isSearchOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/25 dark:bg-black/55 backdrop-blur-[1px] transition-opacity duration-150 animate-in fade-in"
+          className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 backdrop-blur-[2px] transition-opacity duration-150 animate-in fade-in"
           onPointerDown={e => {
             e.preventDefault();
             resetSearchToUnopened();
@@ -221,41 +324,41 @@ export const Navbar: React.FC<NavbarProps> = ({
         />
       )}
 
-      {/* WhatsApp-style fixed top header: Notch-safe, pinned solidly during all scrolling */}
+      {/* Figma-style workstation top toolbar: Notch-safe, pinned solidly during all scrolling */}
       <header
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 22px)' }}
-        className={`fixed top-0 left-0 right-0 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-xs transition-colors ${
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 18px)' }}
+        className={`fixed top-0 left-0 right-0 w-full border-b border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md shadow-2xs transition-colors ${
           isSearchOpen ? 'z-50' : 'z-40'
         }`}
       >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
-          {/* Zone 1: Logo & App Name (Clicking toggles the Left Drawer layout!) */}
+        <div className="mx-auto flex h-13 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
+          {/* Zone 1: Brand / Menu Toggle (Figma workspace style) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={toggleDrawer}
               aria-label="Toggle Navigation Drawer"
-              className="flex items-center gap-2 text-left group cursor-pointer p-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-850 transition-colors"
+              className="flex items-center gap-2.5 text-left group cursor-pointer p-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors"
               title="Click logo to open Categories & App Menu"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-base transition-transform group-hover:scale-105 active:scale-95 shadow-sm">
-                <Sparkles className="w-4 h-4" />
+              <div className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-bold text-sm transition-transform group-hover:scale-105 active:scale-95 shadow-xs border border-zinc-900/10 dark:border-white/20">
+                <Sparkles className="w-4 h-4 text-indigo-400 dark:text-indigo-600" />
               </div>
-              <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-50 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+              <span className="text-sm font-bold tracking-tight text-zinc-950 dark:text-zinc-50 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition-colors">
                 <span className="hidden min-[380px]:inline">OmniToolbox</span>
                 <span className="min-[380px]:hidden">Omni</span>
               </span>
             </button>
           </div>
 
-          {/* Zone 2: Search Bar directly to the right of the app name */}
-          <div ref={searchContainerRef} data-search-container="true" className={`flex-1 max-w-md relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
-            <div className={`flex items-center rounded-xl border bg-zinc-50 dark:bg-zinc-900 transition-all overflow-hidden h-9 px-2.5 ${
+          {/* Zone 2: Search Bar directly to the right of the app name with Live Figma Quick Actions suggestions */}
+          <div ref={searchContainerRef} data-search-container="true" className={`flex-1 max-w-lg relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
+            <div className={`flex items-center rounded-lg border bg-zinc-50/80 dark:bg-zinc-900/80 transition-all overflow-hidden h-8.5 px-2.5 ${
               isSearchOpen
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-white dark:bg-zinc-900'
-                : 'border-zinc-200/90 dark:border-zinc-800'
+                : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
             }`}>
-              <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0 mr-2" />
+              <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0 mr-2" />
               <input
                 ref={inputRef}
                 type="text"
@@ -263,7 +366,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-search-input="true"
                 value={query}
                 onChange={e => {
-                  setQuery(e.target.value);
+                  updateQuery(e.target.value);
                   if (!isSearchOpen) {
                     handleOpenSearch();
                   }
@@ -271,8 +374,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onFocus={handleOpenSearch}
                 onClick={handleOpenSearch}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'ArrowDown') {
                     e.preventDefault();
+                    if (!isSearchOpen) {
+                      handleOpenSearch();
+                    } else if (currentMatches.length > 0) {
+                      setSelectedIndex(prev => (prev + 1) % currentMatches.length);
+                    }
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!isSearchOpen) {
+                      handleOpenSearch();
+                    } else if (currentMatches.length > 0) {
+                      setSelectedIndex(prev => (prev - 1 + currentMatches.length) % currentMatches.length);
+                    }
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentMatches.length > 0 && currentMatches[selectedIndex]) {
+                      handleSelectSuggestedTool(currentMatches[selectedIndex]);
+                      return;
+                    }
                     if (query.trim()) {
                       const q = query.toLowerCase().trim();
                       const matched = TOOLS.find(
@@ -281,10 +402,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                           t.id.toLowerCase() === q ||
                           t.name.toLowerCase().includes(q)
                       );
-                      if (matched && onSelectTool) {
-                        sounds.playClick();
-                        onSelectTool(matched);
-                        resetSearchToUnopened();
+                      if (matched) {
+                        handleSelectSuggestedTool(matched);
                         return;
                       }
                     }
@@ -300,12 +419,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                       if (!searchContainerRef.current?.contains(document.activeElement)) {
                         resetSearchToUnopened();
                       }
-                    }, 120);
+                    }, 140);
                   }
                 }}
-                placeholder="Search tools..."
-                className="w-full text-xs bg-transparent text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 focus:outline-none font-medium truncate"
+                placeholder="Search tools, formulas, solvers..."
+                className="w-full text-xs bg-transparent text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none font-medium truncate"
               />
+
+              {!query && (
+                <kbd className="hidden sm:inline-flex items-center text-[10px] font-mono text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700/80 shrink-0 mr-1 select-none">
+                  ⌘K
+                </kbd>
+              )}
+
               {(query || isSearchOpen) && (
                 <button
                   type="button"
@@ -314,13 +440,69 @@ export const Navbar: React.FC<NavbarProps> = ({
                     resetSearchToUnopened();
                   }}
                   onClick={() => resetSearchToUnopened()}
-                  className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                  className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   title="Close and clear search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
+
+            {/* Live Search Suggestions Popover attached directly below the search input */}
+            <SearchSuggestions
+              query={query}
+              isOpen={isSearchOpen}
+              onSelectTool={handleSelectSuggestedTool}
+              onClose={resetSearchToUnopened}
+              favorites={favorites}
+              recents={recents}
+              selectedIndex={selectedIndex}
+              onHoverIndex={setSelectedIndex}
+            />
+          </div>
+
+          {/* Zone 3: Figma-style Desktop Toolbar Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Theme Toggle (Figma Style) */}
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onToggleDarkMode();
+              }}
+              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Sound Toggle (Figma Style) */}
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onToggleSound();
+              }}
+              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title={soundEnabled ? 'Mute Sounds' : 'Enable Audio Feedback'}
+            >
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-indigo-500" /> : <VolumeX className="w-3.5 h-3.5 text-zinc-400" />}
+            </button>
+
+            {/* Help & Guide */}
+            {onOpenOnboarding && (
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  onOpenOnboarding();
+                }}
+                className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Tour Guide & Shortcuts"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </header>

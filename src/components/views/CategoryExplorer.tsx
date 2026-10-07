@@ -265,18 +265,18 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
       {/* Basic vs Pro Tier Segmented Selector */}
       <section className="pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          {/* Segmented Control */}
-          <div className="inline-flex items-center p-1 rounded-2xl bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+          {/* Figma-style Segmented Filter Bar */}
+          <div className="inline-flex items-center p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs">
             <button
               type="button"
               onClick={() => {
                 sounds.playClick();
                 setTierFilter('all');
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 tierFilter === 'all'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
               }`}
             >
               All ({CATEGORIES.length})
@@ -288,15 +288,15 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 sounds.playClick();
                 setTierFilter('basic');
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 tierFilter === 'basic'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+                  ? 'bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
               }`}
             >
-              <span>⚡ Basic</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                tierFilter === 'basic' ? 'bg-emerald-700/80 text-white' : 'bg-zinc-300/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+              <span>Basic Suite</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                tierFilter === 'basic' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
               }`}>
                 {CATEGORIES.filter(c => c.tier === 'basic').length}
               </span>
@@ -308,15 +308,15 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 sounds.playClick();
                 setTierFilter('pro');
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 tierFilter === 'pro'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400'
+                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
               }`}
             >
-              <span>💎 Pro</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                tierFilter === 'pro' ? 'bg-indigo-700/80 text-white' : 'bg-zinc-300/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+              <span>Pro Suite</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                tierFilter === 'pro' ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'text-zinc-400'
               }`}>
                 {CATEGORIES.filter(c => c.tier === 'pro').length}
               </span>
@@ -434,19 +434,19 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
 
                               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                 {isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs animate-pulse">
-                                    Selected
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                                    Active
                                   </span>
                                 )}
 
-                                {/* Online/Offline Badges */}
+                                {/* Quiet unboxed status metadata (Figma style) */}
                                 {tool.isOnline ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-medium">
                                     <Globe className="w-2.5 h-2.5" />
                                     Online
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                                     <ShieldCheck className="w-2.5 h-2.5" />
                                     Offline
                                   </span>
@@ -459,11 +459,11 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                                     sounds.playClick();
                                     onToggleFavorite(tool.id);
                                   }}
-                                  className="p-1 rounded-lg text-zinc-300 hover:text-amber-500 dark:text-zinc-600 dark:hover:text-amber-400 transition-colors"
+                                  className="p-1 rounded-md text-zinc-300 hover:text-amber-500 dark:text-zinc-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
                                   title={isFav ? 'Starred' : 'Add to Starred'}
                                 >
                                   <Star
-                                    className={`w-4 h-4 ${
+                                    className={`w-3.5 h-3.5 ${
                                       isFav ? 'fill-amber-400 text-amber-500' : ''
                                     }`}
                                   />
@@ -472,18 +472,18 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                             </div>
 
                             <div className="flex items-center gap-1.5 mb-0.5">
-                              <h3 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-[var(--cat-accent)] transition-colors">
+                              <h3 className="font-semibold text-xs sm:text-sm text-zinc-950 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                 {tool.name}
                               </h3>
                             </div>
-                            <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
                               {tool.description}
                             </p>
                           </div>
 
-                          <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-semibold text-zinc-400 group-hover:text-[var(--cat-accent)] transition-colors">
-                            <span className="font-mono">Launch Tool</span>
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                          <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 text-[10px] font-medium text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <span className="font-mono text-[9px] uppercase tracking-wider">Open Utility</span>
+                            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </div>
                         </div>
                       );

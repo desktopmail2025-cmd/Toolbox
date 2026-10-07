@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Star, ArrowRight } from 'lucide-react';
+import { Search, X, Star, ArrowRight, Globe, WifiOff } from 'lucide-react';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
 import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { sounds } from '../../utils/audio';
+import { HighlightText } from './SearchSuggestions';
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectTool: (tool: ToolItem) => void;
+  onSelectTool: (tool: ToolItem, origin?: { fromSearch: boolean; searchQuery: string; searchMode: 'navbar' | 'modal' }) => void;
   favorites: string[];
   onToggleFavorite: (toolId: string) => void;
+  initialQuery?: string;
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({
@@ -20,18 +22,19 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   onSelectTool,
   favorites,
   onToggleFavorite,
+  initialQuery = '',
 }) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
+      setQuery(initialQuery);
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialQuery]);
 
   const filteredTools = React.useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -61,7 +64,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         e.preventDefault();
         if (filteredTools[selectedIndex]) {
           sounds.playClick();
-          onSelectTool(filteredTools[selectedIndex]);
+          onSelectTool(filteredTools[selectedIndex], {
+            fromSearch: true,
+            searchQuery: query,
+            searchMode: 'modal',
+          });
           onClose();
         }
       }
@@ -69,13 +76,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredTools, selectedIndex, onClose, onSelectTool]);
+  }, [isOpen, filteredTools, selectedIndex, onClose, onSelectTool, query]);
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-20 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:pt-16 bg-black/50 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={onClose}
       onPointerDown={e => {
         if (e.target === e.currentTarget) {
@@ -84,12 +91,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] dark:border-zinc-800 dark:bg-[#18181b] transition-all animate-in zoom-in-95 duration-100"
         onClick={e => e.stopPropagation()}
       >
-        {/* Search Input Bar */}
-        <div className="relative flex items-center border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <Search className="h-5 w-5 text-zinc-400 mr-3 shrink-0" />
+        {/* Figma Command Palette: Search Input Bar */}
+        <div className="relative flex items-center border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
+          <Search className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500 mr-3 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -98,32 +105,35 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Type any tool name, concept or keyword (e.g. loan, tax, bogo, gpa, qr, unit)..."
-            className="w-full bg-transparent text-sm sm:text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-50"
+            placeholder="Search tools, calculators, scientific solvers..."
+            className="w-full bg-transparent text-sm sm:text-base text-zinc-950 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none dark:text-zinc-50 font-medium"
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery('')}
-              className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 mr-1.5 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="ml-2 rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 cursor-pointer"
           >
-            <span className="text-xs px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-700 rounded font-mono">
+            <kbd className="text-[10px] px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 font-mono shadow-2xs">
               ESC
-            </span>
+            </kbd>
           </button>
         </div>
 
         {/* Results List */}
-        <div className="max-h-[60vh] overflow-y-auto p-2">
+        <div className="max-h-[60vh] overflow-y-auto p-2 overscroll-contain">
           {filteredTools.length === 0 ? (
-            <div className="py-12 text-center text-sm text-zinc-500">
-              No tools matching &ldquo;{query}&rdquo;. Try another search term.
+            <div className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="font-medium">No tools matching &ldquo;{query}&rdquo;</p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Try another keyword or browse categories</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -131,43 +141,52 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 const isSelected = idx === selectedIndex;
                 const isFavorite = favorites.includes(tool.id);
                 const categoryMeta = CATEGORIES.find(c => c.id === tool.categoryId);
+                const iconTheme = getToolIconTheme(tool.id, tool.iconName);
 
                 return (
                   <div
                     key={tool.id}
                     onClick={() => {
                       sounds.playClick();
-                      onSelectTool(tool);
+                      onSelectTool(tool, {
+                        fromSearch: true,
+                        searchQuery: query,
+                        searchMode: 'modal',
+                      });
                       onClose();
                     }}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`group flex items-center justify-between rounded-xl p-3 text-left transition-colors cursor-pointer ${
+                    className={`group flex items-center justify-between rounded-xl p-2.5 text-left transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-white'
-                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                        ? 'bg-zinc-100 text-zinc-950 dark:bg-zinc-800/90 dark:text-white ring-1 ring-zinc-300/80 dark:ring-zinc-700/80'
+                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-850/60'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 pr-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
-                        <IconRenderer name={tool.iconName} size={18} />
+                    <div className="flex items-center gap-3 min-w-0 pr-3 flex-1">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconTheme.iconBg} border ${iconTheme.border} shadow-2xs`}>
+                        <IconRenderer name={tool.iconName} size={16} />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{tool.name}</span>
-                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                          <span className="font-semibold text-xs sm:text-sm truncate">
+                            <HighlightText text={tool.name} query={query} />
+                          </span>
+                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate hidden sm:inline">
                             · {categoryMeta?.name}
                           </span>
                           {tool.isOnline ? (
-                            <span className="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 py-0.2 rounded border border-sky-200/60 shrink-0">
-                              Online
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-sky-600 dark:text-sky-400 shrink-0">
+                              <Globe className="w-2.5 h-2.5" />
+                              <span className="hidden md:inline">Online</span>
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200/60 shrink-0">
-                              Offline
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-600 dark:text-emerald-400 shrink-0">
+                              <WifiOff className="w-2.5 h-2.5" />
+                              <span className="hidden md:inline">Offline</span>
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
                           {tool.description}
                         </p>
                       </div>
@@ -181,14 +200,20 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                           sounds.playClick();
                           onToggleFavorite(tool.id);
                         }}
-                        className="p-1.5 text-zinc-400 hover:text-amber-500 transition-colors"
+                        className="p-1.5 text-zinc-400 hover:text-amber-500 transition-colors cursor-pointer"
                         title={isFavorite ? 'Remove from starred' : 'Add to starred'}
                       >
                         <Star
-                          className={`w-4 h-4 ${isFavorite ? 'fill-amber-400 text-amber-500' : ''}`}
+                          className={`w-3.5 h-3.5 ${isFavorite ? 'fill-amber-400 text-amber-500' : ''}`}
                         />
                       </button>
-                      <ArrowRight className="w-4 h-4 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <kbd className={`hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono rounded border transition-opacity ${
+                        isSelected
+                          ? 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 opacity-100 shadow-2xs'
+                          : 'border-transparent text-transparent opacity-0 group-hover:opacity-60 group-hover:border-zinc-200 dark:group-hover:border-zinc-800 group-hover:text-zinc-400'
+                      }`}>
+                        ↵
+                      </kbd>
                     </div>
                   </div>
                 );
@@ -197,16 +222,17 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-2 text-[11px] text-zinc-500 flex items-center justify-between dark:border-zinc-800 dark:bg-zinc-900/60">
+        {/* Figma Quick Actions Modal Footer */}
+        <div className="border-t border-zinc-200/80 bg-zinc-50/80 px-4 py-2 text-[11px] text-zinc-400 dark:text-zinc-500 flex items-center justify-between dark:border-zinc-800 dark:bg-zinc-900/60 select-none">
           <div className="flex items-center gap-3">
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>ESC Close</span>
+            <span><kbd className="font-mono bg-zinc-200/60 dark:bg-zinc-800 px-1 py-0.2 rounded text-[9px]">↑↓</kbd> Navigate</span>
+            <span><kbd className="font-mono bg-zinc-200/60 dark:bg-zinc-800 px-1 py-0.2 rounded text-[9px]">↵</kbd> Open Tool</span>
+            <span><kbd className="font-mono bg-zinc-200/60 dark:bg-zinc-800 px-1 py-0.2 rounded text-[9px]">esc</kbd> Dismiss</span>
           </div>
-          <span>Showing {filteredTools.length} results</span>
+          <span className="font-mono text-[10px]">{filteredTools.length} tools available</span>
         </div>
       </div>
     </div>
   );
 };
+
