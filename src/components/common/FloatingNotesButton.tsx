@@ -65,11 +65,10 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
   };
 
   // Equal geometric circle arc with generous spacing: Radius R = 108px
-  // 1. Notes: 90° (top) -> (0, -108), label placed centered above button
-  // 2. Starred: 135° (diagonal) -> (-76, -76), label placed to the left of button
-  // 3. Home: 180° (left) -> (-108, 0), label placed to the left of button
-  // Chord distance between adjacent buttons is exactly 82.5px!
-  // Labels are positioned radially to prevent any collision between icons and texts.
+  // 1. Notes: 90° (top) -> (0, -108)
+  // 2. Starred: 135° (diagonal) -> (-76, -76)
+  // 3. Home: 180° (left) -> (-108, 0)
+  // Springy staggered delays on open, swift reverse collapse on close
   const menuOptions = [
     {
       id: 'notes' as const,
@@ -80,8 +79,8 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
         : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-500/60 shadow-indigo-600/30',
       x: 0,
       y: -108,
-      delay: '0.02s',
-      labelPositionClass: 'bottom-full mb-2.5 left-1/2 -translate-x-1/2',
+      openDelay: '60ms',
+      closeDelay: '0ms',
     },
     {
       id: 'favorites' as const,
@@ -93,8 +92,8 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
         : 'bg-amber-500 hover:bg-amber-600 border-amber-400/60 shadow-amber-500/30',
       x: -76,
       y: -76,
-      delay: '0.01s',
-      labelPositionClass: 'right-full mr-3 top-1/2 -translate-y-1/2',
+      openDelay: '30ms',
+      closeDelay: '25ms',
     },
     {
       id: 'categories' as const,
@@ -105,8 +104,8 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
         : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-500/60 shadow-emerald-600/30',
       x: -108,
       y: 0,
-      delay: '0s',
-      labelPositionClass: 'right-full mr-3 top-1/2 -translate-y-1/2',
+      openDelay: '0ms',
+      closeDelay: '50ms',
     },
   ];
 
@@ -115,14 +114,14 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
       {/* Outside click backdrop when speed dial is open */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/45 backdrop-blur-[1px] transition-opacity duration-150 animate-in fade-in"
-          onClick={() => setIsExpanded(false)}
+          className="fixed inset-0 z-30 bg-black/30 dark:bg-black/60 backdrop-blur-[2px] transition-opacity duration-250 animate-in fade-in"
+          onClick={() => setExpandedState(false)}
           aria-hidden="true"
         />
       )}
 
-      <div className="floating-notes-btn fixed z-40 bottom-[max(1.25rem,calc(1.25rem+env(safe-area-inset-bottom,0px)))] right-[max(1.25rem,env(safe-area-inset-right,0px))] md:bottom-8 md:right-8 w-14 h-14">
-        {/* Circle Menu Options fanning out in equal geometric arc */}
+      <div className="floating-notes-btn fixed z-40 bottom-[max(1.25rem,calc(1.25rem+env(safe-area-inset-bottom,0px)))] right-[max(1.25rem,env(safe-area-inset-right,0px))] md:bottom-8 md:right-8 w-14 h-14 select-none">
+        {/* Circle Menu Options fanning out in equal geometric arc (clean circular icons with no text labels) */}
         {menuOptions.map(option => (
           <div
             key={option.id}
@@ -131,19 +130,21 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
               top: 'calc(50% - 22px)',
               transform: isExpanded
                 ? `translate3d(${option.x}px, ${option.y}px, 0) scale(1)`
-                : 'translate3d(0, 0, 0) scale(0)',
+                : 'translate3d(0, 0, 0) scale(0.2)',
               opacity: isExpanded ? 1 : 0,
               pointerEvents: isExpanded ? 'auto' : 'none',
-              transition: `transform 0.16s cubic-bezier(0.16, 1, 0.3, 1) ${option.delay}, opacity 0.12s ease ${option.delay}`,
+              transition: isExpanded
+                ? `transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${option.openDelay}, opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1) ${option.openDelay}`
+                : `transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) ${option.closeDelay}, opacity 0.16s ease ${option.closeDelay}`,
             }}
-            className="absolute w-11 h-11 flex items-center justify-center"
+            className="absolute w-11 h-11 flex items-center justify-center will-change-transform"
           >
-            {/* Action Button (Icon Only) */}
+            {/* Speed Dial Action Button */}
             <button
               type="button"
               onClick={() => handleSelectOption(option.id)}
               aria-label={option.label}
-              className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 hover:scale-105 transition-all duration-100 cursor-pointer border ${option.colorClass}`}
+              className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 hover:scale-110 transition-transform duration-200 cursor-pointer border ${option.colorClass}`}
               title={option.label}
             >
               {option.icon}
@@ -162,14 +163,14 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
           onClick={handleToggle}
           aria-label={isExpanded ? 'Close quick menu' : 'Quick access options (Home, Starred, Notes)'}
           aria-expanded={isExpanded}
-          className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-zinc-950/25 active:scale-95 transition-all duration-150 cursor-pointer border relative ${
+          className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl active:scale-90 transition-all duration-300 ease-out cursor-pointer border relative ${
             isExpanded
-              ? 'bg-zinc-900 border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300 rotate-45 scale-105'
-              : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 hover:scale-105 rotate-0'
+              ? 'bg-zinc-900 border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300 rotate-45 scale-105 shadow-zinc-900/40'
+              : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-400/50 hover:scale-105 rotate-0 shadow-indigo-600/35'
           }`}
           title={isExpanded ? 'Close' : 'Quick Access (Home, Starred, Notes)'}
         >
-          <Plus className="w-6 h-6 transition-transform duration-150 ease-out" />
+          <Plus className="w-6 h-6 transition-transform duration-300 cubic-bezier(0.34, 1.56, 0.64, 1)" />
         </button>
       </div>
     </>

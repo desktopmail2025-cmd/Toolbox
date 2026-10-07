@@ -9,18 +9,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Fade out after 650ms for a swift, professional launch
+    // Fast, responsive splash fade-out (380ms) for an instant, polished app launch
     const timer = setTimeout(() => {
       setFading(true);
-      setTimeout(onFinish, 250);
-    }, 650);
+      setTimeout(onFinish, 200);
+    }, 380);
 
     return () => clearTimeout(timer);
   }, [onFinish]);
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white select-none transition-opacity duration-400 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#09090b] text-white select-none transition-opacity duration-300 ${
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
@@ -28,16 +28,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         {/* Glowing Logo Icon */}
         <div className="relative">
           <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-xl animate-pulse" />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-2xl shadow-indigo-500/40 border border-white/20">
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-2xl shadow-indigo-500/30 border border-white/20">
             <Sparkles className="w-10 h-10 text-white animate-spin" style={{ animationDuration: '6s' }} />
           </div>
         </div>
 
-        {/* Wordmark Name Only */}
+        {/* Wordmark Name */}
         <div>
           <h1 className="text-3xl font-black tracking-tight text-white">
             OmniToolbox
           </h1>
+          <p className="text-xs text-zinc-400 mt-1 font-medium">
+            Universal Utility Suite
+          </p>
         </div>
       </div>
     </div>

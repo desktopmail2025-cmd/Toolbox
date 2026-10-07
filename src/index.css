@@ -233,13 +233,13 @@ html.dark .tool-card-hover:hover {
 }
 
 @keyframes toolSlideOutRight {
-  from {
+  0% {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
-  to {
+  100% {
     opacity: 0;
-    transform: translate3d(24px, 0, 0);
+    transform: translate3d(36px, 0, 0) scale(0.985);
   }
 }
 
@@ -255,17 +255,50 @@ html.dark .tool-card-hover:hover {
 }
 
 .animate-tool-slide-in {
-  animation: toolSlideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: toolSlideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .animate-tool-slide-out {
-  animation: toolSlideOutRight 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: toolSlideOutRight 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity;
   pointer-events: none;
 }
 
 .animate-view-fade-in {
   animation: viewFadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Smooth Directional Onboarding Transitions */
+@keyframes onboardingSlideInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(32px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes onboardingSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(-32px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-onboarding-next {
+  animation: onboardingSlideInRight 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-onboarding-prev {
+  animation: onboardingSlideInLeft 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }

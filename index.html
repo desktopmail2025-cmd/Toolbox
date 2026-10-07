@@ -47,7 +47,20 @@
     </script>
   </head>
   <body class="bg-zinc-50 text-zinc-900 antialiased selection:bg-indigo-600 selection:text-white dark:bg-zinc-950 dark:text-zinc-100 min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Direct Instant Native Splash Screen: Zero blank white/black flash on initial app launch -->
+      <div id="app-pre-splash" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#09090b;color:#ffffff;font-family:'Plus Jakarta Sans',sans-serif;user-select:none;-webkit-user-select:none;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem;max-width:320px;">
+          <div style="position:relative;width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,#4f46e5,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 25px -5px rgba(79,70,229,0.45);border:1px solid rgba(255,255,255,0.2);margin-bottom:1.25rem;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+            </svg>
+          </div>
+          <div style="font-size:1.875rem;font-weight:900;letter-spacing:-0.03em;color:#ffffff;line-height:1.2;">OmniToolbox</div>
+          <div style="font-size:0.75rem;color:#a1a1aa;margin-top:0.35rem;font-weight:500;letter-spacing:0.01em;">Universal Utility Suite</div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

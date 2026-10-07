@@ -63,23 +63,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   }, [closeDrawerTrigger]);
 
-  // Lock body and html scroll and prevent touch through when drawer is open
+  // Prevent background touch scrolling when drawer is open without moving body position
   useEffect(() => {
     if (isDrawerOpen) {
-      const scrollY = window.scrollY;
       const prevBodyOverflow = document.body.style.overflow;
-      const prevHtmlOverflow = document.documentElement.style.overflow;
-      const prevTouchAction = document.body.style.touchAction;
-      const prevBodyPosition = document.body.style.position;
-      const prevBodyTop = document.body.style.top;
-      const prevBodyWidth = document.body.style.width;
-
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
 
       const preventBackgroundScroll = (e: TouchEvent) => {
         const target = e.target as HTMLElement | null;
@@ -92,12 +80,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       return () => {
         document.body.style.overflow = prevBodyOverflow;
-        document.documentElement.style.overflow = prevHtmlOverflow;
-        document.body.style.touchAction = prevTouchAction;
-        document.body.style.position = prevBodyPosition;
-        document.body.style.top = prevBodyTop;
-        document.body.style.width = prevBodyWidth;
-        window.scrollTo(0, scrollY);
         document.removeEventListener('touchmove', preventBackgroundScroll);
       };
     }
@@ -240,9 +222,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       )}
 
       {/* WhatsApp-style fixed top header: Notch-safe, pinned solidly during all scrolling */}
-      <header className={`fixed top-0 left-0 right-0 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-xs transition-colors pt-[max(env(safe-area-inset-top,0px),26px)] sm:pt-[env(safe-area-inset-top,0px)] ${
-        isSearchOpen ? 'z-50' : 'z-40'
-      }`}>
+      <header
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 22px)' }}
+        className={`fixed top-0 left-0 right-0 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-xs transition-colors ${
+          isSearchOpen ? 'z-50' : 'z-40'
+        }`}
+      >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
           {/* Zone 1: Logo & App Name (Clicking toggles the Left Drawer layout!) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -353,8 +338,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Drawer Header with same logo and name at the top */}
-        <div className="p-4 sm:p-5 pt-[max(env(safe-area-inset-top,0px),1.25rem)] sm:pt-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
+        {/* Dedicated Notch / Status-bar Guard Band */}
+        <div
+          style={{ height: 'max(env(safe-area-inset-top, 0px), 18px)' }}
+          className="w-full shrink-0 bg-zinc-100/70 dark:bg-zinc-900/70 border-b border-zinc-200/50 dark:border-zinc-800/50"
+        />
+
+        {/* Drawer Header with generous status-bar notch safe clearance for ALL mobile devices */}
+        <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
           <button
             type="button"
             onClick={() => {

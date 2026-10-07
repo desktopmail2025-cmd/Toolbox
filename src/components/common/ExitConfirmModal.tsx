@@ -9,13 +9,17 @@ interface ExitConfirmModalProps {
 }
 
 export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onClose }) => {
+  const [isSessionClosed, setIsSessionClosed] = React.useState(false);
+
   if (!isOpen) return null;
 
-  const handleConfirmExit = () => {
+  const handleConfirmExit = async () => {
     sounds.playTone(200, 0.3);
     try {
-      CapApp.exitApp();
-      return;
+      if (CapApp && typeof CapApp.exitApp === 'function') {
+        await CapApp.exitApp();
+        return;
+      }
     } catch {
       // ignore
     }
@@ -26,26 +30,50 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
       // ignore
     }
 
-    // Direct exit behavior: navigate away to blank or display final closed screen
-    setTimeout(() => {
-      try {
-        window.location.replace('about:blank');
-      } catch {
-        // Fallback for strict browser iframe boundaries
-        document.body.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#09090b;color:#a1a1aa;font-family:sans-serif;text-align:center;padding:24px;">
-            <div style="width:48px;height:48px;border-radius:16px;background:rgba(244,63,94,0.15);display:flex;align-items:center;justify-content:center;color:#f43f5e;font-size:24px;margin-bottom:16px;">⏻</div>
-            <h1 style="font-size:20px;font-weight:800;color:#f4f4f5;margin:0 0 8px 0;">OmniToolbox Closed</h1>
-            <p style="font-size:13px;color:#71717a;max-width:320px;margin:0;line-height:1.5;">Your session has ended safely. You can now close this tab or window.</p>
-          </div>
-        `;
-      }
-    }, 120);
+    setIsSessionClosed(true);
   };
 
+  if (isSessionClosed) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950 text-white select-none animate-in fade-in duration-200">
+        <div className="relative w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl p-6 text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-3xl bg-rose-950/60 border border-rose-900 flex items-center justify-center text-rose-400 shadow-inner">
+            <LogOut className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-black text-zinc-100 tracking-tight">OmniToolbox Session Ended</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Your calculations, settings, and notes have been saved safely. You can now close this tab or return to the app.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setIsSessionClosed(false);
+              onClose();
+            }}
+            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer transition-all shadow-md active:scale-95"
+          >
+            Reopen OmniToolbox
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden p-6 text-center space-y-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200"
+      onClick={() => {
+        sounds.playClick();
+        onClose();
+      }}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden p-6 text-center space-y-4"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Alert Confirmation Dialog */}
         <div className="w-14 h-14 mx-auto rounded-3xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
           <LogOut className="w-7 h-7" />

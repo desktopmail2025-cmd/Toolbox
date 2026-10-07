@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { sounds } from '../../utils/audio';
 import {
   Sparkles, Zap, ShieldCheck, BookOpen, Heart, Flame,
@@ -26,23 +26,23 @@ const SLIDES: OnboardingSlide[] = [
     badge: 'Welcome to OmniToolbox',
     badgeColor: 'text-indigo-600 dark:text-indigo-400',
     title: 'Your Ultimate Offline & Live Utility Suite',
-    subtitle: 'Over 100+ lightning-fast calculators, scientific solvers, measurement tools, and document suites for mobile, tablet, and desktop.',
+    subtitle: 'Over 100+ lightning-fast calculators, solvers, converters & text tools.',
     features: [
-      'Install to Android & iOS with 0 parse errors: 1-tap via Chrome "Install App" or Safari "Add to Home Screen" for native WebAPK offline speed',
-      'Zero server lag — all calculations and processing execute 100% client-side',
-      'Unified searchable directory across 20+ specialized domain categories',
+      '1-Tap native PWA install for Android, iOS & PC with full offline capability',
+      'Zero server latency: 100% private, client-side real-time execution',
+      'Unified search across 24 specialized categories and 180+ tools',
     ],
   },
   {
     icon: BookOpen,
     badge: 'Academic Powerhouse',
     badgeColor: 'text-emerald-600 dark:text-emerald-400',
-    title: 'Subject Formulas & Solver + Study Hub',
-    subtitle: 'Comprehensive mathematical, scientific, engineering, and financial equations organized by subject and grade level.',
+    title: 'Subject Formulas & Academic Study Hub',
+    subtitle: 'Interactive STEM equations with live derivation calculators.',
     features: [
-      'Coverage across 7 disciplines: Math, Physics, Chemistry, Biology, Economics, CS & Earth Sciences',
-      'Interactive solvers: adjust custom variables with live step-by-step mathematical derivations',
-      'Timetable Scheduler & Book Lovers\' Reading Shelf with custom cover photo uploads',
+      'Covers 7 fields: Math, Physics, Chemistry, Biology, Economics & CS',
+      'Adjust custom variables with instant step-by-step mathematical output',
+      'Study timetable organizer & custom bookshelf reading tracker',
     ],
   },
   {
@@ -50,70 +50,72 @@ const SLIDES: OnboardingSlide[] = [
     badge: 'Number Theory Engine',
     badgeColor: 'text-amber-600 dark:text-amber-400',
     title: 'Perfect Prime Calculator & Analyzer',
-    subtitle: 'No basic shortcuts — full prime factorization tree, Sieve of Eratosthenes, and divisor analytics.',
+    subtitle: 'Prime factorization tree, Sieve of Eratosthenes & divisor engine.',
     features: [
       'Deterministic 6k±1 primality verification for integers up to 14 digits',
-      'Canonical factor tree ladders with exponent notation (e.g. 2³ × 3² × 5)',
-      'Goldbach\'s conjecture partition explorer and Sieve range density statistics',
+      'Canonical factor tree ladders with standard exponent notation',
+      'Goldbach conjecture partition explorer and divisor analytics',
     ],
   },
   {
     icon: Lock,
     badge: 'Security & Health Reminders',
     badgeColor: 'text-rose-600 dark:text-rose-400',
-    title: 'Encrypted Vault & Audio Notifications',
-    subtitle: 'Confidential encrypted notes vault with strict reset protections and pill reminder alerts.',
+    title: 'Encrypted Vault & Health Reminders',
+    subtitle: 'Private notes lock, pill audio reminders & curated hot news.',
     features: [
-      'Encrypted Private Notes Vault: forgot PIN permanently wipes previous notes to safeguard privacy',
-      'Medicine & Pill Reminder: browser audio alarms so you never miss a dose',
-      'Today\'s Hot Picks: direct curated journalism from BBC, Forbes, CNN & The Guardian',
+      'Encrypted Private Vault: forgot-PIN protection safeguards confidential notes',
+      'Medicine & Pill Reminder: audio alerts so you never miss a schedule',
+      'Today\'s Hot Picks: direct curated headlines from Forbes, BBC & CNN',
     ],
   },
   {
     icon: Trophy,
     badge: 'Live Sports Center',
     badgeColor: 'text-emerald-600 dark:text-emerald-400',
-    title: 'World Sports Scores & Tactics',
-    subtitle: 'Track live scores across global football leagues, cricket, NBA, and design tactical lineups.',
+    title: 'World Sports Center & Tactics Board',
+    subtitle: 'Track live scores across global leagues & design formations.',
     features: [
-      'Live football scores with goal alerts, stats, and real-time standings across top leagues',
-      'Interactive Tactical Pitch: 4-3-3, 4-2-3-1 formations, substitute swaps and squad exporter',
-      'Universal Match Scorecard Maker with timer, foul log, and printable official match report',
+      'Live football, cricket & basketball score updates and league standings',
+      'Interactive Tactics Pitch: 4-3-3, 4-2-3-1 formations with squad exporter',
+      'Match Scorecard Maker with foul timer and printable match report',
     ],
   },
   {
     icon: Terminal,
     badge: 'Code Anywhere (No PC Needed)',
     badgeColor: 'text-cyan-600 dark:text-cyan-400',
-    title: 'Mobile & PC Code Playground',
-    subtitle: 'Practice programming in HTML/CSS/JS, Python & algorithms right from your smartphone or desktop.',
+    title: 'Mobile & Desktop Code Playground',
+    subtitle: 'Code in HTML, CSS, JavaScript & Python without needing a PC.',
     features: [
-      'Mobile-optimized soft-key toolbar: 1-tap insert for (), {}, [], <>, ;, quotes and operators',
-      'Live sandboxed web preview with iframe DOM rendering and console message interception',
-      'Interactive Python runner with preloaded algorithm presets and local project storage',
+      'Mobile soft-key bar: 1-tap insert for (), {}, [], quotes & operators',
+      'Live sandboxed web preview with console logging & DOM debugger',
+      'Interactive Python runner with preloaded algorithm presets',
     ],
   },
   {
     icon: Keyboard,
     badge: 'Pro Shortcuts & Speed',
     badgeColor: 'text-purple-600 dark:text-purple-400',
-    title: 'Speed & Tactile Productivity',
-    subtitle: 'Master the suite with high-efficiency keyboard shortcuts and hot picks.',
+    title: 'Pro Shortcuts & Speed Dial Navigation',
+    subtitle: 'Master the suite with high-efficiency navigation & favorites.',
     features: [
       'Cmd+K / Ctrl+K — Open universal search bar instantly from any screen',
-      'Cmd+J / Ctrl+J — Jump directly into quick scratchpad notes',
-      'Starred Favorites — Bookmark your most used daily tools for 1-click access',
+      'Floating Speed Dial — 1-tap jump to Home, Starred Tools, or Notes',
+      'Offline Arcade — Enjoy 2048, Tic-Tac-Toe AI, Minesweeper & Reflex Test',
     ],
   },
 ];
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
 
   // Always restart onboarding from the beginning when opened
   useEffect(() => {
     if (isOpen) {
       setCurrentSlide(0);
+      setSlideDirection('next');
     }
   }, [isOpen]);
 
@@ -126,6 +128,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       } else if (e.key === 'ArrowRight') {
         if (currentSlide < SLIDES.length - 1) {
           sounds.playClick();
+          setSlideDirection('next');
           setCurrentSlide(prev => prev + 1);
         } else {
           handleComplete();
@@ -133,6 +136,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       } else if (e.key === 'ArrowLeft') {
         if (currentSlide > 0) {
           sounds.playClick();
+          setSlideDirection('prev');
           setCurrentSlide(prev => prev - 1);
         }
       }
@@ -152,12 +156,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     if (isLast) {
       handleComplete();
     } else {
+      setSlideDirection('next');
       setCurrentSlide(prev => prev + 1);
     }
   };
 
   const handlePrev = () => {
     sounds.playClick();
+    setSlideDirection('prev');
     setCurrentSlide(prev => Math.max(0, prev - 1));
   };
 
@@ -169,11 +175,43 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     onClose();
   };
 
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = touchStartXRef.current - e.changedTouches[0].clientX;
+    const diffY = touchStartYRef.current - e.changedTouches[0].clientY;
+
+    // Detect intentional horizontal swipe gesture
+    if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX > 0) {
+        // Swiped left -> Next
+        handleNext();
+      } else {
+        // Swiped right -> Prev
+        handlePrev();
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in select-none">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 relative flex flex-col justify-between min-h-[460px]">
-        {/* Top Header Bar */}
-        <div className="flex items-center justify-between">
+      {/* Uniform, strictly identical size dialog card across all devices & slides */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 w-full max-w-[480px] h-[510px] min-h-[510px] max-h-[92vh] relative flex flex-col justify-between overflow-hidden shadow-2xl"
+      >
+        {/* Top Header Bar (Fixed 32px height) */}
+        <div className="h-8 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs font-semibold">
             <span className={slide.badgeColor}>{slide.badge}</span>
             <span aria-hidden="true" className="text-zinc-400">·</span>
@@ -194,36 +232,45 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
-        {/* Slide Content */}
-        <div className="space-y-4 my-auto animate-in fade-in duration-200">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-md">
-            <Icon className="w-7 h-7" />
-          </div>
+        {/* Slide Content with fixed, consistent vertical slot sizes across all slides */}
+        <div className="flex-1 flex flex-col justify-start overflow-hidden py-2 my-auto">
+          <div
+            key={currentSlide}
+            className={`space-y-3 ${
+              slideDirection === 'next' ? 'animate-onboarding-next' : 'animate-onboarding-prev'
+            }`}
+          >
+            {/* Icon (Fixed 48px height) */}
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-900/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs shrink-0">
+              <Icon className="w-6 h-6" />
+            </div>
 
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-              {slide.title}
-            </h2>
-            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
-              {slide.subtitle}
-            </p>
-          </div>
+            {/* Title & Subtitle container with guaranteed fixed height */}
+            <div className="h-[74px] sm:h-[80px] flex flex-col justify-center">
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 line-clamp-2 leading-snug">
+                {slide.title}
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                {slide.subtitle}
+              </p>
+            </div>
 
-          {/* Key Bullet Highlights */}
-          <div className="space-y-2 pt-2">
-            {slide.features.map((feat, idx) => (
-              <div key={idx} className="flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
-                <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
-                  ✓
-                </span>
-                <span>{feat}</span>
-              </div>
-            ))}
+            {/* Key Bullet Highlights with uniform height slot */}
+            <div className="space-y-2.5 h-[148px] flex flex-col justify-start pt-1">
+              {slide.features.map((feat, idx) => (
+                <div key={idx} className="flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
+                    ✓
+                  </span>
+                  <span className="leading-snug line-clamp-2">{feat}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Bottom Actions & Dots */}
-        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+        {/* Bottom Actions & Dots (Fixed 52px height) */}
+        <div className="h-13 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0">
           {/* Pagination Dots */}
           <div className="flex items-center gap-1.5">
             {SLIDES.map((_, idx) => (
@@ -231,6 +278,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
                 key={idx}
                 onClick={() => {
                   sounds.playClick();
+                  setSlideDirection(idx > currentSlide ? 'next' : 'prev');
                   setCurrentSlide(idx);
                 }}
                 className={`h-2 rounded-full transition-all cursor-pointer ${
@@ -249,7 +297,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
               <button
                 type="button"
                 onClick={handlePrev}
-                className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer active:scale-95 transition-all"
               >
                 Back
               </button>

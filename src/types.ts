@@ -40,4 +40,5 @@ export interface CategoryMeta {
   iconName: string;
   description: string;
   badgeCount?: number;
+  tier?: 'basic' | 'pro';
 }

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CATEGORIES, TOOLS } from '../../data/toolsRegistry';
 import { CategoryId, ToolItem } from '../../types';
 import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
-import { Star, Clock, ChevronDown, ArrowRight, Globe, ShieldCheck, Zap, WifiOff } from 'lucide-react';
+import { Star, Clock, ChevronDown, ChevronLeft, ChevronRight, ArrowRight, Globe, ShieldCheck, Zap, WifiOff } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 interface CategoryExplorerProps {
@@ -39,6 +39,60 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
     .filter((t): t is ToolItem => t !== undefined)
     .slice(0, 4);
 
+  const recentScrollRef = useRef<HTMLDivElement>(null);
+  const isDownRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const hasDraggedRef = useRef(false);
+
+  const handleScrollShelf = (direction: 'next' | 'prev' = 'next') => {
+    sounds.playClick();
+    if (!recentScrollRef.current) return;
+    const container = recentScrollRef.current;
+    const cardStep = 180;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+
+    if (direction === 'next') {
+      if (container.scrollLeft >= maxScroll - 15) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        container.scrollBy({ left: cardStep, behavior: 'smooth' });
+      }
+    } else {
+      if (container.scrollLeft <= 15) {
+        container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        container.scrollBy({ left: -cardStep, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!recentScrollRef.current) return;
+    isDownRef.current = true;
+    hasDraggedRef.current = false;
+    startXRef.current = e.pageX - recentScrollRef.current.offsetLeft;
+    scrollLeftRef.current = recentScrollRef.current.scrollLeft;
+  };
+
+  const handleMouseLeave = () => {
+    isDownRef.current = false;
+  };
+
+  const handleMouseUp = () => {
+    isDownRef.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDownRef.current || !recentScrollRef.current) return;
+    const x = e.pageX - recentScrollRef.current.offsetLeft;
+    const walk = (x - startXRef.current) * 1.3;
+    if (Math.abs(walk) > 6) {
+      hasDraggedRef.current = true;
+    }
+    recentScrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+  };
+
   // Filter tools based on section
   const getCategoryTools = (categoryId: CategoryId) => {
     return TOOLS.filter(t => {
@@ -49,8 +103,14 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
     });
   };
 
-  // Only display categories that contain tools for the selected filter
-  const visibleCategories = CATEGORIES.filter(cat => getCategoryTools(cat.id).length > 0);
+  // Tier filter: 'all' | 'basic' | 'pro'
+  const [tierFilter, setTierFilter] = useState<'all' | 'basic' | 'pro'>('all');
+
+  // Only display categories that contain tools for the selected filter & tier
+  const visibleCategories = CATEGORIES.filter(cat => {
+    if (tierFilter !== 'all' && cat.tier !== tierFilter) return false;
+    return getCategoryTools(cat.id).length > 0;
+  });
 
   return (
     <div className="space-y-6 pb-28">
@@ -79,7 +139,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               Tool Explorer
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl leading-relaxed">
-              Explore our master catalog of high-performance utilities.
+              Explore our master catalog of high-performance utilities arranged into Basic & Pro suites.
             </p>
           </div>
 
@@ -121,44 +181,157 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </div>
       )}
 
-      {/* Recently Opened Shelf */}
+      {/* Recently Opened Shelf: Unified Horizontal Recycler View Shelf for ALL devices and screen sizes */}
       {recentToolItems.length > 0 && toolFilter === 'all' && (
-        <section>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Recently Opened</span>
-          </div>
-          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
-            {recentToolItems.map(tool => (
-              <div
-                key={tool.id}
-                onClick={() => {
-                  sounds.playClick();
-                  onSelectTool(tool);
-                }}
-                className="group flex items-center justify-between p-3 rounded-2xl border border-zinc-200/90 bg-white hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-zinc-600 cursor-pointer active:scale-[0.98] transition-all duration-200"
+        <section className="relative">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <Clock className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Recently Opened</span>
+              <span className="text-[10px] font-normal normal-case px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                {recentToolItems.length}
+              </span>
+            </div>
+
+            {/* Interactive, working "Swipe to explore" button & smooth scroll controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleScrollShelf('prev')}
+                className="w-6 h-6 rounded-lg flex items-center justify-center border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90 transition-all cursor-pointer shadow-2xs"
+                title="Scroll previous"
+                aria-label="Scroll previous recent tools"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
-                    <IconRenderer name={tool.iconName} size={16} />
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleScrollShelf('next')}
+                className="group/btn inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 active:scale-95 transition-all cursor-pointer select-none bg-indigo-50/90 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60 shadow-2xs"
+                title="Click or swipe to explore recent tools"
+                aria-label="Swipe to explore recent tools"
+              >
+                <span>Swipe to explore</span>
+                <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+
+          {/* Smooth Horizontal Recycler View: Uniform across all devices, phones, tablets, and desktops */}
+          <div className="relative -mx-1 px-1">
+            <div
+              ref={recentScrollRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2 pt-0.5 overscroll-x-contain cursor-grab active:cursor-grabbing"
+            >
+              {recentToolItems.map(tool => (
+                <div
+                  key={tool.id}
+                  onClick={() => {
+                    if (hasDraggedRef.current) {
+                      hasDraggedRef.current = false;
+                      return;
+                    }
+                    sounds.playClick();
+                    onSelectTool(tool);
+                  }}
+                  className="group w-[155px] sm:w-[175px] shrink-0 snap-start flex flex-col justify-between p-3 rounded-2xl border border-zinc-200/90 bg-white hover:border-indigo-400 hover:shadow-sm dark:border-zinc-800/90 dark:bg-zinc-900 dark:hover:border-indigo-500/60 cursor-pointer active:scale-[0.96] transition-all duration-150 select-none shadow-2xs"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${getToolIconTheme(tool.id, tool.iconName).iconBg} border ${getToolIconTheme(tool.id, tool.iconName).border} shadow-2xs`}>
+                      <IconRenderer name={tool.iconName} size={16} />
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
-                        {tool.name}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-zinc-400 block truncate">
+                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate block">
+                      {tool.name}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block truncate font-medium mt-0.5">
                       {CATEGORIES.find(c => c.id === tool.categoryId)?.name}
                     </span>
                   </div>
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
       )}
+
+      {/* Basic vs Pro Tier Segmented Selector */}
+      <section className="pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          {/* Segmented Control */}
+          <div className="inline-flex items-center p-1 rounded-2xl bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setTierFilter('all');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                tierFilter === 'all'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              }`}
+            >
+              All ({CATEGORIES.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setTierFilter('basic');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                tierFilter === 'basic'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+              }`}
+            >
+              <span>⚡ Basic</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                tierFilter === 'basic' ? 'bg-emerald-700/80 text-white' : 'bg-zinc-300/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+              }`}>
+                {CATEGORIES.filter(c => c.tier === 'basic').length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setTierFilter('pro');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                tierFilter === 'pro'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400'
+              }`}
+            >
+              <span>💎 Pro</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                tierFilter === 'pro' ? 'bg-indigo-700/80 text-white' : 'bg-zinc-300/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+              }`}>
+                {CATEGORIES.filter(c => c.tier === 'pro').length}
+              </span>
+            </button>
+          </div>
+
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            {tierFilter === 'all'
+              ? 'Showing all 24 categories (12 Basic & 12 Pro)'
+              : tierFilter === 'basic'
+              ? '⚡ Basic Suite: Everyday essential calculators, converters & text'
+              : '💎 Pro Suite: Advanced finance, dev playground, sports & security'}
+          </div>
+        </div>
+      </section>
 
       {/* Expandable Categories Accordion List */}
       <div className="space-y-3.5">
@@ -192,10 +365,17 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                     <IconRenderer name={category.iconName} size={20} />
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
                         {category.name}
                       </h2>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md border shrink-0 ${
+                        category.tier === 'pro'
+                          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                      }`}>
+                        {category.tier === 'pro' ? '💎 Pro' : '⚡ Basic'}
+                      </span>
                       <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 shrink-0">
                         · {tools.length} tool{tools.length === 1 ? '' : 's'}
                       </span>

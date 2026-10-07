@@ -39,6 +39,16 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(sounds.enabled);
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
+  const savedScrollPosRef = useRef<number>(0);
+
+  // Set browser scroll restoration to manual so mobile browsers do not force scroll to top on back
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      try {
+        window.history.scrollRestoration = 'manual';
+      } catch {}
+    }
+  }, []);
 
   // Expanded sub-overlays & animation state
   const [isNavbarSearchOpen, setIsNavbarSearchOpen] = useState(false);
@@ -363,8 +373,10 @@ export default function App() {
 
   const handleSelectTool = (tool: ToolItem) => {
     sounds.playClick();
-    // Preserve current scroll position
-    setSavedScrollPos(window.scrollY);
+    // Record current scroll position with maximum precision across all devices
+    const currentY = window.scrollY || document.documentElement.scrollTop || window.pageYOffset || 0;
+    savedScrollPosRef.current = currentY;
+    setSavedScrollPos(currentY);
 
     // Remember the tab the tool was opened from (e.g. 'favorites' if opened from Starred screen)
     const sourceTab = activeTab;
@@ -398,6 +410,9 @@ export default function App() {
     lastBackActionTimeRef.current = Date.now();
     setIsExitingTool(true);
 
+    // Capture target position before unmounting tool
+    const targetPos = savedScrollPosRef.current;
+
     setTimeout(() => {
       const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
       setActiveTool(null);
@@ -429,19 +444,39 @@ export default function App() {
           // ignore
         }
       }
-      // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
-      if (targetTab === 'categories') {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
-        });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'instant' });
-      }
-    }, 200);
+
+      // Restore exact scroll position across all devices & screen sizes: stays where it was!
+      const restoreScroll = () => {
+        if (targetPos > 0) {
+          window.scrollTo({ top: targetPos, behavior: 'instant' });
+        }
+      };
+
+      restoreScroll();
+      requestAnimationFrame(() => {
+        restoreScroll();
+        setTimeout(restoreScroll, 25);
+        setTimeout(restoreScroll, 75);
+        setTimeout(restoreScroll, 160);
+        setTimeout(restoreScroll, 320);
+      });
+    }, 260);
 
     setTimeout(() => {
       justNavigatedToHomeRef.current = false;
     }, 800);
+  };
+
+  const replenishHistoryBuffer = (level: string, tab: string = 'categories') => {
+    try {
+      window.history.pushState(
+        { __omniApp: true, level, tab },
+        '',
+        tab === 'categories' ? '/' : `?tab=${tab}`
+      );
+    } catch {
+      // ignore
+    }
   };
 
   const handleGoHome = (pushState: boolean = true) => {
@@ -481,7 +516,8 @@ export default function App() {
   // 8. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
   const handleBackAction = (viaHistoryPop: boolean = false) => {
     const now = Date.now();
-    if (isTransitioningRef.current || now - lastBackActionTimeRef.current < 350) {
+    if (isTransitioningRef.current || now - lastBackActionTimeRef.current < 300) {
+      if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
     lastBackActionTimeRef.current = now;
@@ -489,12 +525,14 @@ export default function App() {
     // 1. If Exit Dialog is open: close it
     if (showExitDialogRef.current) {
       setShowExitDialog(false);
+      if (viaHistoryPop) replenishHistoryBuffer('home', 'categories');
       return;
     }
 
     // 2. If Onboarding is open: close it
     if (showOnboardingRef.current) {
       setShowOnboarding(false);
+      if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
 
@@ -503,6 +541,7 @@ export default function App() {
       sounds.playClick();
       setIsFABExpanded(false);
       setCloseFABTrigger(prev => prev + 1);
+      if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
 
@@ -515,6 +554,12 @@ export default function App() {
       (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
       isTransitioningRef.current = true;
       setTimeout(() => { isTransitioningRef.current = false; }, 300);
+      if (viaHistoryPop) {
+        replenishHistoryBuffer(
+          activeToolRef.current ? 'tool' : activeTabRef.current === 'categories' ? 'home' : 'tab',
+          activeTabRef.current
+        );
+      }
       return;
     }
 
@@ -525,26 +570,42 @@ export default function App() {
       setCloseDrawerTrigger(prev => prev + 1);
       isTransitioningRef.current = true;
       setTimeout(() => { isTransitioningRef.current = false; }, 300);
+      if (viaHistoryPop) {
+        replenishHistoryBuffer(
+          activeToolRef.current ? 'tool' : activeTabRef.current === 'categories' ? 'home' : 'tab',
+          activeTabRef.current
+        );
+      }
       return;
     }
 
     // 6. A tool is opened -> Close tool and return to source tab with slide animation!
     if (activeToolRef.current) {
       sounds.playClick();
-      handleBackToOverview(!viaHistoryPop);
+      const targetTab = toolReturnTabRef.current || 'categories';
+      handleBackToOverview(false);
+      if (viaHistoryPop) {
+        replenishHistoryBuffer(targetTab === 'categories' ? 'home' : 'tab', targetTab);
+      }
       return;
     }
 
     // 7. Sub-tab is opened (e.g. Starred, Notes, Games) -> Return to home screen!
     if (activeTabRef.current !== 'categories') {
       sounds.playClick();
-      handleGoHome(!viaHistoryPop);
+      handleGoHome(false);
+      if (viaHistoryPop) {
+        replenishHistoryBuffer('home', 'categories');
+      }
       return;
     }
 
     // 8. User is on home screen:
     // If the app JUST arrived at home within the last 800ms, DO NOT show exit alert!
     if (justNavigatedToHomeRef.current) {
+      if (viaHistoryPop) {
+        replenishHistoryBuffer('home', 'categories');
+      }
       return;
     }
 
@@ -552,11 +613,7 @@ export default function App() {
     sounds.playClick();
     setShowExitDialog(true);
     if (viaHistoryPop) {
-      try {
-        window.history.pushState({ __omniApp: true, level: 'home' }, '');
-      } catch {
-        // ignore
-      }
+      replenishHistoryBuffer('home', 'categories');
     }
   };
 
