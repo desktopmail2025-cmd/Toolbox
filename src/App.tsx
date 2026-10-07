@@ -65,7 +65,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [showExitDialog, setShowExitDialog] = useState<boolean>(false);
 
-  const handleFinishSplash = () => {
+  const handleFinishSplash = React.useCallback(() => {
     setShowSplash(false);
     try {
       const onboarded = localStorage.getItem('omni_onboarded');
@@ -75,7 +75,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  };
+  }, []);
 
   // In the beginning of the app keep all categories collapsed; expand when user clicks
   const [expandedCatIds, setExpandedCatIds] = useState<Set<CategoryId>>(() => {
@@ -107,9 +107,13 @@ export default function App() {
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('omni_theme');
-      if (saved) return saved === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      try {
+        const saved = localStorage.getItem('omni_theme');
+        if (saved) return saved === 'dark';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      } catch {
+        return false;
+      }
     }
     return false;
   });
@@ -148,13 +152,15 @@ export default function App() {
 
   // Apply dark mode class and sync Capacitor StatusBar natively
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('omni_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('omni_theme', 'light');
-    }
+    try {
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('omni_theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('omni_theme', 'light');
+      }
+    } catch {}
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -186,155 +192,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab]);
-
-  // Universal input field hint vanish on focus & restore on blur / click outside / back:
-  // Shows default value in the field as a hint; vanishes as soon as user clicks to input;
-  // restores default hint if user clears or leaves it empty and blurs/presses back.
-  useEffect(() => {
-    // Install prototype interceptors once so React re-renders don't prematurely re-inject '0' / default while user is actively focused to type
-    if (typeof window !== 'undefined' && !(window as unknown as { __omniHintEngineInit?: boolean }).__omniHintEngineInit) {
-      (window as unknown as { __omniHintEngineInit?: boolean }).__omniHintEngineInit = true;
-
-      const inputProto = window.HTMLInputElement?.prototype;
-      const originalInputSetter = inputProto ? Object.getOwnPropertyDescriptor(inputProto, 'value')?.set : null;
-      if (inputProto && originalInputSetter) {
-        Object.defineProperty(inputProto, 'value', {
-          set(val) {
-            // If input is actively focused and marked as hint-vanished, suppress re-populating default/zero during render
-            if (
-              this.dataset?.hintVanished === 'true' &&
-              document.activeElement === this &&
-              (String(val) === this.dataset.defaultVal || String(val) === '0' || String(val) === '')
-            ) {
-              return originalInputSetter.call(this, '');
-            }
-            return originalInputSetter.call(this, val);
-          },
-          configurable: true,
-        });
-      }
-
-      const textareaProto = window.HTMLTextAreaElement?.prototype;
-      const originalTextareaSetter = textareaProto ? Object.getOwnPropertyDescriptor(textareaProto, 'value')?.set : null;
-      if (textareaProto && originalTextareaSetter) {
-        Object.defineProperty(textareaProto, 'value', {
-          set(val) {
-            if (
-              this.dataset?.hintVanished === 'true' &&
-              document.activeElement === this &&
-              (String(val) === this.dataset.defaultVal || String(val) === '')
-            ) {
-              return originalTextareaSetter.call(this, '');
-            }
-            return originalTextareaSetter.call(this, val);
-          },
-          configurable: true,
-        });
-      }
-    }
-
-    const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
-      if (!target) return;
-      const tag = target.tagName.toLowerCase();
-      if (tag !== 'input' && tag !== 'textarea') return;
-
-      const type = (target.getAttribute('type') || 'text').toLowerCase();
-      if (['password', 'checkbox', 'radio', 'file', 'button', 'submit', 'range', 'color', 'hidden', 'search'].includes(type)) return;
-      if (target.dataset.noAutoClear === 'true') return;
-      if (target.closest('[role="search"]') || target.closest('.search-container')) return;
-
-      // Remember initial default hint value
-      if (target.dataset.defaultVal === undefined) {
-        target.dataset.defaultVal = target.value || target.placeholder || '';
-      }
-
-      const defaultVal = target.dataset.defaultVal;
-      // When user clicks in the tool to give input:
-      // If the field shows the initial default hint (or user hasn't typed yet, or value matches default/0/placeholder), vanish the hint immediately!
-      const isDefaultHint = !target.dataset.userHasTyped ||
-        target.dataset.userHasTyped === 'false' ||
-        target.value === defaultVal ||
-        target.value === '0' ||
-        target.value === target.placeholder;
-
-      if (defaultVal && isDefaultHint) {
-        target.dataset.hintVanished = 'true';
-        target.dataset.userHasTyped = 'false';
-        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-        if (nativeSetter) {
-          nativeSetter.call(target, '');
-          target.dispatchEvent(new Event('input', { bubbles: true }));
-          target.dispatchEvent(new Event('change', { bubbles: true }));
-        } else {
-          target.value = '';
-        }
-      }
-    };
-
-    const handleInput = (e: Event) => {
-      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
-      if (!target) return;
-      // As soon as the user enters actual input, cancel hint-vanished state and mark edited
-      target.dataset.hintVanished = 'false';
-      target.dataset.userHasTyped = 'true';
-    };
-
-    const handleFocusOut = (e: FocusEvent) => {
-      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
-      if (!target) return;
-      const tag = target.tagName.toLowerCase();
-      if (tag !== 'input' && tag !== 'textarea') return;
-
-      target.dataset.hintVanished = 'false';
-      const defaultVal = target.dataset.defaultVal;
-      if (!defaultVal) return;
-
-      // If user left it empty or only whitespace, or didn't type anything, restore the default hint value!
-      if (target.value.trim() === '' || target.dataset.userHasTyped !== 'true') {
-        target.dataset.userHasTyped = 'false';
-        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-        if (nativeSetter) {
-          nativeSetter.call(target, defaultVal);
-          target.dispatchEvent(new Event('input', { bubbles: true }));
-          target.dispatchEvent(new Event('change', { bubbles: true }));
-        } else {
-          target.value = defaultVal;
-        }
-      }
-    };
-
-    const handleInputKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLInputElement | HTMLTextAreaElement | null;
-      if (!target) return;
-      // If user presses Escape while in field, restore default hint value and blur
-      if (e.key === 'Escape' && target.dataset.defaultVal) {
-        const defaultVal = target.dataset.defaultVal;
-        const prototype = target instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-        if (nativeSetter) {
-          nativeSetter.call(target, defaultVal);
-          target.dispatchEvent(new Event('input', { bubbles: true }));
-          target.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        target.blur();
-      }
-    };
-
-    window.addEventListener('focusin', handleFocusIn, true);
-    window.addEventListener('input', handleInput, true);
-    window.addEventListener('focusout', handleFocusOut, true);
-    window.addEventListener('keydown', handleInputKeyDown, true);
-
-    return () => {
-      window.removeEventListener('focusin', handleFocusIn, true);
-      window.removeEventListener('input', handleInput, true);
-      window.removeEventListener('focusout', handleFocusOut, true);
-      window.removeEventListener('keydown', handleInputKeyDown, true);
-    };
-  }, []);
 
   // If user selected something and touched anywhere of the app, the selection vanishes immediately
   useEffect(() => {

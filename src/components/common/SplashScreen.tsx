@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 
 interface SplashScreenProps {
@@ -7,20 +7,28 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [fading, setFading] = useState(false);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
-    // Fast, responsive splash fade-out (380ms) for an instant, polished app launch
-    const timer = setTimeout(() => {
+    // Fast, responsive splash fade-out (180ms + 120ms fade) for an instant app launch
+    const fadeTimer = setTimeout(() => {
       setFading(true);
-      setTimeout(onFinish, 200);
-    }, 380);
+    }, 180);
 
-    return () => clearTimeout(timer);
-  }, [onFinish]);
+    const finishTimer = setTimeout(() => {
+      onFinishRef.current();
+    }, 300);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(finishTimer);
+    };
+  }, []);
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#09090b] text-white select-none transition-opacity duration-300 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#09090b] text-white select-none transition-opacity duration-150 ${
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >

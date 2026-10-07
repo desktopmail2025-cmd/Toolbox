@@ -7,8 +7,12 @@ class SoundEngine {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('omni_sound_enabled');
-      this.enabled = saved !== null ? saved === 'true' : true;
+      try {
+        const saved = localStorage.getItem('omni_sound_enabled');
+        this.enabled = saved !== null ? saved === 'true' : true;
+      } catch {
+        this.enabled = true;
+      }
       this.setupUnlockListeners();
       this.setupGlobalAppSoundDelegation();
     }
@@ -91,7 +95,9 @@ class SoundEngine {
 
   public toggle(): boolean {
     this.enabled = !this.enabled;
-    localStorage.setItem('omni_sound_enabled', String(this.enabled));
+    try {
+      localStorage.setItem('omni_sound_enabled', String(this.enabled));
+    } catch {}
     if (this.enabled) {
       this.playClick(750, 0.05);
     }

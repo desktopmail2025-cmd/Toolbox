@@ -1168,6 +1168,7 @@ interface QueuedFileItem {
   pageCount?: number;
   status: 'ready' | 'converting' | 'done' | 'error';
   convertedBlobUrl?: string;
+  convertedBlob?: Blob;
   convertedFileName?: string;
 }
 
@@ -1415,18 +1416,15 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
         }
 
         item.status = 'done';
+        item.convertedBlob = outputBlob;
         item.convertedBlobUrl = URL.createObjectURL(outputBlob);
         item.convertedFileName = outName;
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 150));
       }
 
       setProgress(100);
       sounds.playSuccess();
-      const firstDone = fileQueue.find(f => f.convertedBlobUrl);
-      if (firstDone) {
-        setPreviewItem(firstDone);
-        setExportNotice(`Conversion complete for ${fileQueue.length} files. Opening "${firstDone.convertedFileName}" in viewer below!`);
-      }
+      setExportNotice(`Successfully converted ${fileQueue.length} file${fileQueue.length === 1 ? '' : 's'}! Click the download arrow to save.`);
     } catch {
       sounds.playTone(180, 0.4);
     } finally {
@@ -1434,14 +1432,33 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
     }
   };
 
-  // Download converted file directly to default downloads folder
+  // Download converted file directly to user downloads
   const downloadConverted = (item: QueuedFileItem) => {
-    if (!item.convertedBlobUrl || !item.convertedFileName) return;
     sounds.playClick();
-    const a = document.createElement('a');
-    a.href = item.convertedBlobUrl;
-    a.download = item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`;
-    a.click();
+    const blobUrl = item.convertedBlobUrl || (item.convertedBlob ? URL.createObjectURL(item.convertedBlob) : null);
+    if (!blobUrl) return;
+
+    const filename = item.convertedFileName
+      ? (item.convertedFileName.startsWith('omnitoolbox-') ? item.convertedFileName : `omnitoolbox-${item.convertedFileName}`)
+      : `omnitoolbox-${item.name}.converted`;
+
+    try {
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      a.setAttribute('download', filename);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(a);
+        } catch {}
+      }, 250);
+      sounds.playSuccess();
+    } catch {
+      window.open(blobUrl, '_blank');
+    }
   };
 
   // Modern File System Access API: lets user choose the exact folder/location on their disk
@@ -1667,42 +1684,19 @@ const UniversalPdfConverterSuiteView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Actions: Save to Folder, Open, Download, Add, Delete beside EACH item */}
+                {/* Actions: Download, Add, Delete beside EACH item */}
                 <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-center shrink-0">
                   {item.status === 'done' && (
-                    <>
-                      {/* Save to Chosen Folder (File System Access Picker) */}
-                      <button
-                        type="button"
-                        onClick={() => saveAsWithPicker(item)}
-                        className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
-                        title="Choose exact folder location on your computer to save this file"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5" />
-                        <span>Save to Folder...</span>
-                      </button>
-
-                      {/* Open / Preview immediately in viewer */}
-                      <button
-                        type="button"
-                        onClick={() => openInTab(item)}
-                        className="px-2.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                        title="Open file directly in viewer"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>Open & View</span>
-                      </button>
-
-                      {/* Fast direct download */}
-                      <button
-                        type="button"
-                        onClick={() => downloadConverted(item)}
-                        className="p-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                        title="Download file to default downloads"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => downloadConverted(item)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                      title="Download converted file"
+                      aria-label="Download converted file"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download</span>
+                    </button>
                   )}
 
                   {/* Add File Beside Item Button (Clean Icon with title) */}
