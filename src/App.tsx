@@ -353,53 +353,55 @@ export default function App() {
       }
 
       // Restore destination tab from origin
-      const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
-      setActiveTab(targetTab);
-      activeTabRef.current = targetTab;
-      if (targetTab === 'favorites') {
-        setStarredSelectedToolId(closedToolId || null);
-      } else {
-        setStarredSelectedToolId(null);
-      }
-
-      // If user entered via search suggestions or search modal, restore search state!
       if (origin?.fromSearch) {
-        if (origin.searchMode === 'navbar') {
-          setIsNavbarSearchOpen(true);
-          isNavbarSearchOpenRef.current = true;
-          setNavbarSearchQuery(origin.searchQuery);
-          navbarSearchQueryRef.current = origin.searchQuery;
-          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
-        } else if (origin.searchMode === 'modal') {
-          setIsSearchOpen(true);
-          isSearchOpenRef.current = true;
-          setModalSearchQuery(origin.searchQuery);
-          modalSearchQueryRef.current = origin.searchQuery;
-          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
+        // As requested: If user opens a tool from suggestions and presses back or slides back, return directly to HOME
+        setActiveTab('categories');
+        activeTabRef.current = 'categories';
+        setStarredSelectedToolId(null);
+        setIsNavbarSearchOpen(false);
+        isNavbarSearchOpenRef.current = false;
+        setNavbarSearchQuery('');
+        navbarSearchQueryRef.current = '';
+        setIsSearchOpen(false);
+        isSearchOpenRef.current = false;
+        setModalSearchQuery('');
+        modalSearchQueryRef.current = '';
+        setCloseNavbarSearchTrigger(prev => prev + 1);
+        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+      } else {
+        const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
+        setActiveTab(targetTab);
+        activeTabRef.current = targetTab;
+        if (targetTab === 'favorites') {
+          setStarredSelectedToolId(closedToolId || null);
+        } else {
+          setStarredSelectedToolId(null);
         }
       }
+
+      const finalTab = origin?.fromSearch ? 'categories' : (origin?.tab || toolReturnTabRef.current || 'categories');
 
       if (pushState) {
         try {
           window.history.pushState(
             {
               __omniApp: true,
-              level: origin?.fromSearch ? 'search' : (targetTab === 'categories' ? 'home' : 'tab'),
-              tab: targetTab,
-              origin
+              level: finalTab === 'categories' ? 'home' : 'tab',
+              tab: finalTab,
             },
             '',
-            targetTab === 'categories' ? '/' : `?tab=${targetTab}`
+            finalTab === 'categories' ? '/' : `?tab=${finalTab}`
           );
         } catch {
           // ignore
         }
       }
 
-      // Restore exact scroll position across all devices & screen sizes: stays where it was!
+      // Restore exact scroll position: if from search, go cleanly to top of home (0)
+      const effectiveScroll = origin?.fromSearch ? 0 : targetPos;
       const restoreScroll = () => {
-        if (targetPos > 0) {
-          window.scrollTo({ top: targetPos, behavior: 'instant' });
+        if (effectiveScroll >= 0) {
+          window.scrollTo({ top: effectiveScroll, behavior: 'instant' });
         }
       };
 
@@ -496,15 +498,15 @@ export default function App() {
       return;
     }
 
-    // 3. A tool is currently active -> Close tool and return to origin!
-    // (If tool was entered from search suggestions, returns directly to suggestions where user entered)
+    // 3. A tool is currently active -> Close tool and return!
+    // (If tool was entered from search suggestions, returns directly to home)
     if (activeToolRef.current) {
       sounds.playClick();
       const origin = toolReturnOriginRef.current;
-      const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
+      const targetTab = origin?.fromSearch ? 'categories' : (origin?.tab || toolReturnTabRef.current || 'categories');
       handleBackToOverview(false);
       if (viaHistoryPop) {
-        replenishHistoryBuffer(origin?.fromSearch ? 'search' : (targetTab === 'categories' ? 'home' : 'tab'), targetTab);
+        replenishHistoryBuffer(targetTab === 'categories' ? 'home' : 'tab', targetTab);
       }
       return;
     }

@@ -3,22 +3,74 @@ import { sounds } from '../../utils/audio';
 import {
   Binary, Copy, Check, Sparkles, Calculator, ListOrdered,
   Shuffle, ArrowRight, BookOpen, Layers, CheckCircle2, AlertCircle,
-  ArrowLeftRight, Hash, Filter, Zap
+  ArrowLeftRight, Hash, Filter, Zap, RotateCcw
 } from 'lucide-react';
 
 export const PerfectPrimeCalculatorView: React.FC = () => {
   // Top-level system mode: 'single' (Existing Primality Suite) vs 'range' (Specific Range Finder, e.g. 41 to 50)
-  const [mainSystem, setMainSystem] = useState<'single' | 'range'>('single');
+  // Preserved across resets so user stays strictly in the selected system
+  const [mainSystem, setMainSystem] = useState<'single' | 'range'>(() => {
+    try {
+      const saved = localStorage.getItem('omni_prime_system');
+      if (saved === 'range' || saved === 'single') return saved;
+    } catch {}
+    return 'single';
+  });
+
+  const handleSwitchSystem = (sys: 'single' | 'range') => {
+    sounds.playClick();
+    setMainSystem(sys);
+    try {
+      localStorage.setItem('omni_prime_system', sys);
+    } catch {}
+  };
 
   // Single number state
   const [inputVal, setInputVal] = useState<string>('997');
   const [activeTab, setActiveTab] = useState<'primality' | 'factorization' | 'sieve' | 'goldbach' | 'divisors'>('primality');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Range Finder state (Any range: e.g. 41 to 50)
-  const [customRangeFrom, setCustomRangeFrom] = useState<string>('41');
-  const [customRangeTo, setCustomRangeTo] = useState<string>('50');
+  // Range Finder state: starts newly on reset and stays in Range Finder system
+  const [customRangeFrom, setCustomRangeFrom] = useState<string>(() => {
+    try {
+      if (localStorage.getItem('omni_prime_system') === 'range') {
+        return '';
+      }
+    } catch {}
+    return '41';
+  });
+  const [customRangeTo, setCustomRangeTo] = useState<string>(() => {
+    try {
+      if (localStorage.getItem('omni_prime_system') === 'range') {
+        return '';
+      }
+    } catch {}
+    return '50';
+  });
   const [showFullBreakdown, setShowFullBreakdown] = useState<boolean>(false);
+
+  // Reset handler specifically for Range Prime Finder system: stays in 'range', starts newly with empty inputs
+  const handleResetRangeSystem = () => {
+    sounds.playClick();
+    setMainSystem('range');
+    try {
+      localStorage.setItem('omni_prime_system', 'range');
+    } catch {}
+    setCustomRangeFrom('');
+    setCustomRangeTo('');
+    setShowFullBreakdown(false);
+  };
+
+  // Reset handler for single system
+  const handleResetSingleSystem = () => {
+    sounds.playClick();
+    setMainSystem('single');
+    try {
+      localStorage.setItem('omni_prime_system', 'single');
+    } catch {}
+    setInputVal('');
+    setActiveTab('primality');
+  };
 
   // Range Sieve states
   const [rangeStart, setRangeStart] = useState<number>(1);
@@ -273,11 +325,35 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
 
   // SPECIFIC RANGE PRIME FINDER SYSTEM: Arbitrary Range (e.g. from 41 to 50, any number to any number)
   const arbitraryRangeResult = useMemo(() => {
-    const rawFrom = parseInt(customRangeFrom.replace(/,/g, ''), 10);
-    const rawTo = parseInt(customRangeTo.replace(/,/g, ''), 10);
+    const trimmedFrom = customRangeFrom.trim();
+    const trimmedTo = customRangeTo.trim();
 
-    const fromNum = isNaN(rawFrom) ? 41 : Math.max(0, rawFrom);
-    const toNum = isNaN(rawTo) ? 50 : Math.max(0, rawTo);
+    // If either input is empty or invalid (e.g. after Reset), return ready state
+    if (!trimmedFrom || !trimmedTo) {
+      return {
+        isReady: false,
+        minVal: 0,
+        maxVal: 0,
+        primes: [],
+        count: 0,
+        totalInRange: 0,
+        density: '0.0',
+        sum: 0,
+        average: '0.00',
+        twinPairs: [],
+        numbersBreakdown: [],
+        isTruncated: false,
+        effectiveMax: 0,
+        smallestPrime: null,
+        largestPrime: null,
+      };
+    }
+
+    const rawFrom = parseInt(trimmedFrom.replace(/,/g, ''), 10);
+    const rawTo = parseInt(trimmedTo.replace(/,/g, ''), 10);
+
+    const fromNum = isNaN(rawFrom) ? 0 : Math.max(0, rawFrom);
+    const toNum = isNaN(rawTo) ? 0 : Math.max(0, rawTo);
 
     const minVal = Math.min(fromNum, toNum);
     const maxVal = Math.max(fromNum, toNum);
@@ -316,6 +392,7 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
     }
 
     return {
+      isReady: true,
       minVal,
       maxVal,
       primes,
@@ -354,10 +431,7 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
         {/* Primary System Selector: Single Number Check vs Specific Range Finder */}
         <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
           <button
-            onClick={() => {
-              sounds.playClick();
-              setMainSystem('single');
-            }}
+            onClick={() => handleSwitchSystem('single')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               mainSystem === 'single'
                 ? 'bg-emerald-600 text-white shadow-xs'
@@ -369,10 +443,7 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
-              sounds.playClick();
-              setMainSystem('range');
-            }}
+            onClick={() => handleSwitchSystem('range')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               mainSystem === 'range'
                 ? 'bg-emerald-600 text-white shadow-xs'
@@ -400,7 +471,7 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Quick Range Presets */}
+              {/* Quick Range Presets & Figma-style Reset Button */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] font-bold uppercase text-zinc-400">Presets:</span>
                 {[
@@ -427,6 +498,17 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
                     {preset.label}
                   </button>
                 ))}
+
+                {/* Reset Button: Stays in this newly added system, clears inputs & starts everything newly */}
+                <button
+                  type="button"
+                  onClick={handleResetRangeSystem}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 active:scale-95 transition-all cursor-pointer shadow-2xs ml-1"
+                  title="Reset Range System: Stay here and start newly"
+                >
+                  <RotateCcw className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+                  <span>Reset</span>
+                </button>
               </div>
             </div>
 
@@ -479,173 +561,217 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
             </div>
           </div>
 
-          {/* Results Summary Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/40 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block mb-1">
-                Primes in Range [{arbitraryRangeResult.minVal} … {arbitraryRangeResult.maxVal}]
-              </span>
-              <span className="text-2xl font-mono font-black text-emerald-800 dark:text-emerald-200">
-                {arbitraryRangeResult.count}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                Prime Density
-              </span>
-              <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
-                {arbitraryRangeResult.density}%
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                Sum of Primes
-              </span>
-              <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
-                {arbitraryRangeResult.sum.toLocaleString()}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                Average Value
-              </span>
-              <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
-                {arbitraryRangeResult.average}
-              </span>
-            </div>
-          </div>
-
-          {/* Prime Numbers Found Display */}
-          <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-4 shadow-2xs">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          {/* Clean Ready State when starting newly */}
+          {!arbitraryRangeResult.isReady ? (
+            <div className="p-8 sm:p-10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 text-center space-y-3 shadow-2xs">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-2xs">
+                <Filter className="w-6 h-6" />
+              </div>
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 flex items-center gap-2">
-                  <span>Primes Found Between {arbitraryRangeResult.minVal} and {arbitraryRangeResult.maxVal}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                    {arbitraryRangeResult.count} Primes
-                  </span>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  Range Prime Finder Ready
                 </h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Click any prime to inspect its factors & properties in the single number suite.
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                  Enter any starting number and ending number above (e.g. from 41 to 50), or tap one of the quick presets to immediately discover all prime numbers in that interval.
                 </p>
               </div>
-
-              <div className="flex items-center gap-2">
-                {arbitraryRangeResult.count > 0 && (
-                  <button
-                    onClick={() => copyToClipboard(arbitraryRangeResult.primes.join(', '), 'rangePrimes')}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 cursor-pointer shadow-2xs"
-                  >
-                    {copiedKey === 'rangePrimes' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'rangePrimes' ? 'Copied Primes' : 'Copy All Primes'}</span>
-                  </button>
-                )}
-
+              <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
                 <button
+                  type="button"
                   onClick={() => {
                     sounds.playClick();
-                    setShowFullBreakdown(prev => !prev);
+                    setCustomRangeFrom('41');
+                    setCustomRangeTo('50');
                   }}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
-                    showFullBreakdown
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
-                  }`}
+                  className="px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer shadow-2xs transition-colors"
                 >
-                  <ListOrdered className="w-3.5 h-3.5" />
-                  <span>{showFullBreakdown ? 'Hide Full Breakdown' : 'Show Full Range Breakdown'}</span>
+                  Discover 41 to 50
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playClick();
+                    setCustomRangeFrom('1');
+                    setCustomRangeTo('100');
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shadow-2xs transition-colors"
+                >
+                  Discover 1 to 100
                 </button>
               </div>
             </div>
-
-            {/* List of Prime Badges */}
-            {arbitraryRangeResult.count > 0 ? (
-              <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 font-mono text-sm">
-                {arbitraryRangeResult.primes.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => {
-                      sounds.playClick();
-                      setInputVal(String(p));
-                      setMainSystem('single');
-                      setActiveTab('primality');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-800/80 font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-600 hover:border-emerald-500 cursor-pointer transition-all shadow-2xs flex items-center gap-1 active:scale-95"
-                    title={`Click to analyze ${p} in Single Number Suite`}
-                  >
-                    <span>{p}</span>
-                    <Sparkles className="w-3 h-3 opacity-60" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1">
-                <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
-                  No prime numbers found between {arbitraryRangeResult.minVal} and {arbitraryRangeResult.maxVal}.
-                </p>
-                <p className="text-xs text-zinc-400">
-                  All integers in this range are either composite numbers, 0, or 1.
-                </p>
-              </div>
-            )}
-
-            {/* Twin Primes in this Range */}
-            {arbitraryRangeResult.twinPairs.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    Twin Prime Pairs in Range (Gaps of 2):
+          ) : (
+            <>
+              {/* Results Summary Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/40 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block mb-1">
+                    Primes in Range [{arbitraryRangeResult.minVal} … {arbitraryRangeResult.maxVal}]
+                  </span>
+                  <span className="text-2xl font-mono font-black text-emerald-800 dark:text-emerald-200">
+                    {arbitraryRangeResult.count}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap font-mono text-xs">
-                  {arbitraryRangeResult.twinPairs.map(([p1, p2], idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-800 font-bold text-amber-700 dark:text-amber-300"
-                    >
-                      ({p1}, {p2})
-                    </span>
-                  ))}
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                    Prime Density
+                  </span>
+                  <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
+                    {arbitraryRangeResult.density}%
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                    Sum of Primes
+                  </span>
+                  <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
+                    {arbitraryRangeResult.sum.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                    Average Value
+                  </span>
+                  <span className="text-2xl font-mono font-bold text-zinc-800 dark:text-zinc-100">
+                    {arbitraryRangeResult.average}
+                  </span>
                 </div>
               </div>
-            )}
 
-            {/* Optional Full Number Breakdown (Every number in range e.g. 41 to 50: Prime vs Composite) */}
-            {showFullBreakdown && (
-              <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 animate-in fade-in duration-200">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">
-                  Detailed Integer Status for Each Number in Range:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-y-auto p-2">
-                  {arbitraryRangeResult.numbersBreakdown.map(item => (
-                    <div
-                      key={item.n}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-mono ${
-                        item.isPrime
-                          ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 font-bold'
-                          : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400'
+              {/* Prime Numbers Found Display */}
+              <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-4 shadow-2xs">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 flex items-center gap-2">
+                      <span>Primes Found Between {arbitraryRangeResult.minVal} and {arbitraryRangeResult.maxVal}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                        {arbitraryRangeResult.count} Primes
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Click any prime to copy it. You stay in the Range Prime Finder system.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {arbitraryRangeResult.count > 0 && (
+                      <button
+                        onClick={() => copyToClipboard(arbitraryRangeResult.primes.join(', '), 'rangePrimes')}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 cursor-pointer shadow-2xs"
+                      >
+                        {copiedKey === 'rangePrimes' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedKey === 'rangePrimes' ? 'Copied Primes' : 'Copy All Primes'}</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setShowFullBreakdown(prev => !prev);
+                      }}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                        showFullBreakdown
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
                       }`}
                     >
-                      <span className="font-bold">{item.n}</span>
-                      <span className="text-[11px]">
-                        {item.isPrime ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Prime ✨</span>
-                        ) : item.n <= 1 ? (
-                          <span className="text-zinc-400">Neither Prime/Composite</span>
+                      <ListOrdered className="w-3.5 h-3.5" />
+                      <span>{showFullBreakdown ? 'Hide Full Breakdown' : 'Show Full Range Breakdown'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of Prime Badges (clicking copies, does not throw user into single analyzer!) */}
+                {arbitraryRangeResult.count > 0 ? (
+                  <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 font-mono text-sm">
+                    {arbitraryRangeResult.primes.map(p => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          copyToClipboard(String(p), `prime_${p}`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-800/80 font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-600 hover:border-emerald-500 cursor-pointer transition-all shadow-2xs flex items-center gap-1 active:scale-95"
+                        title={`Click to copy prime ${p}`}
+                      >
+                        <span>{p}</span>
+                        {copiedKey === `prime_${p}` ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
                         ) : (
-                          <span className="text-zinc-500">Divisible by {item.smallestFactor}</span>
+                          <Sparkles className="w-3 h-3 opacity-60" />
                         )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1">
+                    <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
+                      No prime numbers found between {arbitraryRangeResult.minVal} and {arbitraryRangeResult.maxVal}.
+                    </p>
+                    <p className="text-xs text-zinc-400">
+                      All integers in this range are either composite numbers, 0, or 1.
+                    </p>
+                  </div>
+                )}
+
+                {/* Twin Primes in this Range */}
+                {arbitraryRangeResult.twinPairs.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                        Twin Prime Pairs in Range (Gaps of 2):
                       </span>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center gap-1.5 flex-wrap font-mono text-xs">
+                      {arbitraryRangeResult.twinPairs.map(([p1, p2], idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-800 font-bold text-amber-700 dark:text-amber-300"
+                        >
+                          ({p1}, {p2})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional Full Number Breakdown (Every number in range e.g. 41 to 50: Prime vs Composite) */}
+                {showFullBreakdown && (
+                  <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 animate-in fade-in duration-200">
+                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">
+                      Detailed Integer Status for Each Number in Range:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-y-auto p-2">
+                      {arbitraryRangeResult.numbersBreakdown.map(item => (
+                        <div
+                          key={item.n}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-mono ${
+                            item.isPrime
+                              ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 font-bold'
+                              : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400'
+                          }`}
+                        >
+                          <span className="font-bold">{item.n}</span>
+                          <span className="text-[11px]">
+                            {item.isPrime ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Prime ✨</span>
+                            ) : item.n <= 1 ? (
+                              <span className="text-zinc-400">Neither Prime/Composite</span>
+                            ) : (
+                              <span className="text-zinc-500">Divisible by {item.smallestFactor}</span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
 
@@ -659,8 +785,7 @@ export const PerfectPrimeCalculatorView: React.FC = () => {
             </span>
             <button
               onClick={() => {
-                sounds.playClick();
-                setMainSystem('range');
+                handleSwitchSystem('range');
               }}
               className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline cursor-pointer shrink-0"
             >
