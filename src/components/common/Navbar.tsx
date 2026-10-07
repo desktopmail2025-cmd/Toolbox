@@ -23,6 +23,10 @@ interface NavbarProps {
   toolFilter?: 'all' | 'offline' | 'online';
   onSelectToolFilter?: (filter: 'all' | 'offline' | 'online') => void;
   onOpenExitDialog?: () => void;
+  onSearchOpenChange?: (open: boolean) => void;
+  closeSearchTrigger?: number;
+  onDrawerOpenChange?: (open: boolean) => void;
+  closeDrawerTrigger?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -39,9 +43,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   toolFilter = 'all',
   onSelectToolFilter,
   onOpenExitDialog,
+  onSearchOpenChange,
+  closeSearchTrigger,
+  onDrawerOpenChange,
+  closeDrawerTrigger,
 }) => {
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const setDrawerState = (open: boolean) => {
+    setIsDrawerOpen(open);
+    onDrawerOpenChange?.(open);
+  };
+
+  // Close drawer trigger from parent back-navigation
+  useEffect(() => {
+    if (closeDrawerTrigger) {
+      setDrawerState(false);
+    }
+  }, [closeDrawerTrigger]);
 
   // Lock body and html scroll and prevent touch through when drawer is open
   useEffect(() => {
@@ -104,10 +124,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
         if (!isDrawerOpen && startX < 45 && deltaX > 40) {
           sounds.playClick();
-          setIsDrawerOpen(true);
+          setDrawerState(true);
         } else if (isDrawerOpen && deltaX < -40) {
           sounds.playClick();
-          setIsDrawerOpen(false);
+          setDrawerState(false);
         }
       }
     };
@@ -135,6 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       inputRef.current.blur();
     }
     setIsSearchOpen(false);
+    onSearchOpenChange?.(false);
     setQuery('');
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
 
@@ -145,8 +166,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  // Close search trigger from parent back-navigation
+  useEffect(() => {
+    if (closeSearchTrigger) {
+      resetSearchToUnopened();
+    }
+  }, [closeSearchTrigger]);
+
   const handleOpenSearch = () => {
     setIsSearchOpen(true);
+    onSearchOpenChange?.(true);
     (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
   };
 
@@ -178,7 +207,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         if (isSearchOpen || document.activeElement === inputRef.current || query) {
           resetSearchToUnopened();
         } else if (isDrawerOpen) {
-          setIsDrawerOpen(false);
+          setDrawerState(false);
         }
       }
     };
@@ -188,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const toggleDrawer = () => {
     sounds.playClick();
-    setIsDrawerOpen(prev => !prev);
+    setDrawerState(!isDrawerOpen);
   };
 
   return (
@@ -210,7 +239,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         />
       )}
 
-      <header className={`sticky top-0 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xs transition-colors pt-[max(env(safe-area-inset-top,0px),44px)] sm:pt-[env(safe-area-inset-top,0px)] ${
+      {/* WhatsApp-style fixed top header: Notch-safe, pinned solidly during all scrolling */}
+      <header className={`fixed top-0 left-0 right-0 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-xs transition-colors pt-[max(env(safe-area-inset-top,0px),26px)] sm:pt-[env(safe-area-inset-top,0px)] ${
         isSearchOpen ? 'z-50' : 'z-40'
       }`}>
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
@@ -314,7 +344,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {isDrawerOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in touch-none"
-          onClick={() => setIsDrawerOpen(false)}
+          onClick={() => setDrawerState(false)}
         />
       )}
 
@@ -324,12 +354,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         {/* Drawer Header with same logo and name at the top */}
-        <div className="p-4 sm:p-5 pt-[max(env(safe-area-inset-top,0px),48px)] sm:pt-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
+        <div className="p-4 sm:p-5 pt-[max(env(safe-area-inset-top,0px),1.25rem)] sm:pt-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
           <button
             type="button"
             onClick={() => {
               sounds.playClick();
-              setIsDrawerOpen(false);
+              setDrawerState(false);
             }}
             className="flex items-center gap-3 text-left cursor-pointer group"
             title="Click to close drawer"
@@ -349,7 +379,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             type="button"
-            onClick={() => setIsDrawerOpen(false)}
+            onClick={() => setDrawerState(false)}
             className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer transition-colors"
             title="Close Drawer"
           >
@@ -388,7 +418,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={() => {
                   sounds.playClick();
-                  setIsDrawerOpen(false);
+                  setDrawerState(false);
                   if (onOpenOnboarding) {
                     onOpenOnboarding();
                   }
@@ -452,7 +482,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSelectToolFilter('all');
                 }
                 onSelectTab('categories');
-                setIsDrawerOpen(false);
+                setDrawerState(false);
               }}
               className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-left cursor-pointer transition-all duration-200 border ${
                 toolFilter === 'all'
@@ -487,7 +517,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSelectToolFilter('online');
                 }
                 onSelectTab('categories');
-                setIsDrawerOpen(false);
+                setDrawerState(false);
               }}
               className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-left cursor-pointer transition-all duration-200 border ${
                 toolFilter === 'online'
@@ -522,7 +552,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSelectToolFilter('offline');
                 }
                 onSelectTab('categories');
-                setIsDrawerOpen(false);
+                setDrawerState(false);
               }}
               className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-left cursor-pointer transition-all duration-200 border ${
                 toolFilter === 'offline'
@@ -556,7 +586,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             type="button"
             onClick={() => {
               sounds.playClick();
-              setIsDrawerOpen(false);
+              setDrawerState(false);
               if (onOpenExitDialog) {
                 onOpenExitDialog();
               }

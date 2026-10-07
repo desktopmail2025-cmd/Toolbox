@@ -219,3 +219,53 @@ html.dark .tool-card-hover:hover {
   left: 0;
   right: 0;
 }
+
+/* Smooth Hardware-Accelerated Mobile Slide Transitions for Tools */
+@keyframes toolSlideInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes toolSlideOutRight {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+}
+
+@keyframes viewFadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+.animate-tool-slide-in {
+  animation: toolSlideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-tool-slide-out {
+  animation: toolSlideOutRight 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.animate-view-fade-in {
+  animation: viewFadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}

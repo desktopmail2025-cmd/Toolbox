@@ -40,6 +40,16 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(sounds.enabled);
   const [savedScrollPos, setSavedScrollPos] = useState<number>(0);
 
+  // Expanded sub-overlays & animation state
+  const [isNavbarSearchOpen, setIsNavbarSearchOpen] = useState(false);
+  const [closeNavbarSearchTrigger, setCloseNavbarSearchTrigger] = useState(0);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [closeDrawerTrigger, setCloseDrawerTrigger] = useState(0);
+  const [isFABExpanded, setIsFABExpanded] = useState(false);
+  const [closeFABTrigger, setCloseFABTrigger] = useState(0);
+  const [isExitingTool, setIsExitingTool] = useState(false);
+  const isTransitioningRef = useRef(false);
+
   // Splash Screen & Professional Onboarding
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
@@ -104,11 +114,27 @@ export default function App() {
   const isSearchOpenRef = useRef<boolean>(isSearchOpen);
   isSearchOpenRef.current = isSearchOpen;
 
+  const isNavbarSearchOpenRef = useRef<boolean>(isNavbarSearchOpen);
+  isNavbarSearchOpenRef.current = isNavbarSearchOpen;
+
+  const isDrawerOpenRef = useRef<boolean>(isDrawerOpen);
+  isDrawerOpenRef.current = isDrawerOpen;
+
+  const isFABExpandedRef = useRef<boolean>(isFABExpanded);
+  isFABExpandedRef.current = isFABExpanded;
+
+  const showOnboardingRef = useRef<boolean>(showOnboarding);
+  showOnboardingRef.current = showOnboarding;
+
   const showExitDialogRef = useRef<boolean>(showExitDialog);
   showExitDialogRef.current = showExitDialog;
 
   const toolReturnTabRef = useRef<string>(toolReturnTab);
   toolReturnTabRef.current = toolReturnTab;
+
+  // Navigation guard refs to completely prevent exit alert when returning from tools or tabs
+  const justNavigatedToHomeRef = useRef<boolean>(false);
+  const lastBackActionTimeRef = useRef<number>(0);
 
   // Apply dark mode class and sync Capacitor StatusBar natively
   useEffect(() => {
@@ -366,45 +392,70 @@ export default function App() {
   };
 
   const handleBackToOverview = (pushState: boolean = true) => {
-    const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
-    setActiveTool(null);
-    if (closedToolId) {
-      setLastOpenedToolId(closedToolId);
-      const closedTool = TOOLS.find(t => t.id === closedToolId);
-      if (closedTool) {
-        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+    justNavigatedToHomeRef.current = true;
+    lastBackActionTimeRef.current = Date.now();
+    setIsExitingTool(true);
+
+    setTimeout(() => {
+      const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
+      setActiveTool(null);
+      setIsExitingTool(false);
+      isTransitioningRef.current = false;
+
+      if (closedToolId) {
+        setLastOpenedToolId(closedToolId);
+        const closedTool = TOOLS.find(t => t.id === closedToolId);
+        if (closedTool) {
+          setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
+        }
       }
-    }
-    const targetTab = toolReturnTabRef.current || 'categories';
-    setActiveTab(targetTab);
-    if (targetTab === 'favorites') {
-      setStarredSelectedToolId(closedToolId || null);
-    } else {
-      setStarredSelectedToolId(null);
-    }
-    if (pushState) {
-      try {
-        window.history.pushState(
-          { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab },
-          '',
-          targetTab === 'categories' ? '/' : `?tab=${targetTab}`
-        );
-      } catch {
-        // ignore
+      const targetTab = toolReturnTabRef.current || 'categories';
+      setActiveTab(targetTab);
+      if (targetTab === 'favorites') {
+        setStarredSelectedToolId(closedToolId || null);
+      } else {
+        setStarredSelectedToolId(null);
       }
-    }
-    // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
-    if (targetTab === 'categories') {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
-      });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }
+      if (pushState) {
+        try {
+          window.history.pushState(
+            { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab },
+            '',
+            targetTab === 'categories' ? '/' : `?tab=${targetTab}`
+          );
+        } catch {
+          // ignore
+        }
+      }
+      // If returning to categories, restore saved scroll position; if returning to Starred, scroll to top
+      if (targetTab === 'categories') {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: savedScrollPos, behavior: 'instant' });
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+    }, 200);
+
+    setTimeout(() => {
+      justNavigatedToHomeRef.current = false;
+    }, 800);
   };
 
   const handleGoHome = (pushState: boolean = true) => {
     sounds.playClick();
+    isTransitioningRef.current = true;
+    justNavigatedToHomeRef.current = true;
+    lastBackActionTimeRef.current = Date.now();
+    setTimeout(() => {
+      isTransitioningRef.current = false;
+    }, 350);
+    setTimeout(() => {
+      justNavigatedToHomeRef.current = false;
+    }, 800);
+
     setActiveTool(null);
     setStarredSelectedToolId(null);
     setActiveTab('categories');
@@ -419,38 +470,85 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  // Unified Back Handler:
+  // Unified Step-by-Step Back Handler:
   // 1. If Exit Dialog is open: close it
-  // 2. If Search is open: close it
-  // 3. If a tool is open: close tool and return to home/overview, PLAY SOUND, DO NOT EXIT APP!
-  // 4. If on Notes/Starred/Games: return to home screen, DO NOT EXIT APP!
-  // 5. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
+  // 2. If Onboarding is open: close it
+  // 3. If FAB menu is open: close it
+  // 4. If Search (modal or navbar) is open: close search ONLY, remain on current screen!
+  // 5. If Drawer is open: close drawer ONLY, remain on current screen!
+  // 6. If a tool is open: animate tool slide-out and return to source tab (e.g. Starred -> Starred, Home -> Home), DO NOT EXIT!
+  // 7. If on sub-tab (Favorites, Notes, Games): return to Home screen, DO NOT EXIT!
+  // 8. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
   const handleBackAction = (viaHistoryPop: boolean = false) => {
+    const now = Date.now();
+    if (isTransitioningRef.current || now - lastBackActionTimeRef.current < 350) {
+      return;
+    }
+    lastBackActionTimeRef.current = now;
+
+    // 1. If Exit Dialog is open: close it
     if (showExitDialogRef.current) {
       setShowExitDialog(false);
       return;
     }
 
-    if (isSearchOpenRef.current) {
-      setIsSearchOpen(false);
+    // 2. If Onboarding is open: close it
+    if (showOnboardingRef.current) {
+      setShowOnboarding(false);
       return;
     }
 
-    // A tool is opened -> Close the tool and return to overview!
+    // 3. If FAB menu is open: close it
+    if (isFABExpandedRef.current) {
+      sounds.playClick();
+      setIsFABExpanded(false);
+      setCloseFABTrigger(prev => prev + 1);
+      return;
+    }
+
+    // 4. If Search is open (modal or navbar): close search ONLY!
+    if (isSearchOpenRef.current || isNavbarSearchOpenRef.current) {
+      sounds.playClick();
+      setIsSearchOpen(false);
+      setIsNavbarSearchOpen(false);
+      setCloseNavbarSearchTrigger(prev => prev + 1);
+      (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+      isTransitioningRef.current = true;
+      setTimeout(() => { isTransitioningRef.current = false; }, 300);
+      return;
+    }
+
+    // 5. If Navigation Drawer is open: close drawer ONLY!
+    if (isDrawerOpenRef.current) {
+      sounds.playClick();
+      setIsDrawerOpen(false);
+      setCloseDrawerTrigger(prev => prev + 1);
+      isTransitioningRef.current = true;
+      setTimeout(() => { isTransitioningRef.current = false; }, 300);
+      return;
+    }
+
+    // 6. A tool is opened -> Close tool and return to source tab with slide animation!
     if (activeToolRef.current) {
       sounds.playClick();
       handleBackToOverview(!viaHistoryPop);
       return;
     }
 
-    // Other tab is opened -> Return to home screen!
+    // 7. Sub-tab is opened (e.g. Starred, Notes, Games) -> Return to home screen!
     if (activeTabRef.current !== 'categories') {
       sounds.playClick();
       handleGoHome(!viaHistoryPop);
       return;
     }
 
-    // User is on home screen: Show the exit alert dialogue!
+    // 8. User is on home screen:
+    // If the app JUST arrived at home within the last 800ms, DO NOT show exit alert!
+    if (justNavigatedToHomeRef.current) {
+      return;
+    }
+
+    // ONLY SHOW EXIT ALERT when user is already settled on the home screen!
     sounds.playClick();
     setShowExitDialog(true);
     if (viaHistoryPop) {
@@ -464,13 +562,7 @@ export default function App() {
 
   // Browser back button / popstate handler
   useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      // If search in navbar was open when back was pressed, close it
-      if ((window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen || e.state?.omniSearchOpen) {
-        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
-        return;
-      }
-
+    const handlePopState = () => {
       handleBackAction(true);
     };
 
@@ -615,8 +707,19 @@ export default function App() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       {/* Top Bar with Expandable Search */}
       <Navbar
-        onOpenSearch={() => setIsSearchOpen(true)}
-        onClearSearch={() => setIsSearchOpen(false)}
+        onOpenSearch={() => {
+          sounds.playClick();
+          setIsSearchOpen(true);
+          try {
+            window.history.pushState({ __omniApp: true, level: 'search' }, '');
+          } catch {
+            // ignore
+          }
+        }}
+        onClearSearch={() => {
+          setIsSearchOpen(false);
+          setIsNavbarSearchOpen(false);
+        }}
         darkMode={darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         soundEnabled={soundEnabled}
@@ -628,24 +731,48 @@ export default function App() {
         toolFilter={toolFilter}
         onSelectToolFilter={setToolFilter}
         onOpenExitDialog={() => setShowExitDialog(true)}
+        onSearchOpenChange={open => {
+          setIsNavbarSearchOpen(open);
+          if (open) {
+            try {
+              window.history.pushState({ __omniApp: true, level: 'search' }, '');
+            } catch {
+              // ignore
+            }
+          }
+        }}
+        closeSearchTrigger={closeNavbarSearchTrigger}
+        onDrawerOpenChange={open => {
+          setIsDrawerOpen(open);
+          if (open) {
+            try {
+              window.history.pushState({ __omniApp: true, level: 'drawer' }, '');
+            } catch {
+              // ignore
+            }
+          }
+        }}
+        closeDrawerTrigger={closeDrawerTrigger}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-[calc(3.5rem+max(env(safe-area-inset-top,0px),26px)+0.75rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.25rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
         {activeTool ? (
-          <ToolDispatcher
-            tool={activeTool}
-            onBack={handleBackToOverview}
-            isFavorite={favorites.includes(activeTool.id)}
-            onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
-            onSelectTool={handleSelectTool}
-          />
+          <div className={isExitingTool ? 'animate-tool-slide-out' : 'animate-tool-slide-in'}>
+            <ToolDispatcher
+              tool={activeTool}
+              onBack={() => handleBackToOverview(true)}
+              isFavorite={favorites.includes(activeTool.id)}
+              onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
+              onSelectTool={handleSelectTool}
+            />
+          </div>
         ) : activeTab === 'notes' ? (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-view-fade-in">
             <NotesView onBackToHome={handleGoHome} />
           </div>
         ) : activeTab === 'favorites' ? (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-view-fade-in">
             <FavoritesView
               favorites={favorites}
               onSelectTool={handleSelectTool}
@@ -655,7 +782,7 @@ export default function App() {
             />
           </div>
         ) : activeTab === 'games' ? (
-          <div className="space-y-6 max-w-4xl mx-auto pb-24">
+          <div className="space-y-6 max-w-4xl mx-auto pb-24 animate-view-fade-in">
             <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800 flex items-start gap-3">
               <button
                 type="button"
@@ -711,19 +838,21 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <CategoryExplorer
-            onSelectTool={handleSelectTool}
-            favorites={favorites}
-            onToggleFavorite={handleToggleFavorite}
-            recents={recents}
-            expandedCatIds={expandedCatIds}
-            onToggleCategory={handleToggleCategory}
-            onExpandAll={handleExpandAll}
-            onCollapseAll={handleCollapseAll}
-            toolFilter={toolFilter}
-            onSelectToolFilter={setToolFilter}
-            selectedToolId={lastOpenedToolId}
-          />
+          <div className="animate-view-fade-in">
+            <CategoryExplorer
+              onSelectTool={handleSelectTool}
+              favorites={favorites}
+              onToggleFavorite={handleToggleFavorite}
+              recents={recents}
+              expandedCatIds={expandedCatIds}
+              onToggleCategory={handleToggleCategory}
+              onExpandAll={handleExpandAll}
+              onCollapseAll={handleCollapseAll}
+              toolFilter={toolFilter}
+              onSelectToolFilter={setToolFilter}
+              selectedToolId={lastOpenedToolId}
+            />
+          </div>
         )}
       </main>
 
@@ -735,6 +864,8 @@ export default function App() {
         onBackToOverview={handleBackToOverview}
         favoriteCount={favorites.length}
         activeToolName={activeTool?.name}
+        onExpandedChange={setIsFABExpanded}
+        closeTrigger={closeFABTrigger}
       />
 
       {/* Keyboard Quick Search Modal (preserved via ⌘K) */}

@@ -11,6 +11,8 @@ interface FloatingNotesButtonProps {
   isOpen?: boolean;
   activeToolName?: string;
   favoriteCount?: number;
+  onExpandedChange?: (expanded: boolean) => void;
+  closeTrigger?: number;
 }
 
 export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
@@ -19,22 +21,36 @@ export const FloatingNotesButton: React.FC<FloatingNotesButtonProps> = ({
   onGoHome,
   onBackToOverview,
   favoriteCount = 0,
+  onExpandedChange,
+  closeTrigger,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const setExpandedState = (expanded: boolean) => {
+    setIsExpanded(expanded);
+    onExpandedChange?.(expanded);
+  };
+
   // Close when switching tabs
   useEffect(() => {
-    setIsExpanded(false);
+    setExpandedState(false);
   }, [activeTab]);
+
+  // Close when parent triggers close
+  useEffect(() => {
+    if (closeTrigger) {
+      setExpandedState(false);
+    }
+  }, [closeTrigger]);
 
   const handleToggle = () => {
     sounds.playClick();
-    setIsExpanded(prev => !prev);
+    setExpandedState(!isExpanded);
   };
 
   const handleSelectOption = (tab: 'categories' | 'favorites' | 'notes') => {
     sounds.playClick();
-    setIsExpanded(false);
+    setExpandedState(false);
     if (tab === 'categories') {
       if (onGoHome) {
         onGoHome();
