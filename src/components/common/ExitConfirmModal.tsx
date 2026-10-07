@@ -1,6 +1,7 @@
 import React from 'react';
-import { LogOut, X } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { App as CapApp } from '@capacitor/app';
 
 interface ExitConfirmModalProps {
   isOpen: boolean;
@@ -13,11 +14,8 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
   const handleConfirmExit = () => {
     sounds.playTone(200, 0.3);
     try {
-      const cap = (window as unknown as { Capacitor?: { Plugins?: { App?: { exitApp: () => void } } } }).Capacitor;
-      if (cap?.Plugins?.App?.exitApp) {
-        cap.Plugins.App.exitApp();
-        return;
-      }
+      CapApp.exitApp();
+      return;
     } catch {
       // ignore
     }

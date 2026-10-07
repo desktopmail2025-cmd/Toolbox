@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navbar } from './components/common/Navbar';
 import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
@@ -16,6 +16,9 @@ import { TOOLS, CATEGORIES } from './data/toolsRegistry';
 import { getStoredFavorites, saveStoredFavorites, getStoredRecents, addStoredRecent } from './utils/storage';
 import { sounds } from './utils/audio';
 import { ArrowLeft } from 'lucide-react';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
@@ -91,7 +94,23 @@ export default function App() {
     return false;
   });
 
-  // Apply dark mode class to html document immediately
+  // Synchronize state in refs for backButton and gesture handlers to guarantee freshness
+  const activeToolRef = useRef<ToolItem | null>(activeTool);
+  activeToolRef.current = activeTool;
+
+  const activeTabRef = useRef<string>(activeTab);
+  activeTabRef.current = activeTab;
+
+  const isSearchOpenRef = useRef<boolean>(isSearchOpen);
+  isSearchOpenRef.current = isSearchOpen;
+
+  const showExitDialogRef = useRef<boolean>(showExitDialog);
+  showExitDialogRef.current = showExitDialog;
+
+  const toolReturnTabRef = useRef<string>(toolReturnTab);
+  toolReturnTabRef.current = toolReturnTab;
+
+  // Apply dark mode class and sync Capacitor StatusBar natively
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -99,6 +118,16 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('omni_theme', 'light');
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        StatusBar.setStyle({ style: darkMode ? Style.Dark : Style.Light });
+        StatusBar.setBackgroundColor({ color: darkMode ? '#09090b' : '#ffffff' });
+        StatusBar.setOverlaysWebView({ overlay: false });
+      } catch {
+        // ignore
+      }
     }
   }, [darkMode]);
 
@@ -337,7 +366,7 @@ export default function App() {
   };
 
   const handleBackToOverview = (pushState: boolean = true) => {
-    const closedToolId = activeTool?.id || lastOpenedToolId;
+    const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
     setActiveTool(null);
     if (closedToolId) {
       setLastOpenedToolId(closedToolId);
@@ -346,7 +375,7 @@ export default function App() {
         setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
       }
     }
-    const targetTab = toolReturnTab || 'categories';
+    const targetTab = toolReturnTabRef.current || 'categories';
     setActiveTab(targetTab);
     if (targetTab === 'favorites') {
       setStarredSelectedToolId(closedToolId || null);
@@ -397,25 +426,25 @@ export default function App() {
   // 4. If on Notes/Starred/Games: return to home screen, DO NOT EXIT APP!
   // 5. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
   const handleBackAction = (viaHistoryPop: boolean = false) => {
-    if (showExitDialog) {
+    if (showExitDialogRef.current) {
       setShowExitDialog(false);
       return;
     }
 
-    if (isSearchOpen) {
+    if (isSearchOpenRef.current) {
       setIsSearchOpen(false);
       return;
     }
 
     // A tool is opened -> Close the tool and return to overview!
-    if (activeTool) {
+    if (activeToolRef.current) {
       sounds.playClick();
       handleBackToOverview(!viaHistoryPop);
       return;
     }
 
     // Other tab is opened -> Return to home screen!
-    if (activeTab !== 'categories') {
+    if (activeTabRef.current !== 'categories') {
       sounds.playClick();
       handleGoHome(!viaHistoryPop);
       return;
@@ -447,10 +476,20 @@ export default function App() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [activeTool, activeTab, isSearchOpen, showExitDialog, toolReturnTab, savedScrollPos]);
+  }, []);
 
   // Native Android & Capacitor Back Button Listener
   useEffect(() => {
+    let removeListener: (() => void) | null = null;
+
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener('backButton', () => {
+        handleBackAction(false);
+      }).then(handle => {
+        removeListener = () => handle.remove();
+      }).catch(() => {});
+    }
+
     const handleNativeBack = (e: Event) => {
       e.preventDefault();
       handleBackAction(false);
@@ -460,10 +499,11 @@ export default function App() {
     window.addEventListener('ionBackButton', handleNativeBack);
 
     return () => {
+      if (removeListener) removeListener();
       document.removeEventListener('backbutton', handleNativeBack);
       window.removeEventListener('ionBackButton', handleNativeBack);
     };
-  }, [activeTool, activeTab, isSearchOpen, showExitDialog]);
+  }, []);
 
   // Universal Edge Slide Gesture (swiping back from left or right screen edge):
   // When in a tool: returns to home/overview
@@ -508,8 +548,8 @@ export default function App() {
 
       // Deliberate inward swipe from the edge (standard mobile back gesture):
       // Left edge swipe (swiping right from screen left) OR Right edge swipe (swiping left from screen right)
-      const isLeftEdgeSwipe = startX <= 45 && deltaX > 55 && Math.abs(deltaY) < 45;
-      const isRightEdgeSwipe = startX >= window.innerWidth - 45 && deltaX < -55 && Math.abs(deltaY) < 45;
+      const isLeftEdgeSwipe = startX <= 60 && deltaX > 45 && Math.abs(deltaY) < 55;
+      const isRightEdgeSwipe = startX >= window.innerWidth - 60 && deltaX < -45 && Math.abs(deltaY) < 55;
 
       if (isLeftEdgeSwipe || isRightEdgeSwipe) {
         handleBackAction(false);
@@ -523,7 +563,7 @@ export default function App() {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [activeTool, activeTab, isSearchOpen, showExitDialog]);
+  }, []);
 
   const handleToggleFavorite = (toolId: string) => {
     const updated = favorites.includes(toolId)
