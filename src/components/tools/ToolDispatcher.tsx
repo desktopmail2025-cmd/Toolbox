@@ -34,6 +34,7 @@ import { DateReminderTools } from './DateReminderTools';
 import { NumberArrangementTool } from './NumberArrangementTool';
 import { HeadlineMakerTool } from './HeadlineMakerTool';
 import { PackageArchiveConverterTool } from './PackageArchiveConverterTool';
+import { AdMobBanner } from '../ads/AdMobBanner';
 
 interface ToolDispatcherProps {
   tool: ToolItem;
@@ -41,6 +42,7 @@ interface ToolDispatcherProps {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onSelectTool?: (tool: ToolItem) => void;
+  onOpenAdMobPerformance?: () => void;
 }
 
 export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
@@ -49,6 +51,7 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
   isFavorite,
   onToggleFavorite,
   onSelectTool,
+  onOpenAdMobPerformance,
 }) => {
   const [resetKey, setResetKey] = useState<number>(0);
 
@@ -167,6 +170,11 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
         onSelectTool={onSelectTool}
       />
       {renderToolBody()}
+
+      {/* Google AdMob Test Banner docked cleanly at tool footer */}
+      <div className="pt-8">
+        <AdMobBanner onOpenPerformance={onOpenAdMobPerformance} variant="inline" />
+      </div>
     </div>
   );
 };

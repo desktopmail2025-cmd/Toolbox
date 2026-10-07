@@ -15,10 +15,15 @@ import { CategoryId, ToolItem } from './types';
 import { TOOLS, CATEGORIES } from './data/toolsRegistry';
 import { getStoredFavorites, saveStoredFavorites, getStoredRecents, addStoredRecent } from './utils/storage';
 import { sounds } from './utils/audio';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trophy, Gift, BarChart3 } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { admobService } from './services/admobService';
+import { AdMobBanner } from './components/ads/AdMobBanner';
+import { AdMobInterstitialModal } from './components/ads/AdMobInterstitialModal';
+import { AdMobRewardedModal } from './components/ads/AdMobRewardedModal';
+import { AdMobPerformanceModal } from './components/ads/AdMobPerformanceModal';
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<ToolItem | null>(() => {
@@ -168,6 +173,30 @@ export default function App() {
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [showExitDialog, setShowExitDialog] = useState<boolean>(false);
+
+  // Google AdMob Test Ads Integration & Inspector
+  const [isAdMobPerformanceOpen, setIsAdMobPerformanceOpen] = useState<boolean>(false);
+  const [showInterstitialAd, setShowInterstitialAd] = useState<boolean>(false);
+  const [showRewardedAd, setShowRewardedAd] = useState<boolean>(false);
+  const [rewardedRewardDetails, setRewardedRewardDetails] = useState<{ type: string; amount: number }>({
+    type: 'Arcade Perk',
+    amount: 1,
+  });
+  const toolExitCountRef = useRef<number>(0);
+
+  useEffect(() => {
+    admobService.initialize();
+
+    const unsubModals = admobService.subscribeModalState((state) => {
+      setShowInterstitialAd(state.showInterstitial);
+      setShowRewardedAd(state.showRewarded);
+      if (state.rewardedReward) {
+        setRewardedRewardDetails(state.rewardedReward);
+      }
+    });
+
+    return () => unsubModals();
+  }, []);
 
   const handleFinishSplash = React.useCallback(() => {
     setShowSplash(false);
@@ -481,6 +510,15 @@ export default function App() {
     setActiveTool(null);
     activeToolRef.current = null;
     setIsReturningFromTool(true);
+
+    // Natural non-annoying AdMob Interstitial check:
+    // Every 4 tool visits, checks frequency cap (min 3 mins interval) after return transition completes
+    toolExitCountRef.current += 1;
+    if (toolExitCountRef.current % 4 === 0) {
+      setTimeout(() => {
+        admobService.showInterstitial({ force: false, context: 'Natural tool exit' });
+      }, 450);
+    }
 
     setTimeout(() => {
       setIsReturningFromTool(false);
@@ -886,6 +924,7 @@ export default function App() {
         favorites={favorites}
         recents={recents}
         hasActiveTool={!!activeTool}
+        onOpenAdMobPerformance={() => setIsAdMobPerformanceOpen(true)}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
@@ -935,6 +974,43 @@ export default function App() {
                     </p>
                   </div>
                 </div>
+
+                {/* Rewarded Ad Sponsor Perk Card (Non-annoying, 100% opt-in for testing) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                      <Trophy className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-xs sm:text-sm text-zinc-900 dark:text-zinc-50">
+                          Arcade Champion Perk
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-extrabold text-[9px] border border-emerald-500/30">
+                          Rewarded Ad Test
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Watch a 5s test sponsor video to earn a VIP Arcade Champion badge and test ad callbacks.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      admobService.showRewardedAd(
+                        () => {},
+                        { type: 'Arcade Champion Badge', amount: 1 }
+                      );
+                    }}
+                    className="shrink-0 w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Gift className="w-3.5 h-3.5" />
+                    <span>Watch Test Ad</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {TOOLS.filter(t => t.categoryId === 'games').map(tool => {
                     const isSelected = tool.id === lastOpenedToolId;
@@ -964,6 +1040,11 @@ export default function App() {
                     );
                   })}
                 </div>
+
+                {/* Google AdMob Test Banner in Arcade */}
+                <div className="pt-4">
+                  <AdMobBanner onOpenPerformance={() => setIsAdMobPerformanceOpen(true)} variant="inline" />
+                </div>
               </div>
             ) : (
               <div>
@@ -981,6 +1062,7 @@ export default function App() {
                   tierFilter={tierFilter}
                   onSelectTierFilter={setTierFilter}
                   selectedToolId={lastOpenedToolId}
+                  onOpenAdMobPerformance={() => setIsAdMobPerformanceOpen(true)}
                 />
               </div>
             )}
@@ -995,6 +1077,7 @@ export default function App() {
               isFavorite={favorites.includes(activeTool.id)}
               onToggleFavorite={() => handleToggleFavorite(activeTool.id)}
               onSelectTool={handleSelectTool}
+              onOpenAdMobPerformance={() => setIsAdMobPerformanceOpen(true)}
             />
           </div>
         )}
@@ -1042,6 +1125,23 @@ export default function App() {
       <ExitConfirmModal
         isOpen={showExitDialog}
         onClose={() => setShowExitDialog(false)}
+      />
+
+      {/* Google AdMob Modals (Interstitial, Rewarded, and Performance Inspector) */}
+      <AdMobInterstitialModal
+        isOpen={showInterstitialAd}
+        onClose={() => admobService.dismissInterstitial()}
+      />
+
+      <AdMobRewardedModal
+        isOpen={showRewardedAd}
+        onClose={() => admobService.dismissRewarded(false)}
+        rewardDetails={rewardedRewardDetails}
+      />
+
+      <AdMobPerformanceModal
+        isOpen={isAdMobPerformanceOpen}
+        onClose={() => setIsAdMobPerformanceOpen(false)}
       />
     </div>
   );

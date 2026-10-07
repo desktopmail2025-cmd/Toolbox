@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut, Star } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut, Star, BarChart3 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
@@ -33,6 +33,7 @@ interface NavbarProps {
   favorites?: string[];
   recents?: string[];
   hasActiveTool?: boolean;
+  onOpenAdMobPerformance?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -59,6 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   favorites = [],
   recents = [],
   hasActiveTool = false,
+  onOpenAdMobPerformance,
 }) => {
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -655,6 +657,43 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Explore our catalog of high-performance utilities. Filter between 100% on-device offline tools and live internet-connected APIs.
               </p>
             </div>
+          </div>
+
+          {/* AdMob Test Hub & Performance Inspector */}
+          <div className="px-4">
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setDrawerState(false);
+                if (onOpenAdMobPerformance) {
+                  onOpenAdMobPerformance();
+                }
+              }}
+              className="w-full p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-sky-50/70 to-emerald-50/60 dark:from-indigo-950/50 dark:via-sky-950/30 dark:to-emerald-950/30 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs hover:shadow-sm transition-all cursor-pointer text-left group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 block leading-tight">
+                      AdMob Performance
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      Live Test Ad Analytics
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-extrabold text-[9px] border border-emerald-500/30">
+                  3 Units Active
+                </span>
+              </div>
+              <p className="text-[10.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                Test Banner, Interstitial, and Rewarded ads. Inspect real-time impressions, clicks, and fill rate.
+              </p>
+            </button>
           </div>
 
           {/* Drawer Tool Directories: All Categories, Online Tools, Offline Tools */}

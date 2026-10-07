@@ -5,6 +5,7 @@ import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, Clock, ChevronDown, ChevronLeft, ChevronRight, ArrowRight, Globe, ShieldCheck, Zap, WifiOff } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { AdMobBanner } from '../ads/AdMobBanner';
 
 interface CategoryExplorerProps {
   onSelectTool: (tool: ToolItem) => void;
@@ -20,6 +21,7 @@ interface CategoryExplorerProps {
   tierFilter?: 'all' | 'basic' | 'pro';
   onSelectTierFilter?: (tier: 'all' | 'basic' | 'pro') => void;
   selectedToolId?: string | null;
+  onOpenAdMobPerformance?: () => void;
 }
 
 export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
@@ -36,6 +38,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   tierFilter: propTierFilter,
   onSelectTierFilter,
   selectedToolId,
+  onOpenAdMobPerformance,
 }) => {
   // The tool card is styled with active selection badge and ring without disruptive page jumping
   const recentToolItems = recents
@@ -506,6 +509,11 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* Google AdMob Test Banner (320x50 / Adaptive) docked cleanly at the bottom */}
+      <div className="pt-4">
+        <AdMobBanner onOpenPerformance={onOpenAdMobPerformance} variant="inline" />
       </div>
     </div>
   );
