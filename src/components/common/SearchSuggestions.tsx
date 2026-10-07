@@ -20,18 +20,19 @@ interface SearchSuggestionsProps {
 }
 
 // Highlight matched substring with Figma-style subtle highlighter
-export const HighlightText: React.FC<{ text: string; query: string }> = ({ text, query }) => {
-  if (!query.trim()) return <span>{text}</span>;
+export const HighlightText: React.FC<{ text?: string; query?: string }> = ({ text = '', query = '' }) => {
+  const safeText = String(text || '');
+  const safeQuery = String(query || '').trim().toLowerCase();
+  if (!safeQuery || !safeText) return <span>{safeText}</span>;
 
-  const q = query.trim().toLowerCase();
-  const lower = text.toLowerCase();
-  const index = lower.indexOf(q);
+  const lower = safeText.toLowerCase();
+  const index = lower.indexOf(safeQuery);
 
-  if (index === -1) return <span>{text}</span>;
+  if (index === -1) return <span>{safeText}</span>;
 
-  const before = text.substring(0, index);
-  const match = text.substring(index, index + q.length);
-  const after = text.substring(index + q.length);
+  const before = safeText.substring(0, index);
+  const match = safeText.substring(index, index + safeQuery.length);
+  const after = safeText.substring(index + safeQuery.length);
 
   return (
     <span>
@@ -45,7 +46,7 @@ export const HighlightText: React.FC<{ text: string; query: string }> = ({ text,
 };
 
 export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
-  query,
+  query = '',
   isOpen,
   onSelectTool,
   onClose,
@@ -57,18 +58,21 @@ export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
   align = 'stretch',
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
+  const safeQuery = String(query || '');
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeRecents = Array.isArray(recents) ? recents : [];
 
   // Compute matching tools with intelligent scoring
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = safeQuery.trim().toLowerCase();
     if (!q) return [];
 
     const scored = TOOLS.map(tool => {
       let score = 0;
-      const nameLower = tool.name.toLowerCase();
-      const descLower = tool.description.toLowerCase();
+      const nameLower = (tool.name || '').toLowerCase();
+      const descLower = (tool.description || '').toLowerCase();
       const cat = CATEGORIES.find(c => c.id === tool.categoryId);
-      const catLower = cat ? cat.name.toLowerCase() : '';
+      const catLower = cat ? (cat.name || '').toLowerCase() : '';
 
       // 1. Exact name match
       if (nameLower === q) score += 1000;
@@ -80,8 +84,8 @@ export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
       else if (nameLower.includes(q)) score += 250;
 
       // 5. Keywords match
-      for (const kw of tool.keywords) {
-        const kwLower = kw.toLowerCase();
+      for (const kw of (tool.keywords || [])) {
+        const kwLower = (kw || '').toLowerCase();
         if (kwLower === q) score += 300;
         else if (kwLower.startsWith(q)) score += 180;
         else if (kwLower.includes(q)) score += 90;
@@ -100,14 +104,14 @@ export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
       .slice(0, 10);
 
     return scored;
-  }, [query]);
+  }, [safeQuery]);
 
   // Default suggested tools when input is empty but search is open
   const fallbackSuggestions = useMemo<{ recents: ToolItem[]; popular: ToolItem[] }>(() => {
-    if (query.trim()) return { recents: [], popular: [] };
+    if (safeQuery.trim()) return { recents: [], popular: [] };
 
     // Prioritize recents, then top curated tools
-    const recentTools = recents
+    const recentTools = safeRecents
       .map(id => TOOLS.find(t => t.id === id))
       .filter((t): t is ToolItem => t !== undefined)
       .slice(0, 4);
@@ -124,7 +128,7 @@ export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
     ];
 
     const popularTools = popularIds
-      .filter(id => !recents.includes(id))
+      .filter(id => !safeRecents.includes(id))
       .map(id => TOOLS.find(t => t.id === id))
       .filter((t): t is ToolItem => t !== undefined)
       .slice(0, 6);
@@ -133,7 +137,7 @@ export const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
       recents: recentTools,
       popular: popularTools,
     };
-  }, [query, recents]);
+  }, [safeQuery, safeRecents]);
 
   // Scroll active item into view when navigating with keyboard
   useEffect(() => {

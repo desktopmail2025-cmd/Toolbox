@@ -62,6 +62,18 @@
           <div style="font-size:0.75rem;color:#a1a1aa;margin-top:0.35rem;font-weight:500;letter-spacing:0.01em;">Universal Utility Suite</div>
         </div>
       </div>
+      <script>
+        setTimeout(function() {
+          var splash = document.getElementById('app-pre-splash');
+          if (splash) {
+            splash.style.transition = 'opacity 0.25s ease';
+            splash.style.opacity = '0';
+            setTimeout(function() {
+              try { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e) {}
+            }, 300);
+          }
+        }, 1200);
+      </script>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

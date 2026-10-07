@@ -3,13 +3,15 @@ export function getStoredFavorites(): string[] {
     const raw = localStorage.getItem('omni_favorites');
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Clear legacy hardcoded mock favorites if present
-      const legacyDefaults = ['basic-calc', 'currency-converter', 'conversion-hub', 'password-generator', 'qr-generator', 'quick-timer'];
-      if (Array.isArray(parsed) && parsed.length === legacyDefaults.length && legacyDefaults.every(id => parsed.includes(id))) {
-        localStorage.setItem('omni_favorites', JSON.stringify([]));
-        return [];
+      if (Array.isArray(parsed)) {
+        // Clear legacy hardcoded mock favorites if present
+        const legacyDefaults = ['basic-calc', 'currency-converter', 'conversion-hub', 'password-generator', 'qr-generator', 'quick-timer'];
+        if (parsed.length === legacyDefaults.length && legacyDefaults.every(id => parsed.includes(id))) {
+          localStorage.setItem('omni_favorites', JSON.stringify([]));
+          return [];
+        }
+        return parsed.filter((item): item is string => typeof item === 'string');
       }
-      return parsed;
     }
   } catch {
     // ignore
@@ -20,7 +22,8 @@ export function getStoredFavorites(): string[] {
 
 export function saveStoredFavorites(favs: string[]) {
   try {
-    localStorage.setItem('omni_favorites', JSON.stringify(favs));
+    const safeFavs = Array.isArray(favs) ? favs : [];
+    localStorage.setItem('omni_favorites', JSON.stringify(safeFavs));
   } catch {
     // ignore
   }
@@ -29,7 +32,12 @@ export function saveStoredFavorites(favs: string[]) {
 export function getStoredRecents(): string[] {
   try {
     const raw = localStorage.getItem('omni_recents');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+    }
   } catch {
     // ignore
   }

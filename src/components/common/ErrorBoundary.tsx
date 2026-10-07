@@ -47,6 +47,13 @@ export class ErrorBoundary extends Component<Props, State> {
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 OmniToolbox encountered an unexpected issue, but your notes and settings are safe.
               </p>
+              {this.state.error && (
+                <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-left text-[11px] font-mono text-red-700 dark:text-red-300 overflow-auto max-h-48 whitespace-pre-wrap select-text">
+                  <strong>{this.state.error.name}: {this.state.error.message}</strong>
+                  {'\n\n'}
+                  {this.state.error.stack}
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">

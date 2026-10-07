@@ -32,6 +32,7 @@ interface NavbarProps {
   closeDrawerTrigger?: number;
   favorites?: string[];
   recents?: string[];
+  hasActiveTool?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -57,6 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   closeDrawerTrigger,
   favorites = [],
   recents = [],
+  hasActiveTool = false,
 }) => {
   // Drawer state: opens when clicking the app logo, closes on repeat click, X, or backdrop
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -158,9 +160,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       setInternalIsSearchOpen(controlledIsSearchOpen);
       if (controlledIsSearchOpen) {
         setSelectedIndex(0);
+        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
+      } else {
+        (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
       }
     }
   }, [controlledIsSearchOpen]);
+
+  // When a tool is actively opened, immediately dismiss search suggestions & blur input
+  useEffect(() => {
+    if (hasActiveTool) {
+      setInternalIsSearchOpen(false);
+      onSearchOpenChange?.(false);
+      inputRef.current?.blur();
+      (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+    }
+  }, [hasActiveTool, onSearchOpenChange]);
+
+  // Suggestions are only allowed to show when NO tool is actively open
+  const isSuggestionsVisible = !hasActiveTool && isSearchOpen;
 
   // Computed matches for keyboard navigation
   const currentMatches = useMemo(() => {
@@ -255,6 +273,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Selection from suggestions with origin tracking!
   const handleSelectSuggestedTool = (tool: ToolItem) => {
     sounds.playClick();
+    // Immediately dismiss suggestions and remove input focus so the tool displays cleanly
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+    setInternalIsSearchOpen(false);
+    onSearchOpenChange?.(false);
+    (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+
     if (onSelectTool) {
       onSelectTool(tool, {
         fromSearch: true,
@@ -267,6 +293,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Close search and unselect if user touches/clicks anywhere outside
   useEffect(() => {
     const handleInteractionOutside = (e: MouseEvent | TouchEvent) => {
+      // If the interaction is at the screen edge (edge swipe back zone), do not close search here;
+      // let the edge back gesture handler in App.tsx handle it cleanly so it closes suggestions without quitting!
+      if (e instanceof TouchEvent && e.touches && e.touches.length > 0) {
+        const touchX = e.touches[0].clientX;
+        if (touchX <= 75 || touchX >= window.innerWidth - 75) {
+          return;
+        }
+      }
+      if (typeof PointerEvent !== 'undefined' && e instanceof PointerEvent && e.pointerType === 'touch') {
+        if (e.clientX <= 75 || e.clientX >= window.innerWidth - 75) {
+          return;
+        }
+      }
+
       if (isSearchOpen && searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         resetSearchToUnopened();
       }
@@ -308,7 +348,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Outside Touch/Click Backdrop for Search: Returns search instantly to unopened state */}
-      {isSearchOpen && (
+      {isSuggestionsVisible && (
         <div
           className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 backdrop-blur-[2px] transition-opacity duration-150 animate-in fade-in"
           onPointerDown={e => {
@@ -451,7 +491,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Live Search Suggestions Popover attached directly below the search input */}
             <SearchSuggestions
               query={query}
-              isOpen={isSearchOpen}
+              isOpen={isSuggestionsVisible}
               onSelectTool={handleSelectSuggestedTool}
               onClose={resetSearchToUnopened}
               favorites={favorites}

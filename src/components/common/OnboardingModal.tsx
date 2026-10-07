@@ -110,6 +110,8 @@ const SLIDES: OnboardingSlide[] = [
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   // Always restart onboarding from the beginning when opened
   useEffect(() => {
@@ -145,15 +147,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, currentSlide]);
 
-  if (!isOpen) return null;
-
-  const slide = SLIDES[currentSlide];
-  const Icon = slide.icon;
-  const isLast = currentSlide === SLIDES.length - 1;
+  const handleComplete = () => {
+    sounds.playSuccess();
+    try {
+      localStorage.setItem('omni_onboarded', 'true');
+    } catch {}
+    onClose();
+  };
 
   const handleNext = () => {
     sounds.playClick();
-    if (isLast) {
+    if (currentSlide === SLIDES.length - 1) {
       handleComplete();
     } else {
       setSlideDirection('next');
@@ -166,17 +170,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     setSlideDirection('prev');
     setCurrentSlide(prev => Math.max(0, prev - 1));
   };
-
-  const handleComplete = () => {
-    sounds.playSuccess();
-    try {
-      localStorage.setItem('omni_onboarded', 'true');
-    } catch {}
-    onClose();
-  };
-
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
@@ -201,6 +194,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     touchStartXRef.current = null;
     touchStartYRef.current = null;
   };
+
+  if (!isOpen) return null;
+
+  const slide = SLIDES[currentSlide];
+  const Icon = slide.icon;
+  const isLast = currentSlide === SLIDES.length - 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in select-none">

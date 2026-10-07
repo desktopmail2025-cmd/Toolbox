@@ -21,7 +21,19 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
 export default function App() {
-  const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
+  const [activeTool, setActiveTool] = useState<ToolItem | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const toolId = params.get('tool');
+        if (toolId) {
+          const found = TOOLS.find(t => t.id === toolId);
+          if (found) return found;
+        }
+      } catch {}
+    }
+    return null;
+  });
   const [toolSessionId, setToolSessionId] = useState<number>(() => Date.now());
   const [lastOpenedToolId, setLastOpenedToolId] = useState<string | null>(() => {
     try {
@@ -30,7 +42,18 @@ export default function App() {
       return null;
     }
   });
-  const [activeTab, setActiveTab] = useState<string>('categories');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab && ['categories', 'favorites', 'notes', 'games'].includes(tab)) {
+          return tab;
+        }
+      } catch {}
+    }
+    return 'categories';
+  });
   const [toolReturnTab, setToolReturnTab] = useState<string>('categories');
   const [starredSelectedToolId, setStarredSelectedToolId] = useState<string | null>(null);
   const [toolFilter, setToolFilter] = useState<'all' | 'offline' | 'online'>('all');
@@ -146,6 +169,15 @@ export default function App() {
   const isNavbarSearchOpenRef = useRef<boolean>(isNavbarSearchOpen);
   isNavbarSearchOpenRef.current = isNavbarSearchOpen;
 
+  const navbarSearchQueryRef = useRef<string>(navbarSearchQuery);
+  navbarSearchQueryRef.current = navbarSearchQuery;
+
+  const modalSearchQueryRef = useRef<string>(modalSearchQuery);
+  modalSearchQueryRef.current = modalSearchQuery;
+
+  const toolFilterRef = useRef<string>(toolFilter);
+  toolFilterRef.current = toolFilter;
+
   const isDrawerOpenRef = useRef<boolean>(isDrawerOpen);
   isDrawerOpenRef.current = isDrawerOpen;
 
@@ -248,6 +280,12 @@ export default function App() {
     originMeta?: { fromSearch?: boolean; searchQuery?: string; searchMode?: 'navbar' | 'modal'; categoryId?: CategoryId }
   ) => {
     sounds.playClick();
+    // Immediately close any search dropdown or modal so the opened tool is displayed cleanly without suggestions
+    setIsNavbarSearchOpen(false);
+    setIsSearchOpen(false);
+    setCloseNavbarSearchTrigger(prev => prev + 1);
+    (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+
     // Record current scroll position with maximum precision across all devices
     const currentY = window.scrollY || document.documentElement.scrollTop || window.pageYOffset || 0;
     savedScrollPosRef.current = currentY;
@@ -317,6 +355,7 @@ export default function App() {
       // Restore destination tab from origin
       const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
       setActiveTab(targetTab);
+      activeTabRef.current = targetTab;
       if (targetTab === 'favorites') {
         setStarredSelectedToolId(closedToolId || null);
       } else {
@@ -327,17 +366,28 @@ export default function App() {
       if (origin?.fromSearch) {
         if (origin.searchMode === 'navbar') {
           setIsNavbarSearchOpen(true);
+          isNavbarSearchOpenRef.current = true;
           setNavbarSearchQuery(origin.searchQuery);
+          navbarSearchQueryRef.current = origin.searchQuery;
+          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
         } else if (origin.searchMode === 'modal') {
           setIsSearchOpen(true);
+          isSearchOpenRef.current = true;
           setModalSearchQuery(origin.searchQuery);
+          modalSearchQueryRef.current = origin.searchQuery;
+          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = true;
         }
       }
 
       if (pushState) {
         try {
           window.history.pushState(
-            { __omniApp: true, level: targetTab === 'categories' ? 'home' : 'tab', tab: targetTab, origin },
+            {
+              __omniApp: true,
+              level: origin?.fromSearch ? 'search' : (targetTab === 'categories' ? 'home' : 'tab'),
+              tab: targetTab,
+              origin
+            },
             '',
             targetTab === 'categories' ? '/' : `?tab=${targetTab}`
           );
@@ -365,7 +415,7 @@ export default function App() {
 
     setTimeout(() => {
       justNavigatedToHomeRef.current = false;
-    }, 800);
+    }, 1500);
   };
 
   const replenishHistoryBuffer = (level: string, tab: string = 'categories') => {
@@ -390,18 +440,25 @@ export default function App() {
     }, 350);
     setTimeout(() => {
       justNavigatedToHomeRef.current = false;
-    }, 800);
+    }, 1500);
 
     setActiveTool(null);
+    activeToolRef.current = null;
     setStarredSelectedToolId(null);
     setActiveTab('categories');
+    activeTabRef.current = 'categories';
     setToolReturnTab('categories');
-    if (pushState) {
-      try {
+    toolReturnTabRef.current = 'categories';
+    setToolFilter('all');
+    toolFilterRef.current = 'all';
+    try {
+      if (pushState) {
         window.history.pushState({ __omniApp: true, level: 'home', tab: 'categories' }, '', '/');
-      } catch {
-        // ignore
+      } else {
+        window.history.replaceState({ __omniApp: true, level: 'home', tab: 'categories' }, '', '/');
       }
+    } catch {
+      // ignore
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
@@ -409,15 +466,15 @@ export default function App() {
   // Unified Step-by-Step Back Handler:
   // 1. If Exit Dialog is open: close it
   // 2. If Onboarding is open: close it
-  // 3. If FAB menu is open: close it
-  // 4. If Search (modal or navbar) is open: close search ONLY, remain on current screen!
-  // 5. If Drawer is open: close drawer ONLY, remain on current screen!
-  // 6. If a tool is open: animate tool slide-out and return to source tab (e.g. Starred -> Starred, Home -> Home), DO NOT EXIT!
-  // 7. If on sub-tab (Favorites, Notes, Games): return to Home screen, DO NOT EXIT!
-  // 8. If ON HOME SCREEN: ONLY HERE show the exit confirmation dialogue!
+  // 3. If a tool is open: animate tool slide-out and return to origin (search suggestions, starred, home, etc.), DO NOT EXIT!
+  // 4. If FAB menu is open: close it
+  // 5. If Search Suggestions or Search Bar is active: close suggestions bar ONLY, remain on current screen! DO NOT EXIT!
+  // 6. If Navigation Drawer is open: close drawer ONLY, remain on current screen! DO NOT EXIT!
+  // 7. If on any sub-tab or filtered view (Starred, Notes, Games, Online/Offline filter): return to Home screen from everywhere! DO NOT EXIT!
+  // 8. If ON HOME SCREEN with clean state: ONLY HERE show the exit confirmation dialogue!
   const handleBackAction = (viaHistoryPop: boolean = false) => {
     const now = Date.now();
-    if (isTransitioningRef.current || now - lastBackActionTimeRef.current < 300) {
+    if (isTransitioningRef.current || now - lastBackActionTimeRef.current < 250) {
       if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
@@ -426,6 +483,7 @@ export default function App() {
     // 1. If Exit Dialog is open: close it
     if (showExitDialogRef.current) {
       setShowExitDialog(false);
+      showExitDialogRef.current = false;
       if (viaHistoryPop) replenishHistoryBuffer('home', 'categories');
       return;
     }
@@ -433,78 +491,93 @@ export default function App() {
     // 2. If Onboarding is open: close it
     if (showOnboardingRef.current) {
       setShowOnboarding(false);
+      showOnboardingRef.current = false;
       if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
 
-    // 3. If FAB menu is open: close it
+    // 3. A tool is currently active -> Close tool and return to origin!
+    // (If tool was entered from search suggestions, returns directly to suggestions where user entered)
+    if (activeToolRef.current) {
+      sounds.playClick();
+      const origin = toolReturnOriginRef.current;
+      const targetTab = origin?.tab || toolReturnTabRef.current || 'categories';
+      handleBackToOverview(false);
+      if (viaHistoryPop) {
+        replenishHistoryBuffer(origin?.fromSearch ? 'search' : (targetTab === 'categories' ? 'home' : 'tab'), targetTab);
+      }
+      return;
+    }
+
+    // 4. If FAB menu is open: close it
     if (isFABExpandedRef.current) {
       sounds.playClick();
       setIsFABExpanded(false);
+      isFABExpandedRef.current = false;
       setCloseFABTrigger(prev => prev + 1);
       if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
       return;
     }
 
-    // 4. If Search is open (modal or navbar): close search ONLY!
-    if (isSearchOpenRef.current || isNavbarSearchOpenRef.current) {
+    // 5. If Search Suggestions or Search is active (modal, navbar, or query present):
+    // Closes suggestion bar, clears search query, blurs search input, remains on current page! DO NOT QUIT!
+    const isSearchActive =
+      isSearchOpenRef.current ||
+      isNavbarSearchOpenRef.current ||
+      Boolean(navbarSearchQueryRef.current && navbarSearchQueryRef.current.trim()) ||
+      Boolean(modalSearchQueryRef.current && modalSearchQueryRef.current.trim()) ||
+      Boolean((window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen);
+
+    if (isSearchActive) {
       sounds.playClick();
       setIsSearchOpen(false);
+      isSearchOpenRef.current = false;
       setIsNavbarSearchOpen(false);
+      isNavbarSearchOpenRef.current = false;
       setNavbarSearchQuery('');
+      navbarSearchQueryRef.current = '';
       setModalSearchQuery('');
+      modalSearchQueryRef.current = '';
       setCloseNavbarSearchTrigger(prev => prev + 1);
       (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen = false;
+      justNavigatedToHomeRef.current = true;
+      setTimeout(() => { justNavigatedToHomeRef.current = false; }, 1200);
       isTransitioningRef.current = true;
       setTimeout(() => { isTransitioningRef.current = false; }, 300);
-      if (viaHistoryPop) {
-        replenishHistoryBuffer(
-          activeToolRef.current ? 'tool' : activeTabRef.current === 'categories' ? 'home' : 'tab',
-          activeTabRef.current
-        );
-      }
+      replenishHistoryBuffer(
+        activeTabRef.current === 'categories' ? 'home' : 'tab',
+        activeTabRef.current
+      );
       return;
     }
 
-    // 5. If Navigation Drawer is open: close drawer ONLY!
+    // 6. If Navigation Drawer is open: close drawer ONLY!
     if (isDrawerOpenRef.current) {
       sounds.playClick();
       setIsDrawerOpen(false);
+      isDrawerOpenRef.current = false;
       setCloseDrawerTrigger(prev => prev + 1);
       isTransitioningRef.current = true;
       setTimeout(() => { isTransitioningRef.current = false; }, 300);
-      if (viaHistoryPop) {
-        replenishHistoryBuffer(
-          activeToolRef.current ? 'tool' : activeTabRef.current === 'categories' ? 'home' : 'tab',
-          activeTabRef.current
-        );
-      }
+      replenishHistoryBuffer(
+        activeTabRef.current === 'categories' ? 'home' : 'tab',
+        activeTabRef.current
+      );
       return;
     }
 
-    // 6. A tool is opened -> Close tool and return to source tab with slide animation!
-    if (activeToolRef.current) {
-      sounds.playClick();
-      const targetTab = toolReturnTabRef.current || 'categories';
-      handleBackToOverview(false);
-      if (viaHistoryPop) {
-        replenishHistoryBuffer(targetTab === 'categories' ? 'home' : 'tab', targetTab);
-      }
-      return;
-    }
-
-    // 7. Sub-tab is opened (e.g. Starred, Notes, Games) -> Return to home screen!
-    if (activeTabRef.current !== 'categories') {
+    // 7. Sub-tab / Sub-page is open (Starred, Notes, Games, or filter) -> Return to Home screen from everywhere!
+    if (activeTabRef.current !== 'categories' || toolFilterRef.current !== 'all') {
       sounds.playClick();
       handleGoHome(false);
-      if (viaHistoryPop) {
-        replenishHistoryBuffer('home', 'categories');
-      }
+      setToolFilter('all');
+      toolFilterRef.current = 'all';
+      replenishHistoryBuffer('home', 'categories');
       return;
     }
 
     // 8. User is on home screen:
-    // If the app JUST arrived at home within the last 800ms, DO NOT show exit alert!
+    // If the app JUST arrived at home within the safety window, DO NOT show exit alert!
     if (justNavigatedToHomeRef.current) {
       if (viaHistoryPop) {
         replenishHistoryBuffer('home', 'categories');
@@ -512,9 +585,10 @@ export default function App() {
       return;
     }
 
-    // ONLY SHOW EXIT ALERT when user is already settled on the home screen!
+    // ONLY SHOW EXIT ALERT when user is already settled on the clean home screen!
     sounds.playClick();
     setShowExitDialog(true);
+    showExitDialogRef.current = true;
     if (viaHistoryPop) {
       replenishHistoryBuffer('home', 'categories');
     }
@@ -569,25 +643,25 @@ export default function App() {
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       const target = e.target as HTMLElement | null;
-      // Do not trigger edge back gesture when touching inputs, search, buttons, or scroll sliders
+      const touchX = e.touches[0].clientX;
+      const isEdgeZone = touchX <= 65 || touchX >= window.innerWidth - 65;
+
+      // Only ignore touch if inside an active editable input field (not when swiping from edge)
       if (
+        !isEdgeZone &&
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable ||
           target.closest('input') ||
-          target.closest('button') ||
-          target.closest('header') ||
-          target.closest('aside') ||
-          target.closest('[data-search-container]') ||
-          (window as unknown as { __omniSearchOpen?: boolean }).__omniSearchOpen)
+          target.closest('textarea'))
       ) {
         isIgnoredTarget = true;
         return;
       }
 
       isIgnoredTarget = false;
-      startX = e.touches[0].clientX;
+      startX = touchX;
       startY = e.touches[0].clientY;
     };
 
@@ -600,8 +674,8 @@ export default function App() {
 
       // Deliberate inward swipe from the edge (standard mobile back gesture):
       // Left edge swipe (swiping right from screen left) OR Right edge swipe (swiping left from screen right)
-      const isLeftEdgeSwipe = startX <= 60 && deltaX > 45 && Math.abs(deltaY) < 55;
-      const isRightEdgeSwipe = startX >= window.innerWidth - 60 && deltaX < -45 && Math.abs(deltaY) < 55;
+      const isLeftEdgeSwipe = startX <= 65 && deltaX > 40 && Math.abs(deltaY) < 60;
+      const isRightEdgeSwipe = startX >= window.innerWidth - 65 && deltaX < -40 && Math.abs(deltaY) < 60;
 
       if (isLeftEdgeSwipe || isRightEdgeSwipe) {
         handleBackAction(false);
@@ -643,10 +717,14 @@ export default function App() {
       return;
     }
     setActiveTool(null);
+    activeToolRef.current = null;
     setActiveTab(tab);
+    activeTabRef.current = tab;
     setToolReturnTab(tab);
+    toolReturnTabRef.current = tab;
+    justNavigatedToHomeRef.current = false;
     try {
-      window.history.pushState({ tab }, '', `?tab=${tab}`);
+      window.history.pushState({ __omniApp: true, level: 'tab', tab }, '', `?tab=${tab}`);
     } catch {
       // ignore
     }
@@ -698,12 +776,10 @@ export default function App() {
         onOpenExitDialog={() => setShowExitDialog(true)}
         onSearchOpenChange={open => {
           setIsNavbarSearchOpen(open);
-          if (open) {
-            try {
-              window.history.pushState({ __omniApp: true, level: 'search' }, '');
-            } catch {
-              // ignore
-            }
+          isNavbarSearchOpenRef.current = open;
+          if (!open) {
+            setNavbarSearchQuery('');
+            navbarSearchQueryRef.current = '';
           }
         }}
         closeSearchTrigger={closeNavbarSearchTrigger}
@@ -720,6 +796,7 @@ export default function App() {
         closeDrawerTrigger={closeDrawerTrigger}
         favorites={favorites}
         recents={recents}
+        hasActiveTool={!!activeTool}
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
