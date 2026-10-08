@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, Sparkles, ExternalLink, ShieldCheck, Zap } from 'lucide-react';
-import { admobService, ADMOB_CONFIG } from '../../services/admobService';
+import { X, Volume2, VolumeX, ExternalLink } from 'lucide-react';
+import { admobService } from '../../services/admobService';
 
 interface AdMobInterstitialModalProps {
   isOpen: boolean;
@@ -56,8 +56,8 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
         {/* Top Control Bar (AdMob Interstitial Header) */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/90 border-b border-zinc-800 text-xs">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/40">
-              Test Ad
+            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40">
+              Ad
             </span>
             <span className="font-semibold text-zinc-200">Google AdMob Interstitial</span>
           </div>
@@ -84,35 +84,32 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
               </button>
             ) : (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/80 text-zinc-300 text-xs font-mono font-medium border border-zinc-700">
-                <span>Reward in</span>
+                <span>Skip in</span>
                 <span className="w-4 text-center font-bold text-amber-400">{countdown}s</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Ad Creative Canvas */}
+        {/* Ad Creative Canvas with Real App Logo */}
         <div
           onClick={handleAdClick}
           className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none bg-radial from-indigo-950/60 via-zinc-900 to-zinc-950"
         >
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-0.5 shadow-xl mb-4 group-hover:scale-105 transition-transform">
-            <div className="w-full h-full bg-zinc-950 rounded-[22px] flex items-center justify-center">
-              <Zap className="w-10 h-10 text-indigo-400 animate-pulse" />
-            </div>
+          <div className="w-20 h-20 rounded-3xl bg-zinc-950 p-2 shadow-2xl mb-4 group-hover:scale-105 transition-transform border border-zinc-700/60 flex items-center justify-center">
+            <img src="/icon.svg" alt="OmniToolbox" className="w-16 h-16 object-contain drop-shadow-md" />
           </div>
 
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
             Featured Partner Showcase
           </span>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-            OmniToolbox Ultimate Cloud
+            OmniToolbox Ultimate Suite
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
             Access 100+ precision calculators, instant media converters, offline games, and real-time utilities.
           </p>
 
-          {/* Test Ad Visual Graphic */}
           <div className="w-full max-w-xs p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-between gap-3 mb-6">
             <div className="text-left">
               <div className="text-xs font-bold text-zinc-200">Free Lifetime Upgrades</div>
@@ -130,14 +127,6 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
             <span>Learn More / Download</span>
             <ExternalLink className="w-4 h-4" />
           </button>
-        </div>
-
-        {/* AdMob Footer Info */}
-        <div className="px-4 py-2.5 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-          <span className="truncate">Ad Unit: {ADMOB_CONFIG.INTERSTITIAL_ID}</span>
-          <span className="flex items-center gap-1 text-emerald-400 shrink-0">
-            <ShieldCheck className="w-3 h-3" /> Test Verified
-          </span>
         </div>
       </div>
     </div>

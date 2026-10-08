@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Gift, Volume2, VolumeX, Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, Trophy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Gift, Volume2, VolumeX, CheckCircle2, AlertTriangle, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { admobService, ADMOB_CONFIG } from '../../services/admobService';
+import { admobService } from '../../services/admobService';
 import { sounds } from '../../utils/audio';
 
 interface AdMobRewardedModalProps {
@@ -13,7 +13,7 @@ interface AdMobRewardedModalProps {
 export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
   isOpen,
   onClose,
-  rewardDetails = { type: 'VIP Pass', amount: 1 },
+  rewardDetails = { type: '30-Minute Ad-Free Pass', amount: 1 },
 }) => {
   const [secondsLeft, setSecondsLeft] = useState(5);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -87,7 +87,7 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
               <Gift className="w-3 h-3" />
               Rewarded Ad
             </span>
-            <span className="font-semibold text-zinc-200">Google AdMob Test</span>
+            <span className="font-semibold text-zinc-200">Google AdMob Rewarded</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
           />
         </div>
 
-        {/* Ad Video Canvas / Simulated Interactive Ad */}
+        {/* Ad Video Canvas / Real App Creative */}
         <div className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
           {!isCompleted ? (
             <>
@@ -144,18 +144,18 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
               </div>
 
               <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                Reward Pending: {rewardDetails.amount} {rewardDetails.type}
+                Reward: 30-Minute 100% Ad-Free Pass
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
                 Special Partner Sponsor
               </h2>
               <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
-                Watch this short 5-second test sponsor video to claim your reward instantly.
+                Watch this short 5-second sponsor video to unlock <strong>30 minutes 100% Ad-Free</strong> across all tools.
               </p>
 
-              <div className="p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700/80 text-[11px] text-zinc-300 max-w-xs flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Keep watching to receive your in-app bonus!</span>
+              <div className="p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700/80 text-[11px] text-zinc-300 max-w-xs flex items-center gap-2.5">
+                <img src="/icon.svg" alt="OmniToolbox" className="w-5 h-5 object-contain shrink-0" />
+                <span>Keep watching to claim your 30-minute ad-free pass!</span>
               </div>
             </>
           ) : (
@@ -171,7 +171,7 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
                 Congratulations!
               </h2>
               <p className="text-xs sm:text-sm text-zinc-300 max-w-sm mb-6">
-                You earned <strong className="text-emerald-400 font-bold">{rewardDetails.amount}x {rewardDetails.type}</strong>.
+                You unlocked a <strong className="text-emerald-400 font-bold">30-Minute 100% Ad-Free Pass</strong>. Enjoy uninterrupted access to all tools!
               </p>
 
               <button
@@ -194,7 +194,7 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
               <div className="text-left flex-1 min-w-0">
                 <h4 className="text-xs font-bold text-white">Leave Early?</h4>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  If you close before the video ends, you will not receive your {rewardDetails.type}.
+                  If you close before the video ends, you will not receive your 30-minute ad-free pass.
                 </p>
                 <div className="flex items-center gap-2 mt-3">
                   <button
@@ -216,14 +216,6 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
             </div>
           </div>
         )}
-
-        {/* Ad Unit ID Footer */}
-        <div className="px-4 py-2.5 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-          <span className="truncate">Ad Unit: {ADMOB_CONFIG.REWARDED_ID}</span>
-          <span className="flex items-center gap-1 text-emerald-400 shrink-0">
-            <ShieldCheck className="w-3 h-3" /> Test Verified
-          </span>
-        </div>
       </div>
     </div>
   );

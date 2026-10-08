@@ -4,6 +4,7 @@ import { sounds } from '../../utils/audio';
 import { RotateCcw, Trophy, Zap, Play, Bomb, Flag, Sparkles, Flame, Check, HelpCircle, Undo2, Eye, Star, Info } from 'lucide-react';
 import { ExtendedUtilities } from './ExtendedUtilities';
 import { UnoBattleView, ClassicCardGamesView, UnoAndCardGamesArenaView } from './UnoAndCardGamesTool';
+import { admobService } from '../../services/admobService';
 
 interface ToolComponentProps {
   toolId: string;
@@ -177,6 +178,9 @@ const Game2048View: React.FC = () => {
         // Check Game Over
         if (checkGameOver(newBoard)) {
           setGameOver(true);
+          setTimeout(() => {
+            admobService.checkAndTriggerTransitionInterstitial('2048 Game Over');
+          }, 800);
         }
       }
     },
@@ -424,6 +428,9 @@ const TicTacToeView: React.FC = () => {
     if (win) {
       setWinner(win);
       if (win === 'X') confetti({ particleCount: 40 });
+      setTimeout(() => {
+        admobService.checkAndTriggerTransitionInterstitial('TicTacToe win');
+      }, 600);
       return;
     }
 
@@ -600,6 +607,9 @@ const MemoryMatchView: React.FC = () => {
         if (nextMatched.length === cards.length) {
           setIsWon(true);
           confetti({ particleCount: 90, spread: 60 });
+          setTimeout(() => {
+            admobService.checkAndTriggerTransitionInterstitial('Memory game won');
+          }, 800);
           if (bestMoves === 0 || nextMoves < bestMoves) {
             setBestMoves(nextMoves);
             try {
@@ -943,6 +953,9 @@ const MinesweeperView: React.FC = () => {
       setGrid(newGrid);
       setGameOver(true);
       setIsTimerRunning(false);
+      setTimeout(() => {
+        admobService.checkAndTriggerTransitionInterstitial('Minesweeper over');
+      }, 800);
       return;
     }
 
@@ -978,6 +991,9 @@ const MinesweeperView: React.FC = () => {
       setIsTimerRunning(false);
       sounds.playSuccess();
       confetti({ particleCount: 70 });
+      setTimeout(() => {
+        admobService.checkAndTriggerTransitionInterstitial('Minesweeper won');
+      }, 800);
       if (bestTime === 0 || timerSeconds < bestTime) {
         setBestTime(timerSeconds);
         localStorage.setItem(`omni_minesweeper_best_${size}`, String(timerSeconds));

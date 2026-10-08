@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut, Star, BarChart3 } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX, Sparkles, Search, X, HelpCircle, LayoutGrid, Zap, WifiOff, Globe, LogOut, Star, BarChart3, Gift } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { TOOLS, CATEGORIES } from '../../data/toolsRegistry';
 import { ToolItem } from '../../types';
@@ -7,6 +7,7 @@ import { IconRenderer } from './IconRenderer';
 import { getCategoryTheme } from '../../utils/themeColors';
 import { DrawerStreakWidget } from './DrawerStreakWidget';
 import { SearchSuggestions } from './SearchSuggestions';
+import { admobService } from '../../services/admobService';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -400,9 +401,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2.5 text-left group cursor-pointer p-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors"
               title="Click logo to open Categories & App Menu"
             >
-              <div className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-bold text-sm transition-transform group-hover:scale-105 active:scale-95 shadow-xs border border-zinc-900/10 dark:border-white/20">
-                <Sparkles className="w-4 h-4 text-indigo-400 dark:text-indigo-600" />
-              </div>
+              <img
+                src="/icon.svg"
+                alt="OmniToolbox"
+                className="h-7.5 w-7.5 rounded-lg object-contain transition-transform group-hover:scale-105 active:scale-95 shadow-xs border border-zinc-200/50 dark:border-zinc-800"
+              />
               <span className="text-sm font-bold tracking-tight text-zinc-950 dark:text-zinc-50 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition-colors">
                 <span className="hidden min-[380px]:inline">OmniToolbox</span>
                 <span className="min-[380px]:hidden">Omni</span>
@@ -550,9 +553,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3 text-left cursor-pointer group"
             title="Click to close drawer"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold shadow-xs">
-              <Sparkles className="w-4.5 h-4.5" />
-            </div>
+            <img
+              src="/icon.svg"
+              alt="OmniToolbox"
+              className="h-9 w-9 rounded-2xl object-contain shadow-xs border border-zinc-200/50 dark:border-zinc-800"
+            />
             <div>
               <span className="font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-50 block leading-tight">
                 OmniToolbox
@@ -659,40 +664,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* AdMob Test Hub & Performance Inspector */}
+          {/* Rewarded Ad-Free Pass Claim Button */}
           <div className="px-4">
             <button
               type="button"
               onClick={() => {
                 sounds.playClick();
                 setDrawerState(false);
-                if (onOpenAdMobPerformance) {
-                  onOpenAdMobPerformance();
-                }
+                admobService.showRewardedAd(
+                  () => {},
+                  { type: '30-Minute Ad-Free Pass', amount: 1 }
+                );
               }}
-              className="w-full p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-sky-50/70 to-emerald-50/60 dark:from-indigo-950/50 dark:via-sky-950/30 dark:to-emerald-950/30 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs hover:shadow-sm transition-all cursor-pointer text-left group"
+              className="w-full p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 transition-all cursor-pointer flex items-center justify-between text-xs font-bold shadow-xs active:scale-95"
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs group-hover:scale-105 transition-transform">
-                    <BarChart3 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 block leading-tight">
-                      AdMob Performance
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                      Live Test Ad Analytics
-                    </span>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                  <Gift className="w-4 h-4" />
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-extrabold text-[9px] border border-emerald-500/30">
-                  3 Units Active
-                </span>
+                <div className="text-left">
+                  <span className="block leading-tight font-extrabold text-zinc-900 dark:text-zinc-50">Go Ad-Free</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Watch short video for 30m pass</span>
+                </div>
               </div>
-              <p className="text-[10.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                Test Banner, Interstitial, and Rewarded ads. Inspect real-time impressions, clicks, and fill rate.
-              </p>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-extrabold bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30">
+                +30m Pass
+              </span>
             </button>
           </div>
 

@@ -175,9 +175,9 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </div>
       </div>
 
-      {/* Google AdMob Test Banner (Featured Placement: visible immediately on screen) */}
+      {/* Google AdMob Banner (Featured Placement: visible immediately on screen) */}
       <div className="pt-1 pb-1">
-        <AdMobBanner onOpenPerformance={onOpenAdMobPerformance} variant="inline" />
+        <AdMobBanner variant="inline" />
       </div>
 
       {/* Filter notification if a filter was selected from the drawer */}
@@ -516,9 +516,9 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         })}
       </div>
 
-      {/* Google AdMob Test Banner (320x50 / Adaptive) docked cleanly at the bottom */}
+      {/* Google AdMob Banner (320x50 / Adaptive) docked cleanly at the bottom */}
       <div className="pt-4">
-        <AdMobBanner onOpenPerformance={onOpenAdMobPerformance} variant="inline" />
+        <AdMobBanner variant="inline" />
       </div>
     </div>
   );

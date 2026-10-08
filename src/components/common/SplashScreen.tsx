@@ -36,9 +36,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         {/* Glowing Logo Icon */}
         <div className="relative">
           <div className="absolute -inset-4 bg-indigo-500/20 rounded-full blur-xl animate-pulse" />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-2xl shadow-indigo-500/30 border border-white/20">
-            <Sparkles className="w-10 h-10 text-white animate-spin" style={{ animationDuration: '6s' }} />
-          </div>
+          <img
+            src="/icon.svg"
+            alt="OmniToolbox"
+            className="relative w-20 h-20 rounded-3xl object-contain shadow-2xl border border-white/20"
+          />
         </div>
 
         {/* Wordmark Name */}

@@ -16,6 +16,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { AdMobBanner } from '../ads/AdMobBanner';
 
 export interface NoteItem {
   id: string;
@@ -58,9 +59,10 @@ const DEFAULT_NOTES: NoteItem[] = [
 interface NotesViewProps {
   onOpenNewNote?: () => void;
   onBackToHome?: () => void;
+  onOpenAdMobPerformance?: () => void;
 }
 
-export const NotesView: React.FC<NotesViewProps> = ({ onBackToHome }) => {
+export const NotesView: React.FC<NotesViewProps> = ({ onBackToHome, onOpenAdMobPerformance }) => {
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -411,6 +413,11 @@ export const NotesView: React.FC<NotesViewProps> = ({ onBackToHome }) => {
           })}
         </div>
       )}
+
+      {/* Google AdMob Banner in Notes View */}
+      <div className="pt-6">
+        <AdMobBanner variant="inline" />
+      </div>
 
       {/* Note Editor Modal with explicit Save Button & auto-clearing Untitled Note on click */}
       {isEditorOpen && (

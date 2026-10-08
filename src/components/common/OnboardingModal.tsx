@@ -240,8 +240,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
             }`}
           >
             {/* Icon (Fixed 48px height) */}
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-900/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs shrink-0">
-              <Icon className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-900/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs shrink-0 overflow-hidden">
+              {currentSlide === 0 ? (
+                <img src="/icon.svg" alt="OmniToolbox" className="w-8 h-8 object-contain" />
+              ) : (
+                <Icon className="w-6 h-6" />
+              )}
             </div>
 
             {/* Title & Subtitle container with guaranteed fixed height */}

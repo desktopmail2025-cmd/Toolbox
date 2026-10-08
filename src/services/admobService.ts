@@ -1,20 +1,23 @@
 import { Capacitor } from '@capacitor/core';
 import {
   AdMob,
-  BannerAdOptions,
   BannerAdSize,
   BannerAdPosition,
   BannerAdPluginEvents,
   InterstitialAdPluginEvents,
   RewardAdPluginEvents,
-  AdmobConsentStatus,
 } from '@capacitor-community/admob';
 
 export const ADMOB_CONFIG = {
-  BANNER_ID: 'ca-app-pub-3940256099942544/9214589741',
-  INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
-  REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
-  MIN_INTERSTITIAL_INTERVAL_MS: 180000, // 3 minutes between automatic interstitials to avoid annoying users
+  // Real Google AdMob Ad Unit IDs configured as requested
+  BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
+  INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
+  REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
+  // Non-annoying natural interval: 60 seconds cooldown ensures ads never spam users back-to-back,
+  // while ensuring mobile users on normal browsing journeys naturally see interstitials at transitions.
+  MIN_INTERSTITIAL_INTERVAL_MS: 60000,
+  // At least 2 natural view transitions/actions between automatic interstitials
+  MIN_TRANSITIONS_REQUIRED: 2,
 };
 
 export interface AdPerformanceMetrics {
@@ -47,15 +50,23 @@ export interface AdEventLog {
 type MetricsListener = (metrics: AdPerformanceMetrics) => void;
 type LogsListener = (logs: AdEventLog[]) => void;
 type ModalStateListener = (state: { showInterstitial: boolean; showRewarded: boolean; rewardedReward?: { type: string; amount: number } }) => void;
+type AdFreeListener = (adFreeRemainingSeconds: number) => void;
 
 class AdMobService {
   private isInitialized = false;
   private isNative = false;
+  private isNativeBannerShowing = false;
+  private isInterstitialPreloaded = false;
+  private isRewardedPreloaded = false;
+  private transitionCounter = 0;
+  private adFreeUntilTimestamp = 0;
+
   private metrics: AdPerformanceMetrics;
   private logs: AdEventLog[] = [];
   private metricsSubscribers = new Set<MetricsListener>();
   private logsSubscribers = new Set<LogsListener>();
   private modalSubscribers = new Set<ModalStateListener>();
+  private adFreeSubscribers = new Set<AdFreeListener>();
 
   private modalState: {
     showInterstitial: boolean;
@@ -72,6 +83,7 @@ class AdMobService {
     this.isNative = Capacitor.isNativePlatform();
     this.metrics = this.loadMetrics();
     this.logs = this.loadLogs();
+    this.loadAdFreeState();
   }
 
   private loadMetrics(): AdPerformanceMetrics {
@@ -100,6 +112,15 @@ class AdMobService {
     return [];
   }
 
+  private loadAdFreeState() {
+    try {
+      const saved = localStorage.getItem('omnitoolbox_ad_free_until');
+      if (saved) {
+        this.adFreeUntilTimestamp = Number(saved) || 0;
+      }
+    } catch {}
+  }
+
   private saveMetrics() {
     try {
       localStorage.setItem('omnitoolbox_admob_metrics', JSON.stringify(this.metrics));
@@ -109,9 +130,8 @@ class AdMobService {
 
   private saveLogs() {
     try {
-      // Keep last 50 logs for performance
-      if (this.logs.length > 50) {
-        this.logs = this.logs.slice(-50);
+      if (this.logs.length > 60) {
+        this.logs = this.logs.slice(-60);
       }
       localStorage.setItem('omnitoolbox_admob_logs', JSON.stringify(this.logs));
     } catch {}
@@ -130,6 +150,11 @@ class AdMobService {
     this.modalSubscribers.forEach(cb => cb({ ...this.modalState }));
   }
 
+  private notifyAdFreeState() {
+    const remaining = this.getAdFreeRemainingSeconds();
+    this.adFreeSubscribers.forEach(cb => cb(remaining));
+  }
+
   public subscribeMetrics(cb: MetricsListener): () => void {
     this.metricsSubscribers.add(cb);
     cb({ ...this.metrics });
@@ -146,6 +171,29 @@ class AdMobService {
     this.modalSubscribers.add(cb);
     cb({ ...this.modalState });
     return () => this.modalSubscribers.delete(cb);
+  }
+
+  public subscribeAdFreeState(cb: AdFreeListener): () => void {
+    this.adFreeSubscribers.add(cb);
+    cb(this.getAdFreeRemainingSeconds());
+    return () => this.adFreeSubscribers.delete(cb);
+  }
+
+  public isAdFreeActive(): boolean {
+    return Date.now() < this.adFreeUntilTimestamp;
+  }
+
+  public getAdFreeRemainingSeconds(): number {
+    return Math.max(0, Math.floor((this.adFreeUntilTimestamp - Date.now()) / 1000));
+  }
+
+  public grantAdFreePass(minutes: number = 30) {
+    this.adFreeUntilTimestamp = Date.now() + minutes * 60 * 1000;
+    try {
+      localStorage.setItem('omnitoolbox_ad_free_until', String(this.adFreeUntilTimestamp));
+    } catch {}
+    this.notifyAdFreeState();
+    this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'reward_earned', `Unlocked ${minutes}m 100% Ad-Free Pass`);
   }
 
   public logEvent(
@@ -172,11 +220,11 @@ class AdMobService {
     if (this.isNative) {
       try {
         await AdMob.initialize({
-          testingDevices: ['EMULATOR', '2077ef9a63d2b398840261c8221a0c9b'],
-          initializeForTesting: true,
+          testingDevices: [],
+          initializeForTesting: false,
         });
 
-        // Register native AdMob listeners
+        // Register native AdMob event listeners
         AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
           this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native banner loaded');
         });
@@ -188,17 +236,26 @@ class AdMobService {
         });
 
         AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
-          this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'loaded', 'Native interstitial ready');
+          this.isInterstitialPreloaded = true;
+          this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'loaded', 'Native interstitial ready in background');
         });
         AdMob.addListener(InterstitialAdPluginEvents.AdImpression, () => {
           this.recordImpression('interstitial');
         });
         AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
+          this.isInterstitialPreloaded = false;
           this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'dismissed', 'Native interstitial closed');
+          // Immediately pre-cache next interstitial for zero-latency mobile delivery
+          this.preloadInterstitial();
+        });
+        AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (err) => {
+          this.isInterstitialPreloaded = false;
+          this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'failed', `Interstitial load notice: ${err?.message || ''}`);
         });
 
         AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
-          this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'loaded', 'Native rewarded video ready');
+          this.isRewardedPreloaded = true;
+          this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'loaded', 'Native rewarded ad ready in background');
         });
         AdMob.addListener(RewardAdPluginEvents.AdImpression, () => {
           this.recordImpression('rewarded');
@@ -206,24 +263,75 @@ class AdMobService {
         AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
           this.recordRewardEarned({ type: reward.type || 'points', amount: reward.amount || 1 });
         });
+        AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+          this.isRewardedPreloaded = false;
+          this.preloadRewarded();
+        });
 
-        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native AdMob SDK initialized successfully');
+        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native AdMob initialized with real Ad Unit IDs');
+
+        // Preload interstitial and rewarded in background on native mobile launch
+        this.preloadInterstitial();
+        this.preloadRewarded();
+        this.showNativeBanner();
       } catch (err: any) {
         console.warn('Native AdMob initialization notice:', err?.message || err);
       }
     } else {
       // In web/preview environment
-      this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Web AdMob Simulator & Diagnostics initialized');
+      this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', `Web AdMob Engine ready (Unit: ${ADMOB_CONFIG.BANNER_ID})`);
     }
 
     this.isInitialized = true;
+  }
+
+  public async preloadInterstitial(): Promise<void> {
+    if (!this.isNative) return;
+    try {
+      await AdMob.prepareInterstitial({
+        adId: ADMOB_CONFIG.INTERSTITIAL_ID,
+        isTesting: false,
+      });
+      this.isInterstitialPreloaded = true;
+    } catch (e: any) {
+      this.isInterstitialPreloaded = false;
+    }
+  }
+
+  public async preloadRewarded(): Promise<void> {
+    if (!this.isNative) return;
+    try {
+      await AdMob.prepareRewardVideoAd({
+        adId: ADMOB_CONFIG.REWARDED_ID,
+        isTesting: false,
+      });
+      this.isRewardedPreloaded = true;
+    } catch (e: any) {
+      this.isRewardedPreloaded = false;
+    }
+  }
+
+  public async showNativeBanner(): Promise<void> {
+    if (!this.isNative || this.isNativeBannerShowing) return;
+    try {
+      await AdMob.showBanner({
+        adId: ADMOB_CONFIG.BANNER_ID,
+        adSize: BannerAdSize.ADAPTIVE_BANNER,
+        position: BannerAdPosition.BOTTOM_CENTER,
+        margin: 0,
+        isTesting: false,
+      });
+      this.isNativeBannerShowing = true;
+    } catch (e) {
+      // ignore
+    }
   }
 
   public recordImpression(type: 'banner' | 'interstitial' | 'rewarded') {
     this.metrics.impressions[type] += 1;
     this.metrics.impressions.total += 1;
 
-    // Estimate realistic eCPM: Banner $0.50 CPM ($0.0005/imp), Interstitial $5.00 CPM ($0.005/imp), Rewarded $15.00 CPM ($0.015/imp)
+    // Realistic eCPM: Banner $0.50 CPM ($0.0005/imp), Interstitial $5.00 CPM ($0.005/imp), Rewarded $15.00 CPM ($0.015/imp)
     const cpmRate = type === 'banner' ? 0.0005 : type === 'interstitial' ? 0.005 : 0.015;
     this.metrics.estimatedRevenueUsd = Number((this.metrics.estimatedRevenueUsd + cpmRate).toFixed(4));
 
@@ -258,25 +366,67 @@ class AdMobService {
     this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'reward_earned', `Granted ${reward.amount} ${reward.type}`);
     this.saveMetrics();
 
+    // Watching a rewarded ad grants 30 minutes 100% Ad-Free pass
+    this.grantAdFreePass(30);
+
     if (this.pendingRewardCallback) {
       this.pendingRewardCallback(reward);
       this.pendingRewardCallback = undefined;
     }
   }
 
-  // Suitable & non-annoying Interstitial triggering
-  // Allows testing on demand or at natural milestones (with interval cap)
+  /**
+   * Smart transition trigger: Call this whenever the user naturally completes a tool,
+   * switches a tab, or finishes a game.
+   * Ensures an ad is shown at a rate users will NOT feel annoyed at any cost:
+   * 1. If Ad-Free Pass is active -> never shows.
+   * 2. Must satisfy 60s cooldown.
+   * 3. Must have had at least 2 view actions/transitions.
+   */
+  public async checkAndTriggerTransitionInterstitial(context: string = 'View transition'): Promise<boolean> {
+    this.transitionCounter += 1;
+
+    if (this.isAdFreeActive()) {
+      return false;
+    }
+
+    const now = Date.now();
+    const timeSinceLast = now - this.metrics.lastInterstitialTimestamp;
+
+    if (
+      timeSinceLast >= ADMOB_CONFIG.MIN_INTERSTITIAL_INTERVAL_MS &&
+      this.transitionCounter >= ADMOB_CONFIG.MIN_TRANSITIONS_REQUIRED
+    ) {
+      this.transitionCounter = 0;
+      return this.showInterstitial({ force: false, context });
+    }
+
+    return false;
+  }
+
   public async showInterstitial(options: { force?: boolean; context?: string } = {}): Promise<boolean> {
     const now = Date.now();
     const timeSinceLast = now - this.metrics.lastInterstitialTimestamp;
 
-    // Check frequency cap unless explicitly forced (e.g. testing)
-    if (!options.force && timeSinceLast < ADMOB_CONFIG.MIN_INTERSTITIAL_INTERVAL_MS) {
+    // Respect Ad-Free VIP Pass
+    if (!options.force && this.isAdFreeActive()) {
       this.logEvent(
         'interstitial',
         ADMOB_CONFIG.INTERSTITIAL_ID,
         'failed',
-        `Capped to protect user experience (next allowed in ${Math.round((ADMOB_CONFIG.MIN_INTERSTITIAL_INTERVAL_MS - timeSinceLast) / 1000)}s)`
+        `Ad suppressed: VIP Ad-Free pass active (${this.getAdFreeRemainingSeconds()}s left)`
+      );
+      return false;
+    }
+
+    // Check frequency cap unless explicitly forced
+    if (!options.force && timeSinceLast < ADMOB_CONFIG.MIN_INTERSTITIAL_INTERVAL_MS) {
+      const waitSec = Math.round((ADMOB_CONFIG.MIN_INTERSTITIAL_INTERVAL_MS - timeSinceLast) / 1000);
+      this.logEvent(
+        'interstitial',
+        ADMOB_CONFIG.INTERSTITIAL_ID,
+        'failed',
+        `Capped to protect user experience (next allowed in ${waitSec}s)`
       );
       return false;
     }
@@ -284,21 +434,31 @@ class AdMobService {
     this.metrics.lastInterstitialTimestamp = now;
     this.saveMetrics();
 
+    // Native mobile attempt
     if (this.isNative) {
       try {
-        await AdMob.prepareInterstitial({
-          adId: ADMOB_CONFIG.INTERSTITIAL_ID,
-          isTesting: true,
-        });
-        await AdMob.showInterstitial();
-        this.recordImpression('interstitial');
-        return true;
+        if (this.isInterstitialPreloaded) {
+          await AdMob.showInterstitial();
+          this.isInterstitialPreloaded = false;
+          this.recordImpression('interstitial');
+          this.preloadInterstitial();
+          return true;
+        } else {
+          await AdMob.prepareInterstitial({
+            adId: ADMOB_CONFIG.INTERSTITIAL_ID,
+            isTesting: false,
+          });
+          await AdMob.showInterstitial();
+          this.recordImpression('interstitial');
+          this.preloadInterstitial();
+          return true;
+        }
       } catch (err: any) {
-        console.warn('Native interstitial failed, falling back to UI simulation:', err);
+        console.warn('Native interstitial notice:', err);
       }
     }
 
-    // UI Simulation for Web/Preview & test inspection
+    // UI Presentation for Web
     this.modalState = {
       ...this.modalState,
       showInterstitial: true,
@@ -315,26 +475,38 @@ class AdMobService {
     };
     this.notifyModalState();
     this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'dismissed', 'User dismissed interstitial ad');
+
+    if (this.isNative) {
+      this.preloadInterstitial();
+    }
   }
 
-  // Suitable & user-friendly Rewarded Video triggering (always opt-in)
   public async showRewardedAd(
     onReward: (reward: { type: string; amount: number }) => void,
-    rewardDetails: { type: string; amount: number } = { type: 'Pro Daily Pass', amount: 1 }
+    rewardDetails: { type: string; amount: number } = { type: '30-Minute Ad-Free Pass', amount: 1 }
   ): Promise<boolean> {
     this.pendingRewardCallback = onReward;
 
     if (this.isNative) {
       try {
-        await AdMob.prepareRewardVideoAd({
-          adId: ADMOB_CONFIG.REWARDED_ID,
-          isTesting: true,
-        });
-        await AdMob.showRewardVideoAd();
-        this.recordImpression('rewarded');
-        return true;
+        if (this.isRewardedPreloaded) {
+          await AdMob.showRewardVideoAd();
+          this.isRewardedPreloaded = false;
+          this.recordImpression('rewarded');
+          this.preloadRewarded();
+          return true;
+        } else {
+          await AdMob.prepareRewardVideoAd({
+            adId: ADMOB_CONFIG.REWARDED_ID,
+            isTesting: false,
+          });
+          await AdMob.showRewardVideoAd();
+          this.recordImpression('rewarded');
+          this.preloadRewarded();
+          return true;
+        }
       } catch (err: any) {
-        console.warn('Native rewarded failed, falling back to UI simulation:', err);
+        console.warn('Native rewarded notice:', err);
       }
     }
 
@@ -363,6 +535,10 @@ class AdMobService {
       rewardedReward: undefined,
     };
     this.notifyModalState();
+
+    if (this.isNative) {
+      this.preloadRewarded();
+    }
   }
 
   public resetMetrics() {
@@ -374,6 +550,7 @@ class AdMobService {
       lastInterstitialTimestamp: 0,
     };
     this.logs = [];
+    this.transitionCounter = 0;
     this.saveMetrics();
     this.saveLogs();
     this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Ad metrics and event log reset');

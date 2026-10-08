@@ -5,6 +5,7 @@ import { IconRenderer } from '../common/IconRenderer';
 import { getCategoryTheme, getToolIconTheme } from '../../utils/themeColors';
 import { Star, ArrowRight, Globe, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { AdMobBanner } from '../ads/AdMobBanner';
 
 interface FavoritesViewProps {
   favorites: string[];
@@ -12,6 +13,7 @@ interface FavoritesViewProps {
   onToggleFavorite: (toolId: string) => void;
   onBrowseAll: () => void;
   selectedToolId?: string | null;
+  onOpenAdMobPerformance?: () => void;
 }
 
 export const FavoritesView: React.FC<FavoritesViewProps> = ({
@@ -20,6 +22,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   onToggleFavorite,
   onBrowseAll,
   selectedToolId,
+  onOpenAdMobPerformance,
 }) => {
   const favoriteTools = TOOLS.filter(t => favorites.includes(t.id));
 
@@ -135,6 +138,11 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
           })}
         </div>
       )}
+
+      {/* Google AdMob Banner in Favorites View */}
+      <div className="pt-6">
+        <AdMobBanner variant="inline" />
+      </div>
     </div>
   );
 };

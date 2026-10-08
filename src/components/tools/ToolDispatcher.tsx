@@ -171,9 +171,9 @@ export const ToolDispatcher: React.FC<ToolDispatcherProps> = ({
       />
       {renderToolBody()}
 
-      {/* Google AdMob Test Banner docked cleanly at tool footer */}
+      {/* Google AdMob Banner docked cleanly at tool footer */}
       <div className="pt-8">
-        <AdMobBanner onOpenPerformance={onOpenAdMobPerformance} variant="inline" />
+        <AdMobBanner variant="inline" />
       </div>
     </div>
   );
