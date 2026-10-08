@@ -1,0 +1,14 @@
+{
+	"appId": "com.omnitoolbox.app",
+	"appName": "OmniToolbox",
+	"webDir": "dist",
+	"android": {
+		"backgroundColor": "#09090b"
+	},
+	"plugins": {
+		"StatusBar": {
+			"overlaysWebView": false,
+			"backgroundColor": "#09090b"
+		}
+	}
+}

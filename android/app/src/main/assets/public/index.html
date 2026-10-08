@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover, interactive-widget=overlays-content" />
+    <title>OmniToolbox — All-in-One Utility Hub</title>
+    <meta name="description" content="Comprehensive, lightning-fast utility suite featuring 100+ calculators, financial planners, unit converter hub, student tools, camera utilities, text workbench, games, and PDF tools for mobile, tablet, and PC." />
+    <meta property="og:title" content="OmniToolbox — All-in-One Utility Hub" />
+    <meta property="og:description" content="Comprehensive, lightning-fast utility suite featuring 100+ calculators, financial planners, unit converter hub, student tools, camera utilities, text workbench, games, and PDF tools for mobile, tablet, and PC." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- Universal Native App Store & Mobile Meta -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OmniToolbox" />
+    <meta name="application-name" content="OmniToolbox" />
+    <meta name="msapplication-TileColor" content="#09090b" />
+    <meta name="msapplication-navbutton-color" content="#09090b" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+
+    <!-- Universal Manifest & App Store Icons -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Google Fonts Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('omni_theme');
+          if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-cfZ1jnjB.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CRYcM3Ns.css">
+  <link rel="manifest" href="/manifest.webmanifest"></head>
+  <body class="bg-zinc-50 text-zinc-900 antialiased selection:bg-indigo-600 selection:text-white dark:bg-zinc-950 dark:text-zinc-100 min-h-screen">
+    <div id="root">
+      <!-- Direct Instant Native Splash Screen: Zero blank white/black flash on initial app launch -->
+      <div id="app-pre-splash" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#09090b;color:#ffffff;font-family:'Plus Jakarta Sans',sans-serif;user-select:none;-webkit-user-select:none;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem;max-width:320px;">
+          <div style="position:relative;width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,#4f46e5,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 25px -5px rgba(79,70,229,0.45);border:1px solid rgba(255,255,255,0.2);margin-bottom:1.25rem;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+            </svg>
+          </div>
+          <div style="font-size:1.875rem;font-weight:900;letter-spacing:-0.03em;color:#ffffff;line-height:1.2;">OmniToolbox</div>
+          <div style="font-size:0.75rem;color:#a1a1aa;margin-top:0.35rem;font-weight:500;letter-spacing:0.01em;">Universal Utility Suite</div>
+        </div>
+      </div>
+      <script>
+        setTimeout(function() {
+          var splash = document.getElementById('app-pre-splash');
+          if (splash) {
+            splash.style.transition = 'opacity 0.25s ease';
+            splash.style.opacity = '0';
+            setTimeout(function() {
+              try { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e) {}
+            }, 300);
+          }
+        }, 1200);
+      </script>
+    </div>
+  </body>
+</html>
