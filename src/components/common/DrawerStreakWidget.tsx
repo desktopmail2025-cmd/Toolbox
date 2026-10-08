@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Sparkles, Trophy, CheckCircle2, Award, Target, ChevronRight } from 'lucide-react';
+import { Flame, Sparkles, Trophy, CheckCircle2, Award, Target, ChevronRight, Gift, Clock } from 'lucide-react';
 import { StreakState, recordStreakVisit, claimDailyBoost, getWeeklyActivity, getStreakMilestoneInfo } from '../../utils/streak';
+import { admobService } from '../../services/admobService';
+import { sounds } from '../../utils/audio';
+import confetti from 'canvas-confetti';
 
 export const DrawerStreakWidget: React.FC = () => {
   const [streak, setStreak] = useState<StreakState>(() => recordStreakVisit());
@@ -22,10 +25,35 @@ export const DrawerStreakWidget: React.FC = () => {
 
   const isBoostClaimed = streak.claimedBoostDate === todayStr;
 
+  const hoursUntilMidnight = (() => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    return Math.max(1, Math.round((midnight.getTime() - now.getTime()) / (1000 * 60 * 60)));
+  })();
+
   const handleClaim = () => {
     if (isBoostClaimed) return;
     const next = claimDailyBoost();
     setStreak(next);
+  };
+
+  const handleWatchBonusAd = () => {
+    sounds.playClick();
+    admobService.showRewardedAd(
+      () => {
+        sounds.playSuccess();
+        try {
+          confetti({
+            particleCount: 45,
+            spread: 60,
+            origin: { y: 0.6 },
+            colors: ['#f59e0b', '#10b981', '#6366f1'],
+          });
+        } catch {}
+      },
+      { type: 'Streak Shield & Bonus Perk', amount: 1 }
+    );
   };
 
   const streakDays = streak.currentStreak || 1;
@@ -132,29 +160,64 @@ export const DrawerStreakWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* Claim Today's Streak Boost Button */}
-      <button
-        type="button"
-        onClick={handleClaim}
-        disabled={isBoostClaimed}
-        className={`w-full py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${
-          isBoostClaimed
-            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 cursor-default'
-            : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-orange-500/25'
-        }`}
-      >
-        {isBoostClaimed ? (
-          <>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Today's Boost Claimed! ✨</span>
-          </>
-        ) : (
-          <>
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Claim Daily Streak Boost</span>
-          </>
-        )}
-      </button>
+      {/* Streak Action Section: Show Claim Button ONLY 1 Time a Day */}
+      {!isBoostClaimed ? (
+        <button
+          type="button"
+          onClick={handleClaim}
+          className="w-full py-2 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-orange-500/25 active:scale-95 animate-pulse"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Claim Daily Streak Boost (1/Day)</span>
+        </button>
+      ) : (
+        <div className="space-y-2">
+          {/* Claimed Status Badge (replaces the claim button once claimed today) */}
+          <div className="p-2.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800/80 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-emerald-900 dark:text-emerald-200 block text-xs leading-none">
+                  Streak Claimed for Today!
+                </span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                  Next claim in ~{hoursUntilMidnight}h
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 shrink-0">
+              1/1 Claimed
+            </span>
+          </div>
+
+          {/* Optional Opt-In Rewarded Ad for Extra Shield / Bonus (100% Non-Annoying) */}
+          <button
+            type="button"
+            onClick={handleWatchBonusAd}
+            className="w-full p-2.5 rounded-xl bg-white/90 dark:bg-zinc-900/90 border border-amber-300/70 dark:border-amber-700/60 hover:border-amber-400 dark:hover:border-amber-600 transition-all cursor-pointer flex items-center justify-between text-left group shadow-2xs"
+            title="Watch a short test ad to earn a Streak Shield"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Gift className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 block leading-tight truncate">
+                  Bonus: Streak Shield Perk
+                </span>
+                <span className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate block">
+                  Watch 5s test ad to earn a free shield
+                </span>
+              </div>
+            </div>
+            <span className="px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9.5px] font-extrabold shadow-2xs group-hover:brightness-105 transition-all shrink-0 ml-1">
+              Watch Ad
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

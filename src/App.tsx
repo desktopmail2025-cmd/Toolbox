@@ -512,9 +512,9 @@ export default function App() {
     setIsReturningFromTool(true);
 
     // Natural non-annoying AdMob Interstitial check:
-    // Every 4 tool visits, checks frequency cap (min 3 mins interval) after return transition completes
+    // Every 2 tool visits, checks frequency cap after return transition completes
     toolExitCountRef.current += 1;
-    if (toolExitCountRef.current % 4 === 0) {
+    if (toolExitCountRef.current % 2 === 0) {
       setTimeout(() => {
         admobService.showInterstitial({ force: false, context: 'Natural tool exit' });
       }, 450);

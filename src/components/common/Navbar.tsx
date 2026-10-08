@@ -410,8 +410,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Zone 2: Search Bar directly to the right of the app name with Live Figma Quick Actions suggestions */}
-          <div ref={searchContainerRef} data-search-container="true" className={`flex-1 max-w-lg relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
+          {/* Zone 2: Search Bar positioned on the right side with Live suggestions */}
+          <div ref={searchContainerRef} data-search-container="true" className={`ml-auto w-full max-w-xs sm:max-w-sm md:max-w-md relative min-w-0 ${isSearchOpen ? 'z-50' : ''}`}>
             <div className={`flex items-center rounded-lg border bg-zinc-50/80 dark:bg-zinc-900/80 transition-all overflow-hidden h-8.5 px-2.5 ${
               isSearchOpen
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-white dark:bg-zinc-900'

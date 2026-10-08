@@ -172,7 +172,6 @@ class AdMobService {
     if (this.isNative) {
       try {
         await AdMob.initialize({
-          requestTrackingAuthorization: true,
           testingDevices: ['EMULATOR', '2077ef9a63d2b398840261c8221a0c9b'],
           initializeForTesting: true,
         });
@@ -181,21 +180,18 @@ class AdMobService {
         AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
           this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native banner loaded');
         });
-        AdMob.addListener(BannerAdPluginEvents.Impression, () => {
+        AdMob.addListener(BannerAdPluginEvents.AdImpression, () => {
           this.recordImpression('banner');
         });
-        AdMob.addListener(BannerAdPluginEvents.Clicked, () => {
+        AdMob.addListener(BannerAdPluginEvents.Opened, () => {
           this.recordClick('banner');
         });
 
         AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
           this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'loaded', 'Native interstitial ready');
         });
-        AdMob.addListener(InterstitialAdPluginEvents.Impression, () => {
+        AdMob.addListener(InterstitialAdPluginEvents.AdImpression, () => {
           this.recordImpression('interstitial');
-        });
-        AdMob.addListener(InterstitialAdPluginEvents.Clicked, () => {
-          this.recordClick('interstitial');
         });
         AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
           this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'dismissed', 'Native interstitial closed');
@@ -204,7 +200,7 @@ class AdMobService {
         AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
           this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'loaded', 'Native rewarded video ready');
         });
-        AdMob.addListener(RewardAdPluginEvents.Impression, () => {
+        AdMob.addListener(RewardAdPluginEvents.AdImpression, () => {
           this.recordImpression('rewarded');
         });
         AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
