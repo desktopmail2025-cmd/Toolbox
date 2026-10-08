@@ -183,17 +183,28 @@ export default function App() {
   const toolExitCountRef = useRef<number>(0);
 
   useEffect(() => {
-    admobService.initialize();
+    try {
+      admobService?.initialize?.();
+    } catch {}
 
-    const unsubModals = admobService.subscribeModalState((state) => {
-      setShowInterstitialAd(state.showInterstitial);
-      setShowRewardedAd(state.showRewarded);
-      if (state.rewardedReward) {
-        setRewardedRewardDetails(state.rewardedReward);
+    let unsubModals: (() => void) | undefined;
+    if (typeof admobService?.subscribeModalState === 'function') {
+      try {
+        unsubModals = admobService.subscribeModalState((state) => {
+          setShowInterstitialAd(!!state?.showInterstitial);
+          setShowRewardedAd(!!state?.showRewarded);
+          if (state?.rewardedReward) {
+            setRewardedRewardDetails(state.rewardedReward);
+          }
+        });
+      } catch {}
+    }
+
+    return () => {
+      if (typeof unsubModals === 'function') {
+        unsubModals();
       }
-    });
-
-    return () => unsubModals();
+    };
   }, []);
 
   const handleFinishSplash = React.useCallback(() => {

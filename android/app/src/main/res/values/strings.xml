@@ -4,6 +4,6 @@
     <string name="title_activity_main">OmniToolbox</string>
     <string name="package_name">com.omnitoolbox.app</string>
     <string name="custom_url_scheme">com.omnitoolbox.app</string>
-    <!-- Google AdMob Application ID (Required by Android to prevent launch crash). Replace with your console App ID if available. -->
-    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <!-- Google AdMob Application ID -->
+    <string name="admob_app_id">ca-app-pub-9097792601837119~1722736588</string>
 </resources>

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { admobService, ADMOB_CONFIG } from '../../services/admobService';
+import { Capacitor } from '@capacitor/core';
 
 interface AdMobBannerProps {
   onOpenPerformance?: () => void;
@@ -13,16 +14,36 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
   className = '',
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
+  const adSlotRef = useRef<HTMLModElement | null>(null);
+  const [adPushed, setAdPushed] = useState(false);
 
   useEffect(() => {
-    // Record banner impression when rendered
-    admobService.recordImpression('banner');
-  }, []);
+    // Record impression
+    try {
+      admobService?.recordImpression?.('banner');
+    } catch {}
 
-  const handleAdClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    admobService.recordClick('banner');
-  };
+    // On native platform, Capacitor AdMob plugin manages native banner
+    if (isNative) {
+      try {
+        admobService?.showNativeBanner?.();
+      } catch {}
+      return;
+    }
+
+    // On web, request real Google AdSense / Google Publisher ad
+    if (!adPushed && typeof window !== 'undefined') {
+      try {
+        const win = window as any;
+        win.adsbygoogle = win.adsbygoogle || [];
+        win.adsbygoogle.push({});
+        setAdPushed(true);
+      } catch {
+        // Adsbygoogle handled
+      }
+    }
+  }, [isNative, adPushed]);
 
   if (isMinimized) {
     return (
@@ -30,11 +51,11 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/90 text-white dark:bg-zinc-100/95 dark:text-zinc-900 text-[10px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer backdrop-blur-xs border border-zinc-700/50"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/95 text-white dark:bg-zinc-100/95 dark:text-zinc-900 text-[10px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer backdrop-blur-xs border border-zinc-700/50"
           title="Show Google AdMob Banner"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Ad · Google AdMob</span>
+          <span>Google Ad · 320x50</span>
           <ChevronUp className="w-3 h-3 ml-0.5" />
         </button>
       </div>
@@ -45,19 +66,21 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
     <div
       className={`transition-all duration-300 ${
         variant === 'bottom-docked'
-          ? 'w-full flex justify-center py-1.5 px-2 bg-gradient-to-t from-zinc-100 via-zinc-50/95 to-transparent dark:from-zinc-950 dark:via-zinc-900/95 dark:to-transparent'
+          ? 'w-full flex justify-center py-1 px-2 bg-gradient-to-t from-zinc-100 via-zinc-50/95 to-transparent dark:from-zinc-950 dark:via-zinc-900/95 dark:to-transparent'
           : 'w-full flex justify-center my-3'
       } ${className}`}
     >
       <div className="relative w-full max-w-[420px] rounded-xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md">
-        {/* AdMob Top Bar */}
+        {/* AdMob Official Header Bar */}
         <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-100/90 dark:bg-zinc-800/90 border-b border-zinc-200/70 dark:border-zinc-700/70 text-[10px]">
           <div className="flex items-center gap-1.5 font-medium text-zinc-600 dark:text-zinc-300">
             <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-[9px] border border-emerald-500/30">
               Ad
             </span>
             <span className="font-semibold text-zinc-800 dark:text-zinc-200">Google AdMob</span>
-            <span className="text-zinc-400 hidden xs:inline">· 320x50 Banner</span>
+            <span className="text-zinc-400 font-mono hidden xs:inline text-[9px]">
+              ID: {ADMOB_CONFIG.BANNER_ID}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
@@ -73,37 +96,33 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
           </div>
         </div>
 
-        {/* Ad Body (Standard 320x50 / responsive Google Ad creative with App Logo) */}
+        {/* Real Google Ad Container */}
         <div
-          onClick={handleAdClick}
-          className="group relative h-[52px] sm:h-[56px] px-3 flex items-center justify-between gap-3 cursor-pointer select-none bg-gradient-to-r from-sky-50/70 via-indigo-50/50 to-emerald-50/70 dark:from-sky-950/30 dark:via-indigo-950/20 dark:to-emerald-950/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+          onClick={() => {
+            try {
+              admobService?.recordClick?.('banner');
+            } catch {}
+          }}
+          className="relative min-h-[52px] sm:min-h-[56px] flex items-center justify-center p-1 bg-zinc-50 dark:bg-zinc-950/80 overflow-hidden"
         >
-          {/* Ad Creative Content with Real App Logo */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg overflow-hidden group-hover:scale-105 transition-transform shadow-xs bg-zinc-950 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800">
-              <img src="/icon.svg" alt="OmniToolbox" className="w-7 h-7 object-contain" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                  OmniToolbox Pro Suite
-                </span>
-                <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Live
-                </span>
-              </div>
-              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                Supercharge your workflow with 100+ utilities & offline games.
-              </p>
-            </div>
-          </div>
+          {/* Official Google Ads Responsive Element */}
+          <ins
+            ref={adSlotRef}
+            className="adsbygoogle"
+            style={{ display: 'inline-block', width: '320px', height: '50px' }}
+            data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+            data-ad-slot={ADMOB_CONFIG.BANNER_SLOT}
+            data-ad-format="horizontal"
+            data-full-width-responsive="true"
+          />
 
-          {/* Action Pill */}
-          <div className="shrink-0 flex items-center gap-1">
-            <span className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold shadow-2xs group-hover:bg-indigo-700 transition-colors flex items-center gap-1">
-              <span>Install</span>
-              <ExternalLink className="w-2.5 h-2.5" />
-            </span>
+          {/* Real Google Ad Network Verification Overlay (visible when waiting for ad fill or active) */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-3 text-[11px] text-zinc-500 dark:text-zinc-400 opacity-60">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="font-medium text-[10px]">Google Mobile Ads Network</span>
+            </div>
+            <span className="text-[9px] font-mono font-semibold text-zinc-400">Slot: {ADMOB_CONFIG.BANNER_SLOT}</span>
           </div>
         </div>
       </div>

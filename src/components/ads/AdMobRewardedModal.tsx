@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Gift, Volume2, VolumeX, CheckCircle2, AlertTriangle, Trophy } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Gift, Volume2, VolumeX, CheckCircle2, AlertTriangle, Trophy, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { admobService } from '../../services/admobService';
+import { admobService, ADMOB_CONFIG } from '../../services/admobService';
 import { sounds } from '../../utils/audio';
 
 interface AdMobRewardedModalProps {
@@ -20,18 +20,31 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const totalDuration = 5;
+  const adSlotRef = useRef<HTMLModElement | null>(null);
+  const pushedRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
       setSecondsLeft(5);
       setIsCompleted(false);
       setShowSkipWarning(false);
+      pushedRef.current = false;
       return;
     }
 
     setSecondsLeft(totalDuration);
     setIsCompleted(false);
     setShowSkipWarning(false);
+
+    // Request Google Ads for rewarded slot
+    if (!pushedRef.current && typeof window !== 'undefined') {
+      try {
+        const win = window as any;
+        win.adsbygoogle = win.adsbygoogle || [];
+        win.adsbygoogle.push({});
+        pushedRef.current = true;
+      } catch {}
+    }
 
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -58,7 +71,9 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
   if (!isOpen) return null;
 
   const handleClaimReward = () => {
-    admobService.dismissRewarded(true);
+    try {
+      admobService?.dismissRewarded?.(true);
+    } catch {}
     onClose();
   };
 
@@ -71,7 +86,9 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
   };
 
   const handleConfirmEarlyExit = () => {
-    admobService.dismissRewarded(false);
+    try {
+      admobService?.dismissRewarded?.(false);
+    } catch {}
     onClose();
   };
 
@@ -130,32 +147,35 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
           />
         </div>
 
-        {/* Ad Video Canvas / Real App Creative */}
+        {/* Real Google Rewarded Ad Canvas */}
         <div className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
           {!isCompleted ? (
             <>
-              <div className="relative mb-5">
-                <div className="w-20 h-20 rounded-full border-4 border-emerald-500/30 flex items-center justify-center">
-                  <span className="font-mono text-3xl font-black text-emerald-400">{secondsLeft}</span>
-                </div>
-                <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 text-white shadow-md">
-                  <Gift className="w-4 h-4" />
-                </div>
+              {/* Official Google Ads Rewarded Slot Element */}
+              <div className="w-full max-w-[320px] min-h-[250px] flex items-center justify-center bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden relative p-2 shadow-inner mb-4">
+                <ins
+                  ref={adSlotRef}
+                  className="adsbygoogle"
+                  style={{ display: 'inline-block', width: '300px', height: '250px' }}
+                  data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+                  data-ad-slot={ADMOB_CONFIG.REWARDED_SLOT}
+                  data-ad-format="rectangle"
+                  data-full-width-responsive="true"
+                />
               </div>
 
-              <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                Reward: 30-Minute 100% Ad-Free Pass
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full border-2 border-emerald-500/50 flex items-center justify-center">
+                  <span className="font-mono text-xs font-bold text-emerald-400">{secondsLeft}s</span>
+                </div>
+                <span className="text-xs font-bold text-emerald-400">
+                  Reward: 30-Minute 100% Ad-Free Pass
+                </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                Special Partner Sponsor
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
-                Watch this short 5-second sponsor video to unlock <strong>30 minutes 100% Ad-Free</strong> across all tools.
-              </p>
 
-              <div className="p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700/80 text-[11px] text-zinc-300 max-w-xs flex items-center gap-2.5">
-                <img src="/icon.svg" alt="OmniToolbox" className="w-5 h-5 object-contain shrink-0" />
-                <span>Keep watching to claim your 30-minute ad-free pass!</span>
+              <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500 bg-zinc-950/80 px-2.5 py-1 rounded border border-zinc-800">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Unit: {ADMOB_CONFIG.REWARDED_ID}</span>
               </div>
             </>
           ) : (

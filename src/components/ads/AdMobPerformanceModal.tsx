@@ -279,7 +279,33 @@ export const AdMobPerformanceModal: React.FC<AdMobPerformanceModalProps> = ({
           {activeTab === 'units' && (
             <div className="space-y-4">
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                The 3 official Google AdMob Test Ad Unit IDs configured in this application:
+                Official Google AdMob Application ID & Ad Unit IDs configured in this application:
+              </div>
+
+              {/* Application ID */}
+              <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-850/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px]">
+                      APP ID
+                    </span>
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">Google AdMob App ID</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(ADMOB_CONFIG.APP_ID, 'appid')}
+                    className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                  >
+                    {copiedId === 'appid' ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedId === 'appid' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <div className="font-mono text-xs p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 break-all select-all">
+                  {ADMOB_CONFIG.APP_ID}
+                </div>
+                <div className="text-[10px] text-zinc-500">
+                  Configured in AndroidManifest.xml, strings.xml, and Capacitor configuration.
+                </div>
               </div>
 
               {/* Interstitial ID */}

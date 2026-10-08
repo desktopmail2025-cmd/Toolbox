@@ -9,10 +9,15 @@ import {
 } from '@capacitor-community/admob';
 
 export const ADMOB_CONFIG = {
-  // Real Google AdMob Ad Unit IDs configured as requested
+  // Real Google AdMob Application ID & Ad Unit IDs provided by user
+  APP_ID: 'ca-app-pub-9097792601837119~1722736588',
   BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
   INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
   REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
+  PUBLISHER_ID: 'ca-pub-9097792601837119',
+  BANNER_SLOT: '3759988398',
+  INTERSTITIAL_SLOT: '6010747218',
+  REWARDED_SLOT: '2867552435',
   // Non-annoying natural interval: 60 seconds cooldown ensures ads never spam users back-to-back,
   // while ensuring mobile users on normal browsing journeys naturally see interstitials at transitions.
   MIN_INTERSTITIAL_INTERVAL_MS: 60000,
@@ -84,6 +89,31 @@ class AdMobService {
     this.metrics = this.loadMetrics();
     this.logs = this.loadLogs();
     this.loadAdFreeState();
+
+    // Explicit method binding to ensure bulletproof resilience across React hook unmounts / async calls
+    this.subscribeMetrics = this.subscribeMetrics.bind(this);
+    this.subscribeLogs = this.subscribeLogs.bind(this);
+    this.subscribeModalState = this.subscribeModalState.bind(this);
+    this.subscribeAdFreeState = this.subscribeAdFreeState.bind(this);
+    this.isAdFreeActive = this.isAdFreeActive.bind(this);
+    this.getAdFreeRemainingSeconds = this.getAdFreeRemainingSeconds.bind(this);
+    this.grantAdFreePass = this.grantAdFreePass.bind(this);
+    this.logEvent = this.logEvent.bind(this);
+    this.initialize = this.initialize.bind(this);
+    this.preloadInterstitial = this.preloadInterstitial.bind(this);
+    this.preloadRewarded = this.preloadRewarded.bind(this);
+    this.showNativeBanner = this.showNativeBanner.bind(this);
+    this.recordImpression = this.recordImpression.bind(this);
+    this.recordClick = this.recordClick.bind(this);
+    this.recordRewardEarned = this.recordRewardEarned.bind(this);
+    this.checkAndTriggerTransitionInterstitial = this.checkAndTriggerTransitionInterstitial.bind(this);
+    this.showInterstitial = this.showInterstitial.bind(this);
+    this.dismissInterstitial = this.dismissInterstitial.bind(this);
+    this.showRewardedAd = this.showRewardedAd.bind(this);
+    this.dismissRewarded = this.dismissRewarded.bind(this);
+    this.resetMetrics = this.resetMetrics.bind(this);
+    this.getMetrics = this.getMetrics.bind(this);
+    this.getLogs = this.getLogs.bind(this);
   }
 
   private loadMetrics(): AdPerformanceMetrics {
@@ -566,3 +596,4 @@ class AdMobService {
 }
 
 export const admobService = new AdMobService();
+export default admobService;

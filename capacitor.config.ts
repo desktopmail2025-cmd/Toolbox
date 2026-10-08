@@ -8,6 +8,9 @@ const config: CapacitorConfig = {
     backgroundColor: '#09090b',
   },
   plugins: {
+    AdMob: {
+      appId: 'ca-app-pub-9097792601837119~1722736588',
+    },
     StatusBar: {
       overlaysWebView: false,
       backgroundColor: '#09090b',

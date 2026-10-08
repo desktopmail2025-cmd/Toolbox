@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, ExternalLink } from 'lucide-react';
-import { admobService } from '../../services/admobService';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Volume2, VolumeX, ShieldCheck, Sparkles } from 'lucide-react';
+import { admobService, ADMOB_CONFIG } from '../../services/admobService';
 
 interface AdMobInterstitialModalProps {
   isOpen: boolean;
@@ -14,16 +14,29 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
   const [countdown, setCountdown] = useState(5);
   const [canSkip, setCanSkip] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const adSlotRef = useRef<HTMLModElement | null>(null);
+  const pushedRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
       setCountdown(5);
       setCanSkip(false);
+      pushedRef.current = false;
       return;
     }
 
     setCountdown(5);
     setCanSkip(false);
+
+    // Request Google Ads for web modal
+    if (!pushedRef.current && typeof window !== 'undefined') {
+      try {
+        const win = window as any;
+        win.adsbygoogle = win.adsbygoogle || [];
+        win.adsbygoogle.push({});
+        pushedRef.current = true;
+      } catch {}
+    }
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -42,11 +55,15 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
   if (!isOpen) return null;
 
   const handleAdClick = () => {
-    admobService.recordClick('interstitial');
+    try {
+      admobService?.recordClick?.('interstitial');
+    } catch {}
   };
 
   const handleClose = () => {
-    admobService.dismissInterstitial();
+    try {
+      admobService?.dismissInterstitial?.();
+    } catch {}
     onClose();
   };
 
@@ -91,42 +108,34 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
           </div>
         </div>
 
-        {/* Ad Creative Canvas with Real App Logo */}
+        {/* Real Google Ad Container */}
         <div
           onClick={handleAdClick}
-          className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none bg-radial from-indigo-950/60 via-zinc-900 to-zinc-950"
+          className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none bg-radial from-zinc-800/60 via-zinc-900 to-zinc-950 min-h-[300px]"
         >
-          <div className="w-20 h-20 rounded-3xl bg-zinc-950 p-2 shadow-2xl mb-4 group-hover:scale-105 transition-transform border border-zinc-700/60 flex items-center justify-center">
-            <img src="/icon.svg" alt="OmniToolbox" className="w-16 h-16 object-contain drop-shadow-md" />
+          {/* Official Google Ads Responsive Canvas */}
+          <div className="w-full max-w-[320px] min-h-[250px] flex items-center justify-center bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden relative p-2 shadow-inner">
+            <ins
+              ref={adSlotRef}
+              className="adsbygoogle"
+              style={{ display: 'inline-block', width: '300px', height: '250px' }}
+              data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+              data-ad-slot={ADMOB_CONFIG.INTERSTITIAL_SLOT}
+              data-ad-format="rectangle"
+              data-full-width-responsive="true"
+            />
           </div>
 
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-            Featured Partner Showcase
-          </span>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-            OmniToolbox Ultimate Suite
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
-            Access 100+ precision calculators, instant media converters, offline games, and real-time utilities.
-          </p>
-
-          <div className="w-full max-w-xs p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-between gap-3 mb-6">
-            <div className="text-left">
-              <div className="text-xs font-bold text-zinc-200">Free Lifetime Upgrades</div>
-              <div className="text-[10px] text-zinc-400">Zero subscription fees · 100% On-device</div>
+          {/* Ad Identification Info */}
+          <div className="mt-4 flex flex-col items-center gap-1.5 text-zinc-400 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Verified Google Mobile Ad Unit</span>
             </div>
-            <span className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40">
-              4.9 ★ (12k+)
-            </span>
+            <div className="font-mono text-[10px] text-zinc-500 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800">
+              Unit: {ADMOB_CONFIG.INTERSTITIAL_ID}
+            </div>
           </div>
-
-          <button
-            type="button"
-            className="w-full max-w-xs py-3 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>Learn More / Download</span>
-            <ExternalLink className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>
