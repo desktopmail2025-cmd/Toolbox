@@ -13,9 +13,11 @@ import {
   Activity,
   Layers,
   Sparkles,
+  Globe,
 } from 'lucide-react';
 import { admobService, ADMOB_CONFIG, AdPerformanceMetrics, AdEventLog } from '../../services/admobService';
 import { sounds } from '../../utils/audio';
+import { Capacitor } from '@capacitor/core';
 
 interface AdMobPerformanceModalProps {
   isOpen: boolean;
@@ -71,7 +73,11 @@ export const AdMobPerformanceModal: React.FC<AdMobPerformanceModalProps> = ({
 
   const handleTestBanner = () => {
     sounds.playClick();
-    admobService.recordImpression('banner');
+    if (Capacitor.isNativePlatform()) {
+      admobService.showNativeBanner();
+    } else {
+      admobService.logEvent('banner', ADMOB_CONFIG.BANNER_SLOT, 'loaded', 'Web AdSense status checked');
+    }
   };
 
   const handleReset = () => {
@@ -367,7 +373,7 @@ export const AdMobPerformanceModal: React.FC<AdMobPerformanceModalProps> = ({
                     <span className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-600 dark:text-sky-400 font-extrabold text-[10px]">
                       BANNER
                     </span>
-                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">Standard 320x50 / Adaptive</span>
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">Android Adaptive Banner</span>
                   </div>
                   <button
                     type="button"
@@ -382,7 +388,41 @@ export const AdMobPerformanceModal: React.FC<AdMobPerformanceModalProps> = ({
                   {ADMOB_CONFIG.BANNER_ID}
                 </div>
                 <div className="text-[10px] text-zinc-500">
-                  Docked smoothly at the footer and overview with a minimize pill toggle.
+                  Rendered on Android APK via @capacitor-community/admob.
+                </div>
+              </div>
+
+              {/* Web AdSense Units */}
+              <div className="p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 font-extrabold text-[10px] flex items-center gap-1">
+                      <Globe className="w-3 h-3" />
+                      <span>WEB ADSENSE</span>
+                    </span>
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">Website AdSense Unit</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(ADMOB_CONFIG.PUBLISHER_ID, 'adsense_pub')}
+                    className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:opacity-80 cursor-pointer"
+                  >
+                    {copiedId === 'adsense_pub' ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedId === 'adsense_pub' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center text-[11px] text-zinc-500">
+                    <span>Client / Publisher ID:</span>
+                    <span className="font-mono text-zinc-800 dark:text-zinc-200">{ADMOB_CONFIG.PUBLISHER_ID}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] text-zinc-500">
+                    <span>Ad Unit Slot:</span>
+                    <span className="font-mono text-zinc-800 dark:text-zinc-200">{ADMOB_CONFIG.BANNER_SLOT}</span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-zinc-500">
+                  Active in web browser and PWA. Serves live ads once the domain is approved in your Google AdSense account.
                 </div>
               </div>
             </div>

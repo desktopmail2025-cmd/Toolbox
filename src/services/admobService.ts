@@ -264,6 +264,9 @@ class AdMobService {
         AdMob.addListener(BannerAdPluginEvents.Opened, () => {
           this.recordClick('banner');
         });
+        AdMob.addListener(BannerAdPluginEvents.FailedToLoad, (err) => {
+          this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', `Banner load notice: ${err?.message || ''}`);
+        });
 
         AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
           this.isInterstitialPreloaded = true;
@@ -297,6 +300,10 @@ class AdMobService {
           this.isRewardedPreloaded = false;
           this.preloadRewarded();
         });
+        AdMob.addListener(RewardAdPluginEvents.FailedToLoad, (err) => {
+          this.isRewardedPreloaded = false;
+          this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'failed', `Rewarded video load notice: ${err?.message || ''}`);
+        });
 
         this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native AdMob initialized with real Ad Unit IDs');
 
@@ -308,8 +315,8 @@ class AdMobService {
         console.warn('Native AdMob initialization notice:', err?.message || err);
       }
     } else {
-      // In web/preview environment
-      this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', `Web AdMob Engine ready (Unit: ${ADMOB_CONFIG.BANNER_ID})`);
+      // In web environment: Google AdSense SDK is active via index.html
+      this.logEvent('banner', ADMOB_CONFIG.PUBLISHER_ID, 'loaded', `Web AdSense ready (Client: ${ADMOB_CONFIG.PUBLISHER_ID})`);
     }
 
     this.isInitialized = true;
@@ -480,7 +487,6 @@ class AdMobService {
         if (this.isInterstitialPreloaded) {
           await AdMob.showInterstitial();
           this.isInterstitialPreloaded = false;
-          this.recordImpression('interstitial');
           this.preloadInterstitial();
           return true;
         } else {
@@ -489,7 +495,6 @@ class AdMobService {
             isTesting: false,
           });
           await AdMob.showInterstitial();
-          this.recordImpression('interstitial');
           this.preloadInterstitial();
           return true;
         }
@@ -499,14 +504,11 @@ class AdMobService {
       }
     }
 
-    // Web / preview environment: Display interstitial ad modal using configured Ad Unit ID
-    this.modalState = {
-      ...this.modalState,
-      showInterstitial: true,
-    };
-    this.notifyModalState();
-    this.recordImpression('interstitial');
-    return true;
+    // Web environment:
+    // AdMob Interstitial is a native mobile SDK format. On the web, Google AdSense uses
+    // Auto Ads vignettes on approved domains. Do not fabricate fake interstitials or fake impressions.
+    this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'dismissed', 'Web interstitial skipped (native-only format; AdSense Auto Ads handle web vignettes)');
+    return false;
   }
 
   public dismissInterstitial() {
@@ -533,7 +535,6 @@ class AdMobService {
         if (this.isRewardedPreloaded) {
           await AdMob.showRewardVideoAd();
           this.isRewardedPreloaded = false;
-          this.recordImpression('rewarded');
           this.preloadRewarded();
           return true;
         } else {
@@ -542,7 +543,6 @@ class AdMobService {
             isTesting: false,
           });
           await AdMob.showRewardVideoAd();
-          this.recordImpression('rewarded');
           this.preloadRewarded();
           return true;
         }
@@ -552,14 +552,17 @@ class AdMobService {
       }
     }
 
-    // Web / preview environment: Display rewarded ad modal using configured Rewarded Unit ID
-    this.modalState = {
-      ...this.modalState,
-      showRewarded: true,
-      rewardedReward: rewardDetails,
-    };
-    this.notifyModalState();
-    this.recordImpression('rewarded');
+    // Web environment:
+    // AdMob rewarded video ads require the native Mobile Ads SDK on Android/iOS.
+    // In web preview and browser mode, grant the reward callback and ad-free perk directly
+    // so user features (streak boost, VIP perks) remain fully functional, without fabricating
+    // fake ad views or misleading impressions.
+    this.grantAdFreePass(30);
+    if (typeof onReward === 'function') {
+      onReward(rewardDetails);
+    }
+    this.pendingRewardCallback = undefined;
+    this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'reward_earned', `Web perk granted (${rewardDetails.type}) without native video`);
     return true;
   }
 
