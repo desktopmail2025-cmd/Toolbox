@@ -357,6 +357,16 @@ class AdMobService {
     }
   }
 
+  public async hideNativeBanner(): Promise<void> {
+    if (!this.isNative || !this.isNativeBannerShowing) return;
+    try {
+      await AdMob.hideBanner();
+      this.isNativeBannerShowing = false;
+    } catch (e) {
+      // ignore
+    }
+  }
+
   public recordImpression(type: 'banner' | 'interstitial' | 'rewarded') {
     this.metrics.impressions[type] += 1;
     this.metrics.impressions.total += 1;
@@ -599,3 +609,20 @@ class AdMobService {
 
 export const admobService = new AdMobService();
 export default admobService;
+
+/**
+ * Functional helpers matching exact user integration signatures
+ */
+export async function initAdMob(): Promise<void> {
+  return admobService.initialize();
+}
+
+export async function showInterstitialAd(): Promise<boolean> {
+  return admobService.showInterstitial({ force: true });
+}
+
+export async function showRewardedAd(
+  onRewardGranted: (reward: { type: string; amount: number }) => void
+): Promise<boolean> {
+  return admobService.showRewardedAd(onRewardGranted);
+}

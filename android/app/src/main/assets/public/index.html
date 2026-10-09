@@ -50,8 +50,8 @@
         } catch (e) {}
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-Dha2_VoV.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BHKTKS5M.css">
+    <script type="module" crossorigin src="/assets/index-DX3XjhxC.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BzUBPo03.css">
   <link rel="manifest" href="/manifest.webmanifest"></head>
   <body class="bg-zinc-50 text-zinc-900 antialiased selection:bg-indigo-600 selection:text-white dark:bg-zinc-950 dark:text-zinc-100 min-h-screen">
     <div id="root">
@@ -68,6 +68,7 @@
         </div>
       </div>
       <script>
+        // Safety fallback if JavaScript takes long to load
         setTimeout(function() {
           var splash = document.getElementById('app-pre-splash');
           if (splash) {
@@ -77,7 +78,7 @@
               try { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e) {}
             }, 300);
           }
-        }, 1200);
+        }, 3000);
       </script>
     </div>
   </body>
