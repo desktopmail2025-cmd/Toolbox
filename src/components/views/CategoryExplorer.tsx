@@ -52,6 +52,13 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
   const scrollLeftRef = useRef(0);
   const hasDraggedRef = useRef(false);
 
+  // Helper to prevent tap-through ghost clicks when closing search suggestions
+  const isSearchDismissing = () => {
+    if (typeof window === 'undefined') return false;
+    const dismissedAt = (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt || 0;
+    return Date.now() - dismissedAt < 550;
+  };
+
   const handleScrollShelf = (direction: 'next' | 'prev' = 'next') => {
     sounds.playClick();
     if (!recentScrollRef.current) return;
@@ -247,6 +254,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                 <div
                   key={tool.id}
                   onClick={() => {
+                    if (isSearchDismissing()) return;
                     if (hasDraggedRef.current) {
                       hasDraggedRef.current = false;
                       return;
@@ -362,7 +370,10 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
               {/* Category Header Button */}
               <button
                 type="button"
-                onClick={() => onToggleCategory(category.id)}
+                onClick={() => {
+                  if (isSearchDismissing()) return;
+                  onToggleCategory(category.id);
+                }}
                 className={`w-full flex items-center justify-between p-3.5 sm:p-5 text-left transition-colors cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-800/50 ${
                   isExpanded
                     ? 'bg-zinc-50/70 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800'
@@ -431,6 +442,7 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
                           key={tool.id}
                           tabIndex={0}
                           onClick={() => {
+                            if (isSearchDismissing()) return;
                             sounds.playClick();
                             onSelectTool(tool);
                           }}

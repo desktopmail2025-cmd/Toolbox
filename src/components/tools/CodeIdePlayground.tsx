@@ -523,7 +523,7 @@ export const CodeIdePlayground: React.FC = () => {
           {/* Quick Starter Templates */}
           <select
             onChange={e => handleSelectTemplate(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-bold cursor-pointer"
+            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-bold cursor-pointer max-w-full"
           >
             <option value="">Load Template Preset...</option>
             {Object.keys(TEMPLATES).map(k => (
@@ -533,7 +533,7 @@ export const CodeIdePlayground: React.FC = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Font size adjuster */}
           <button
             onClick={() => setFontSize(prev => prev === 18 ? 12 : prev + 2)}

@@ -153,6 +153,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Search state
   const [internalIsSearchOpen, setInternalIsSearchOpen] = useState(false);
   const isSearchOpen = controlledIsSearchOpen !== undefined ? controlledIsSearchOpen : internalIsSearchOpen;
+  const isSearchOpenRef = useRef<boolean>(isSearchOpen);
+  isSearchOpenRef.current = isSearchOpen;
 
   const [internalQuery, setInternalQuery] = useState(searchQuery || '');
   const query = searchQuery !== undefined ? searchQuery : internalQuery;
@@ -256,6 +258,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Helper to completely reset search to unopened and unselected
   const resetSearchToUnopened = () => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt = Date.now();
+    }
     if (inputRef.current) {
       inputRef.current.blur();
     }
@@ -305,36 +310,57 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  // Close search and unselect if user touches/clicks anywhere outside
+  // Permanent capture-phase outside interceptor:
+  // Kills pointerdown, touchstart, touchend, pointerup, click, and mouseup events on outside touches to ensure NO tool or category is opened
   useEffect(() => {
-    const handleInteractionOutside = (e: MouseEvent | TouchEvent) => {
-      // If the interaction is at the screen edge (edge swipe back zone), do not close search here;
-      // let the edge back gesture handler in App.tsx handle it cleanly so it closes suggestions without quitting!
-      if (e instanceof TouchEvent && e.touches && e.touches.length > 0) {
-        const touchX = e.touches[0].clientX;
-        if (touchX <= 75 || touchX >= window.innerWidth - 75) {
-          return;
+    const handleGlobalOutsideCapture = (e: Event) => {
+      const now = Date.now();
+      const dismissedAt = (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt || 0;
+
+      // 1. If search was just dismissed via an outside tap within the last 550ms, swallow this event completely
+      if (now - dismissedAt < 550) {
+        e.stopPropagation();
+        e.stopImmediatePropagation?.();
+        if (e.cancelable) {
+          e.preventDefault();
         }
-      }
-      if (typeof PointerEvent !== 'undefined' && e instanceof PointerEvent && e.pointerType === 'touch') {
-        if (e.clientX <= 75 || e.clientX >= window.innerWidth - 75) {
-          return;
-        }
+        return;
       }
 
-      if (isSearchOpen && searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        resetSearchToUnopened();
+      // 2. If search is currently open, and user touches/clicks outside the searchContainer:
+      if (isSearchOpenRef.current) {
+        const target = e.target as Node | null;
+        if (searchContainerRef.current && target && !searchContainerRef.current.contains(target)) {
+          // Record dismissal timestamp to block all following touch/click events (ghost clicks)
+          if (typeof window !== 'undefined') {
+            (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt = Date.now();
+          }
+          e.stopPropagation();
+          e.stopImmediatePropagation?.();
+          if (e.cancelable) {
+            e.preventDefault();
+          }
+          resetSearchToUnopened();
+        }
       }
     };
-    document.addEventListener('mousedown', handleInteractionOutside);
-    document.addEventListener('touchstart', handleInteractionOutside, { passive: true });
-    document.addEventListener('pointerdown', handleInteractionOutside, { passive: true });
+
+    window.addEventListener('pointerdown', handleGlobalOutsideCapture, true);
+    window.addEventListener('touchstart', handleGlobalOutsideCapture, { capture: true, passive: false });
+    window.addEventListener('touchend', handleGlobalOutsideCapture, { capture: true, passive: false });
+    window.addEventListener('pointerup', handleGlobalOutsideCapture, true);
+    window.addEventListener('click', handleGlobalOutsideCapture, true);
+    window.addEventListener('mouseup', handleGlobalOutsideCapture, true);
+
     return () => {
-      document.removeEventListener('mousedown', handleInteractionOutside);
-      document.removeEventListener('touchstart', handleInteractionOutside);
-      document.removeEventListener('pointerdown', handleInteractionOutside);
+      window.removeEventListener('pointerdown', handleGlobalOutsideCapture, true);
+      window.removeEventListener('touchstart', handleGlobalOutsideCapture, { capture: true });
+      window.removeEventListener('touchend', handleGlobalOutsideCapture, { capture: true });
+      window.removeEventListener('pointerup', handleGlobalOutsideCapture, true);
+      window.removeEventListener('click', handleGlobalOutsideCapture, true);
+      window.removeEventListener('mouseup', handleGlobalOutsideCapture, true);
     };
-  }, [isSearchOpen]);
+  }, []);
 
   // Keyboard shortcut listener: Cmd/Ctrl+K opens/focuses search, ESC closes it
   useEffect(() => {
@@ -363,18 +389,32 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Outside Touch/Click Backdrop for Search: Returns search instantly to unopened state */}
-      {isSuggestionsVisible && (
+      {isSearchOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 backdrop-blur-[2px] transition-opacity duration-150 animate-in fade-in"
+          className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 backdrop-blur-[2px] transition-opacity duration-150 animate-in fade-in touch-none"
           onPointerDown={e => {
             e.preventDefault();
+            e.stopPropagation();
             resetSearchToUnopened();
           }}
           onTouchStart={e => {
             e.preventDefault();
+            e.stopPropagation();
             resetSearchToUnopened();
           }}
-          onClick={() => resetSearchToUnopened()}
+          onTouchEnd={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onPointerUp={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            resetSearchToUnopened();
+          }}
           aria-label="Close search overlay"
         />
       )}

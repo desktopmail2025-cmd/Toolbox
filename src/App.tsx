@@ -192,6 +192,11 @@ export default function App() {
   });
 
   const handleToggleCategory = (catId: CategoryId) => {
+    // If search suggestions were just dismissed via an outside tap, ignore this click!
+    const dismissedAt = (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt || 0;
+    if (Date.now() - dismissedAt < 550) {
+      return;
+    }
     sounds.playClick();
     setExpandedCatIds(prev => {
       const next = new Set(prev);
@@ -347,6 +352,13 @@ export default function App() {
     tool: ToolItem,
     originMeta?: { fromSearch?: boolean; searchQuery?: string; searchMode?: 'navbar' | 'modal'; categoryId?: CategoryId }
   ) => {
+    // If not triggered directly from search suggestions and an outside touch just dismissed search, ignore!
+    if (!originMeta?.fromSearch) {
+      const dismissedAt = (window as unknown as { __omniSearchDismissedAt?: number }).__omniSearchDismissedAt || 0;
+      if (Date.now() - dismissedAt < 550) {
+        return;
+      }
+    }
     sounds.playClick();
     // Immediately close any search dropdown or modal so the opened tool is displayed cleanly without suggestions
     setIsNavbarSearchOpen(false);
@@ -1044,15 +1056,17 @@ export default function App() {
       </main>
 
       {/* Floating Action Button (FAB): Circular Speed Dial for Home, Starred & Notes */}
-      <FloatingNotesButton
-        activeTab={activeTab}
-        onSelectTab={handleSelectTab}
-        onGoHome={handleGoHome}
-        onBackToOverview={handleBackToOverview}
-        favoriteCount={favorites.length}
-        activeToolName={activeTool?.name}
-        isDrawerOpen={isDrawerOpen}
-      />
+      {!showOnboarding && !showSplash && (
+        <FloatingNotesButton
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          onGoHome={handleGoHome}
+          onBackToOverview={handleBackToOverview}
+          favoriteCount={favorites.length}
+          activeToolName={activeTool?.name}
+          isDrawerOpen={isDrawerOpen}
+        />
+      )}
 
       {/* Keyboard Quick Search Modal (preserved via ⌘K) */}
       <SearchModal

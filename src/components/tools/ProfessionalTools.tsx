@@ -245,15 +245,15 @@ export const ImageBgRemoverView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 shrink-0">
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Photo</span>
             <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
           </label>
           <button
             onClick={loadSampleImage}
-            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 text-xs font-bold flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
             title="Load demo product photo"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -620,21 +620,21 @@ export const VideoToAudioView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           {/* Audio Format Dropdown */}
-          <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <span className="text-[10px] font-mono uppercase font-bold text-zinc-400 pl-1.5">Format:</span>
+          <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700 min-w-0 max-w-full">
+            <span className="text-[10px] font-mono uppercase font-bold text-zinc-400 pl-1.5 shrink-0">Format:</span>
             <select
               value={outputFormat}
               onChange={e => handleFormatChange(e.target.value as 'mp3' | 'wav')}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 max-w-[175px] sm:max-w-xs truncate"
             >
-              <option value="mp3">MP3 (.mp3) — Standard Audio (Recommended)</option>
-              <option value="wav">WAV (.wav) — Lossless Studio Master</option>
+              <option value="mp3">MP3 (.mp3) — Standard</option>
+              <option value="wav">WAV (.wav) — Lossless Studio</option>
             </select>
           </div>
 
-          <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95">
+          <label className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 shrink-0 whitespace-nowrap">
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Video File</span>
             <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />

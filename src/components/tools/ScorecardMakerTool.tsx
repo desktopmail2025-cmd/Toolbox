@@ -673,8 +673,8 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
 
         {/* Top Control Bar: Match Period & Official Clock */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-zinc-800/80 relative z-10">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 shrink-0">
               Match Period:
             </span>
             <select
@@ -683,7 +683,7 @@ ${events.map(e => `[${e.time}] ${e.team === 'A' ? teamAName : teamBName} · ${e.
                 sounds.playClick();
                 setPeriod(e.target.value);
               }}
-              className="px-3.5 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 text-white text-xs font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3.5 py-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 text-white text-xs font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-full truncate"
             >
               {sport === 'football' && ['1st Half', '2nd Half', 'Extra Time', 'Penalties'].map(p => <option key={p} value={p}>{p}</option>)}
               {sport === 'cricket' && ['1st Innings', '2nd Innings', 'Super Over'].map(p => <option key={p} value={p}>{p}</option>)}
