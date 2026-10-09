@@ -464,7 +464,7 @@ class AdMobService {
     this.metrics.lastInterstitialTimestamp = now;
     this.saveMetrics();
 
-    // Native mobile attempt
+    // Native mobile: Trigger real Google Mobile Ads SDK
     if (this.isNative) {
       try {
         if (this.isInterstitialPreloaded) {
@@ -488,7 +488,7 @@ class AdMobService {
       }
     }
 
-    // UI Presentation for Web
+    // Web / preview environment: Display interstitial ad modal using configured Ad Unit ID
     this.modalState = {
       ...this.modalState,
       showInterstitial: true,
@@ -540,7 +540,7 @@ class AdMobService {
       }
     }
 
-    // UI Simulation for Web/Preview & test inspection
+    // Web / preview environment: Display rewarded ad modal using configured Rewarded Unit ID
     this.modalState = {
       ...this.modalState,
       showRewarded: true,

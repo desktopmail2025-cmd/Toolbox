@@ -118,53 +118,20 @@ export default function App() {
   const [closeNavbarSearchTrigger, setCloseNavbarSearchTrigger] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [closeDrawerTrigger, setCloseDrawerTrigger] = useState(0);
-  const [isFABExpanded, setIsFABExpanded] = useState(false);
-  const [closeFABTrigger, setCloseFABTrigger] = useState(0);
   const [isReturningFromTool, setIsReturningFromTool] = useState(false);
   const isTransitioningRef = useRef(false);
 
-  // Rock-Solid Instant Scroll Restoration on Tool Exit:
-  // Runs synchronously in useLayoutEffect before the browser paints frame 0,
-  // ensuring the overview is ALREADY at the user's exact scroll position with zero jump or trip to top!
+  // Smooth, Stable Scroll Restoration on Tool Exit
   useLayoutEffect(() => {
     if (!activeTool && pendingRestoreScrollRef.current) {
-      const { scrollY, toolId } = pendingRestoreScrollRef.current;
+      const { scrollY } = pendingRestoreScrollRef.current;
+      pendingRestoreScrollRef.current = null;
 
-      const performRestore = () => {
-        const html = document.documentElement;
-        const body = document.body;
-        html.style.scrollBehavior = 'auto';
-        body.style.scrollBehavior = 'auto';
-
-        if (scrollY > 0) {
-          window.scrollTo({ top: scrollY, behavior: 'instant' });
-          html.scrollTop = scrollY;
-          body.scrollTop = scrollY;
-        }
-
-        // Secondary guarantee: if tool card exists in DOM and scroll was slightly offset, align tool card
-        if (toolId && (scrollY === 0 || Math.abs((window.scrollY || 0) - scrollY) > 80)) {
-          const cardEl = document.getElementById(`tool-card-${toolId}`);
-          if (cardEl) {
-            cardEl.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }
-        }
-      };
-
-      // 1. Synchronously before initial paint
-      performRestore();
-
-      // 2. Next animation frames to confirm layout stability
-      const raf1 = requestAnimationFrame(() => {
-        performRestore();
-        const raf2 = requestAnimationFrame(() => {
-          performRestore();
-          pendingRestoreScrollRef.current = null;
-        });
-        return () => cancelAnimationFrame(raf2);
-      });
-
-      return () => cancelAnimationFrame(raf1);
+      if (typeof scrollY === 'number' && scrollY >= 0) {
+        window.scrollTo({ top: scrollY, behavior: 'instant' });
+        document.documentElement.scrollTop = scrollY;
+        document.body.scrollTop = scrollY;
+      }
     }
   }, [activeTool]);
 
@@ -284,9 +251,6 @@ export default function App() {
 
   const isDrawerOpenRef = useRef<boolean>(isDrawerOpen);
   isDrawerOpenRef.current = isDrawerOpen;
-
-  const isFABExpandedRef = useRef<boolean>(isFABExpanded);
-  isFABExpandedRef.current = isFABExpanded;
 
   const showOnboardingRef = useRef<boolean>(showOnboarding);
   showOnboardingRef.current = showOnboarding;
@@ -446,10 +410,6 @@ export default function App() {
     const closedToolId = activeToolRef.current?.id || lastOpenedToolId;
     if (closedToolId) {
       setLastOpenedToolId(closedToolId);
-      const closedTool = TOOLS.find(t => t.id === closedToolId);
-      if (closedTool) {
-        setExpandedCatIds(prev => new Set([...prev, closedTool.categoryId]));
-      }
     }
 
     // Capture target scroll, tab, and suite from origin
@@ -632,17 +592,7 @@ export default function App() {
       return;
     }
 
-    // 4. If FAB menu is open: close it
-    if (isFABExpandedRef.current) {
-      sounds.playClick();
-      setIsFABExpanded(false);
-      isFABExpandedRef.current = false;
-      setCloseFABTrigger(prev => prev + 1);
-      if (viaHistoryPop) replenishHistoryBuffer('home', activeTabRef.current);
-      return;
-    }
-
-    // 5. If Search Suggestions or Search is active (modal, navbar, or query present):
+    // 4. If Search Suggestions or Search is active (modal, navbar, or query present):
     // Closes suggestion bar, clears search query, blurs search input, remains on current page! DO NOT QUIT!
     const isSearchActive =
       isSearchOpenRef.current ||
@@ -938,7 +888,7 @@ export default function App() {
       />
 
       {/* Main Content Area — fully responsive across mobile phones, tablets, laptops & PCs */}
-      <main className={`flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-[calc(3.5rem+max(env(safe-area-inset-top,0px),26px)+0.75rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.25rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 ${isDrawerOpen ? 'pointer-events-none select-none overflow-hidden max-h-[100dvh]' : ''}`}>
+      <main className={`flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pt-[calc(3.5rem+max(env(safe-area-inset-top,0px),16px)+0.5rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-16 ${isDrawerOpen ? 'pointer-events-none select-none overflow-hidden max-h-[100dvh]' : ''}`}>
         {/* Destination View: Kept mounted in DOM and hidden when activeTool is open, so all DOM nodes & layout are ready immediately on exit */}
         <div
           className={`${activeTool ? 'hidden' : isReturningFromTool ? 'animate-tool-slide-in' : 'w-full'}`}
@@ -1101,8 +1051,6 @@ export default function App() {
         onBackToOverview={handleBackToOverview}
         favoriteCount={favorites.length}
         activeToolName={activeTool?.name}
-        onExpandedChange={setIsFABExpanded}
-        closeTrigger={closeFABTrigger}
         isDrawerOpen={isDrawerOpen}
       />
 

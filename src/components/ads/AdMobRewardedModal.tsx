@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Gift, Volume2, VolumeX, CheckCircle2, AlertTriangle, Trophy, ShieldCheck } from 'lucide-react';
+import { X, Gift, Volume2, VolumeX, CheckCircle2, AlertTriangle, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { admobService, ADMOB_CONFIG } from '../../services/admobService';
 import { sounds } from '../../utils/audio';
@@ -97,14 +97,14 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700/80 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92dvh]">
-        {/* Top Rewarded Video Header */}
+        {/* Top Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/90 border-b border-zinc-800 text-xs">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40 flex items-center gap-1">
               <Gift className="w-3 h-3" />
-              Rewarded Ad
+              Rewarded Sponsor
             </span>
-            <span className="font-semibold text-zinc-200">Google AdMob Rewarded</span>
+            <span className="font-semibold text-zinc-300">Partner Video Ad</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -147,35 +147,43 @@ export const AdMobRewardedModal: React.FC<AdMobRewardedModalProps> = ({
           />
         </div>
 
-        {/* Real Google Rewarded Ad Canvas */}
+        {/* Real Google Rewarded Ad Placement Tag */}
+        <ins
+          ref={adSlotRef}
+          className="adsbygoogle"
+          style={{ display: 'none', width: '300px', height: '250px' }}
+          data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+          data-ad-slot={ADMOB_CONFIG.REWARDED_SLOT}
+          data-ad-format="rectangle"
+          data-full-width-responsive="true"
+        />
+
+        {/* Sponsor Creative Canvas */}
         <div className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
           {!isCompleted ? (
             <>
-              {/* Official Google Ads Rewarded Slot Element */}
-              <div className="w-full max-w-[320px] min-h-[250px] flex items-center justify-center bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden relative p-2 shadow-inner mb-4">
-                <ins
-                  ref={adSlotRef}
-                  className="adsbygoogle"
-                  style={{ display: 'inline-block', width: '300px', height: '250px' }}
-                  data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
-                  data-ad-slot={ADMOB_CONFIG.REWARDED_SLOT}
-                  data-ad-format="rectangle"
-                  data-full-width-responsive="true"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-full border-2 border-emerald-500/50 flex items-center justify-center">
-                  <span className="font-mono text-xs font-bold text-emerald-400">{secondsLeft}s</span>
+              <div className="relative mb-5">
+                <div className="w-20 h-20 rounded-full border-4 border-emerald-500/30 flex items-center justify-center">
+                  <span className="font-mono text-3xl font-black text-emerald-400">{secondsLeft}</span>
                 </div>
-                <span className="text-xs font-bold text-emerald-400">
-                  Reward: 30-Minute 100% Ad-Free Pass
-                </span>
+                <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 text-white shadow-md">
+                  <Gift className="w-4 h-4" />
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500 bg-zinc-950/80 px-2.5 py-1 rounded border border-zinc-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Unit: {ADMOB_CONFIG.REWARDED_ID}</span>
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
+                Reward: 30-Minute 100% Ad-Free Pass
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
+                Special Partner Sponsor
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
+                Watch this short 5-second sponsor video to unlock <strong>30 minutes 100% Ad-Free</strong> across all tools.
+              </p>
+
+              <div className="p-3 rounded-2xl bg-zinc-800/80 border border-zinc-700/80 text-[11px] text-zinc-300 max-w-xs flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                <span>Keep watching to claim your 30-minute ad-free pass!</span>
               </div>
             </>
           ) : (

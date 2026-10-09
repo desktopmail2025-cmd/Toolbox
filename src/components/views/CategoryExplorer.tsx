@@ -175,11 +175,6 @@ export const CategoryExplorer: React.FC<CategoryExplorerProps> = ({
         </div>
       </div>
 
-      {/* Google AdMob Banner (Featured Placement: visible immediately on screen) */}
-      <div className="pt-1 pb-1">
-        <AdMobBanner variant="inline" />
-      </div>
-
       {/* Filter notification if a filter was selected from the drawer */}
       {toolFilter !== 'all' && (
         <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs">

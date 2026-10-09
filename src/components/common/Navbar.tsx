@@ -134,15 +134,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       const startX = touchStartRef.current.x;
       touchStartRef.current = null;
 
-      // Horizontal gesture detection
-      if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
-        if (!isDrawerOpen && startX < 45 && deltaX > 40) {
-          sounds.playClick();
-          setDrawerState(true);
-        } else if (isDrawerOpen && deltaX < -40) {
-          sounds.playClick();
-          setDrawerState(false);
-        }
+      // Horizontal gesture detection: only allow swiping left to close when drawer is already open
+      if (isDrawerOpen && deltaX < -40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        sounds.playClick();
+        setDrawerState(false);
       }
     };
 

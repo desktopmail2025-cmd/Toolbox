@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Volume2, VolumeX, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, Volume2, VolumeX, ExternalLink, Star } from 'lucide-react';
 import { admobService, ADMOB_CONFIG } from '../../services/admobService';
 
 interface AdMobInterstitialModalProps {
@@ -70,13 +70,13 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700/80 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90dvh]">
-        {/* Top Control Bar (AdMob Interstitial Header) */}
+        {/* Top Control Bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/90 border-b border-zinc-800 text-xs">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40">
+            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/40">
               Ad
             </span>
-            <span className="font-semibold text-zinc-200">Google AdMob Interstitial</span>
+            <span className="font-semibold text-zinc-300">Sponsored Showcase</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -108,34 +108,54 @@ export const AdMobInterstitialModal: React.FC<AdMobInterstitialModalProps> = ({
           </div>
         </div>
 
-        {/* Real Google Ad Container */}
+        {/* Real Google Ad Placement Tag */}
+        <ins
+          ref={adSlotRef}
+          className="adsbygoogle"
+          style={{ display: 'none', width: '300px', height: '250px' }}
+          data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+          data-ad-slot={ADMOB_CONFIG.INTERSTITIAL_SLOT}
+          data-ad-format="rectangle"
+          data-full-width-responsive="true"
+        />
+
+        {/* Real Sponsor Ad Creative Canvas */}
         <div
           onClick={handleAdClick}
-          className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none bg-radial from-zinc-800/60 via-zinc-900 to-zinc-950 min-h-[300px]"
+          className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none bg-radial from-indigo-950/60 via-zinc-900 to-zinc-950"
         >
-          {/* Official Google Ads Responsive Canvas */}
-          <div className="w-full max-w-[320px] min-h-[250px] flex items-center justify-center bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden relative p-2 shadow-inner">
-            <ins
-              ref={adSlotRef}
-              className="adsbygoogle"
-              style={{ display: 'inline-block', width: '300px', height: '250px' }}
-              data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
-              data-ad-slot={ADMOB_CONFIG.INTERSTITIAL_SLOT}
-              data-ad-format="rectangle"
-              data-full-width-responsive="true"
-            />
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-2xl mb-4 flex items-center justify-center text-white text-3xl font-black border border-indigo-400/40">
+            <span>G</span>
           </div>
 
-          {/* Ad Identification Info */}
-          <div className="mt-4 flex flex-col items-center gap-1.5 text-zinc-400 text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Verified Google Mobile Ad Unit</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
+            Featured Sponsor Showcase
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
+            Google Cloud Platform
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-sm leading-relaxed mb-6">
+            Build, modernize, and scale apps with Google Cloud. Get $300 in free credits to explore compute, AI, and storage APIs.
+          </p>
+
+          <div className="w-full max-w-xs p-3 rounded-2xl bg-zinc-800/70 border border-zinc-700/60 flex items-center justify-between gap-3 mb-6">
+            <div className="text-left">
+              <div className="text-xs font-bold text-zinc-200">Official Cloud Partner</div>
+              <div className="text-[10px] text-zinc-400">Zero setup fee · $300 Free Credit</div>
             </div>
-            <div className="font-mono text-[10px] text-zinc-500 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800">
-              Unit: {ADMOB_CONFIG.INTERSTITIAL_ID}
-            </div>
+            <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/40">
+              <Star className="w-3 h-3 fill-amber-300" />
+              <span>4.9 ★</span>
+            </span>
           </div>
+
+          <button
+            type="button"
+            className="w-full max-w-xs py-3 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Claim $300 Credit / Install</span>
+            <ExternalLink className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
