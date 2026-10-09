@@ -2,7 +2,6 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Navbar } from './components/common/Navbar';
 import { SearchModal } from './components/common/SearchModal';
 import { FloatingNotesButton } from './components/common/FloatingNotesButton';
-import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingModal } from './components/common/OnboardingModal';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
@@ -174,16 +173,39 @@ export default function App() {
     };
   }, []);
 
-  const handleFinishSplash = React.useCallback(() => {
-    setShowSplash(false);
-    try {
-      const onboarded = localStorage.getItem('omni_onboarded');
-      if (!onboarded) {
-        setShowOnboarding(true);
+  // Single unified splash screen: Keep the first splash screen only (#app-pre-splash)
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      const splash = document.getElementById('app-pre-splash');
+      if (splash) {
+        splash.style.transition = 'opacity 0.3s ease';
+        splash.style.opacity = '0';
+        setTimeout(() => {
+          try {
+            if (splash && splash.parentNode) {
+              splash.parentNode.removeChild(splash);
+            }
+          } catch {}
+          setShowSplash(false);
+          try {
+            const onboarded = localStorage.getItem('omni_onboarded');
+            if (!onboarded) {
+              setShowOnboarding(true);
+            }
+          } catch {}
+        }, 320);
+      } else {
+        setShowSplash(false);
+        try {
+          const onboarded = localStorage.getItem('omni_onboarded');
+          if (!onboarded) {
+            setShowOnboarding(true);
+          }
+        } catch {}
       }
-    } catch {
-      // ignore
-    }
+    }, 700);
+
+    return () => clearTimeout(splashTimer);
   }, []);
 
   // In the beginning of the app keep all categories collapsed; expand when user clicks
@@ -1080,9 +1102,6 @@ export default function App() {
         favorites={favorites}
         onToggleFavorite={handleToggleFavorite}
       />
-
-      {/* High-Performance Splash Screen on Launch */}
-      {showSplash && <SplashScreen onFinish={handleFinishSplash} />}
 
       {/* Professional Multi-Device Onboarding Tour */}
       <OnboardingModal

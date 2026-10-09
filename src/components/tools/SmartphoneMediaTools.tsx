@@ -273,7 +273,6 @@ const QrScannerView: React.FC = () => {
   };
 
   const handlePermissionGranted = async () => {
-    setShowPermissionPrompt(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -283,9 +282,12 @@ const QrScannerView: React.FC = () => {
         videoRef.current.srcObject = stream;
       }
       setIsCameraActive(true);
+      setShowPermissionPrompt(false);
+      setCameraError(null);
       sounds.playSuccess();
-    } catch (err: any) {
-      setCameraError('Camera access was not granted by your browser settings.');
+    } catch {
+      setCameraError('Camera permission is required. Please allow camera access in your device settings.');
+      setShowPermissionPrompt(true);
     }
   };
 
@@ -448,9 +450,17 @@ const QrScannerView: React.FC = () => {
         </div>
 
         {cameraError && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center justify-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{cameraError}</span>
+          <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900 text-indigo-950 dark:text-indigo-200 text-xs font-medium flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span>{cameraError}</span>
+            </div>
+            <button
+              onClick={() => setShowPermissionPrompt(true)}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 cursor-pointer transition-colors shadow-xs"
+            >
+              Allow in Settings
+            </button>
           </div>
         )}
 
@@ -473,6 +483,7 @@ const QrScannerView: React.FC = () => {
           type="camera"
           title="Camera Permission Required"
           reason="OmniToolbox needs camera access to scan QR codes and barcodes live. Video frames are processed 100% locally on your device and are never sent to any server."
+          initialDenied={!!cameraError}
           onGranted={handlePermissionGranted}
           onCancel={() => setShowPermissionPrompt(false)}
         />

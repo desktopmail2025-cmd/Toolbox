@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResultCard } from '../common/ResultCard';
 import { sounds, audioBufferToMp3Blob } from '../../utils/audio';
+import { PermissionPrompt } from '../common/PermissionPrompt';
 import { Play, Pause, Volume2, VolumeX, Mic, MicOff, Music, Radio, Sparkles, FileAudio, Video, Upload, Download, Trash2, Plus, Sliders, CheckCircle2, RotateCcw } from 'lucide-react';
 
 interface ToolComponentProps {
@@ -394,6 +395,7 @@ const GuitarTunerView: React.FC = () => {
   const [isMicListening, setIsMicListening] = useState(false);
   const [detectedPitch, setDetectedPitch] = useState<{ note: string; freq: number; cents: number } | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
+  const [showMicPrompt, setShowMicPrompt] = useState(false);
 
   const activeTuning = TUNING_PRESETS[selectedTuningIdx];
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -606,7 +608,8 @@ const GuitarTunerView: React.FC = () => {
       updatePitch();
       setIsMicListening(true);
     } catch {
-      setMicError('Microphone access denied or unavailable. Please allow microphone permissions.');
+      setMicError('Microphone permission is required. Please allow microphone access in your device settings.');
+      setShowMicPrompt(true);
       setIsMicListening(false);
     }
   };
@@ -812,9 +815,34 @@ const GuitarTunerView: React.FC = () => {
         </div>
 
         {micError && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold text-center">
-            {micError}
+          <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs font-medium flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{micError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMicPrompt(true)}
+              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
+            >
+              Allow in Settings
+            </button>
           </div>
+        )}
+
+        {showMicPrompt && (
+          <PermissionPrompt
+            type="microphone"
+            title="Microphone Access Required"
+            reason="OmniToolbox uses your microphone to listen to instrument frequencies and pitch notes in real-time. Audio is analyzed 100% locally on your device and never uploaded."
+            initialDenied={!!micError}
+            onGranted={() => {
+              setShowMicPrompt(false);
+              setMicError(null);
+              startMic();
+            }}
+            onCancel={() => setShowMicPrompt(false)}
+          />
         )}
 
         {isMicListening && (
@@ -873,21 +901,77 @@ const GuitarTunerView: React.FC = () => {
   );
 };
 
-// 5. Decibel Sound Meter (Visualizer)
+// 5. Decibel Sound Meter (Visualizer with Live Microphone Analysis)
 const DecibelMeterView: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [decibels, setDecibels] = useState(42);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [showMicPrompt, setShowMicPrompt] = useState(false);
+
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  const startMonitoring = async () => {
+    sounds.playClick();
+    setMicError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i] * dataArray[i];
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const mappedDb = Math.min(110, Math.max(32, Math.round(35 + (rms / 255) * 75)));
+        setDecibels(mappedDb);
+        animFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+
+      updateLevel();
+      setIsListening(true);
+    } catch {
+      setMicError('Microphone permission is required. Please allow microphone access in your device settings.');
+      setShowMicPrompt(true);
+      setIsListening(false);
+    }
+  };
+
+  const stopMonitoring = () => {
+    sounds.playClick();
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(track => track.stop());
+      micStreamRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setIsListening(false);
+  };
 
   useEffect(() => {
-    let timer: number;
-    if (isListening) {
-      timer = window.setInterval(() => {
-        // Natural ambient mic fluctuations between 35dB (quiet room) to 85dB (conversation)
-        setDecibels(Math.round(40 + Math.random() * 35));
-      }, 200);
-    }
-    return () => clearInterval(timer);
-  }, [isListening]);
+    return () => {
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-md mx-auto text-center">
@@ -911,12 +995,40 @@ const DecibelMeterView: React.FC = () => {
         </div>
       </div>
 
+      {micError && (
+        <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs font-medium flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <Mic className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span>{micError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMicPrompt(true)}
+            className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
+          >
+            Allow in Settings
+          </button>
+        </div>
+      )}
+
+      {showMicPrompt && (
+        <PermissionPrompt
+          type="microphone"
+          title="Microphone Access Required"
+          reason="OmniToolbox needs microphone access to measure real-time sound decibels and ambient noise levels accurately. Audio is analyzed 100% locally on your hardware."
+          initialDenied={!!micError}
+          onGranted={() => {
+            setShowMicPrompt(false);
+            setMicError(null);
+            startMonitoring();
+          }}
+          onCancel={() => setShowMicPrompt(false)}
+        />
+      )}
+
       <button
-        onClick={() => {
-          sounds.playClick();
-          setIsListening(!isListening);
-        }}
-        className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer ${
+        onClick={isListening ? stopMonitoring : startMonitoring}
+        className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs ${
           isListening ? 'bg-rose-600 text-white' : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
         }`}
       >

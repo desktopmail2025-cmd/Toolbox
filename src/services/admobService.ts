@@ -485,6 +485,7 @@ class AdMobService {
         }
       } catch (err: any) {
         console.warn('Native interstitial notice:', err);
+        return false;
       }
     }
 
@@ -537,6 +538,7 @@ class AdMobService {
         }
       } catch (err: any) {
         console.warn('Native rewarded notice:', err);
+        return false;
       }
     }
 

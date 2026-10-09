@@ -66,6 +66,7 @@
         </div>
       </div>
       <script>
+        // Safety fallback if JavaScript takes long to load
         setTimeout(function() {
           var splash = document.getElementById('app-pre-splash');
           if (splash) {
@@ -75,7 +76,7 @@
               try { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e) {}
             }, 300);
           }
-        }, 1200);
+        }, 3000);
       </script>
     </div>
     <script type="module" src="/src/main.tsx"></script>

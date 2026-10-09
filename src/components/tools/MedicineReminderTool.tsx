@@ -4,6 +4,7 @@ import {
   requestNotificationPermission, triggerAppNotification,
   getNotificationPermissionStatus
 } from '../../utils/notifications';
+import { PermissionPrompt } from '../common/PermissionPrompt';
 import {
   Bell, Plus, Trash2, Check, Clock, AlertCircle, Sparkles,
   Pill, Heart, Volume2, ShieldCheck, CheckCircle2, RotateCcw
@@ -64,6 +65,7 @@ export const MedicineReminderView: React.FC = () => {
   });
 
   const [permStatus, setPermStatus] = useState<string>('default');
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [lastNotification, setLastNotification] = useState<string | null>(null);
 
@@ -92,9 +94,11 @@ export const MedicineReminderView: React.FC = () => {
     if (granted) {
       sounds.playSuccess();
       triggerAppNotification({
-        title: '🔔 OmniKit Notifications Enabled',
+        title: '🔔 Medicine Dose Alerts Enabled',
         body: 'You will receive timely alerts for your scheduled medicines and pills.',
       });
+    } else {
+      setShowNotifPrompt(true);
     }
   };
 
@@ -170,7 +174,7 @@ export const MedicineReminderView: React.FC = () => {
             </h2>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Never miss a dose with automated browser audio alerts, dosage instructions, and daily tracking.
+            Never miss a dose with automated smart audio alerts, dosage instructions, and daily tracking.
           </p>
         </div>
 
@@ -212,6 +216,24 @@ export const MedicineReminderView: React.FC = () => {
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           <span>{lastNotification}</span>
         </div>
+      )}
+
+      {showNotifPrompt && (
+        <PermissionPrompt
+          type="notifications"
+          title="Medicine Dose Alerts"
+          reason="OmniToolbox uses notifications to remind you of your scheduled pills and prescription times. Please allow notification permissions in your settings."
+          initialDenied={permStatus === 'denied'}
+          onGranted={() => {
+            setShowNotifPrompt(false);
+            setPermStatus('granted');
+            triggerAppNotification({
+              title: '🔔 Medicine Dose Alerts Enabled',
+              body: 'You will receive timely alerts for your scheduled medicines and pills.',
+            });
+          }}
+          onCancel={() => setShowNotifPrompt(false)}
+        />
       )}
 
       {/* Progress tracker */}

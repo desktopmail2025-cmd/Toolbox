@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { triggerAppNotification, requestNotificationPermission, getNotificationPermissionStatus } from '../../utils/notifications';
+import { PermissionPrompt } from '../common/PermissionPrompt';
 
 interface ToolComponentProps {
   toolId: string;
@@ -153,6 +154,7 @@ const DateReminderMasterView: React.FC = () => {
   // Notification state
   const [notifPermission, setNotifPermission] = useState<string>('default');
   const [alertFeedback, setAlertFeedback] = useState<string | null>(null);
+  const [showNotifPrompt, setShowNotifPrompt] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -176,8 +178,7 @@ const DateReminderMasterView: React.FC = () => {
       setAlertFeedback('Alerts enabled! Chime & notification ready.');
       setTimeout(() => setAlertFeedback(null), 3000);
     } else {
-      setAlertFeedback('Notifications were not granted by browser.');
-      setTimeout(() => setAlertFeedback(null), 3000);
+      setShowNotifPrompt(true);
     }
   };
 
@@ -347,6 +348,26 @@ const DateReminderMasterView: React.FC = () => {
         <div className="p-3 bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-900/60 rounded-2xl text-xs font-semibold text-violet-700 dark:text-violet-300 animate-in fade-in">
           {alertFeedback}
         </div>
+      )}
+
+      {showNotifPrompt && (
+        <PermissionPrompt
+          type="notifications"
+          title="Enable Reminder Notifications"
+          reason="OmniToolbox sends timely chime alarms and reminder alerts for your scheduled events and countdowns. Please allow notification permissions in your settings."
+          initialDenied={notifPermission === 'denied'}
+          onGranted={() => {
+            setShowNotifPrompt(false);
+            setNotifPermission('granted');
+            triggerAppNotification({
+              title: 'OmniToolbox Date Reminder Hub',
+              body: 'Alerts enabled! You will receive timely date reminders.',
+            });
+            setAlertFeedback('Alerts enabled! Chime & notification ready.');
+            setTimeout(() => setAlertFeedback(null), 3000);
+          }}
+          onCancel={() => setShowNotifPrompt(false)}
+        />
       )}
 
       {/* Filter and Search Bar */}

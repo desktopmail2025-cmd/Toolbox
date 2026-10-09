@@ -76,14 +76,13 @@ function createPNG(width, height, renderPixel) {
   return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
 }
 
-// Icon renderer: OmniToolbox brand squircle + sparkle diamond star
+// Icon renderer: OmniToolbox brand squircle + sparkle star matching splash screen
 function renderOmniIcon(isMaskable) {
   return (x, y, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
     const dx = x - cx;
     const dy = y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
 
     // Coordinate in [-1, 1]
     const u = dx / (w / 2);
@@ -94,60 +93,57 @@ function renderOmniIcon(isMaskable) {
     const su = u / scale;
     const sv = v / scale;
 
-    // Background squircle or circle
-    const cornerRadius = 0.85;
+    // Background squircle distance: |u|^4 + |v|^4
     const squircleDist = Math.pow(Math.abs(u), 4) + Math.pow(Math.abs(v), 4);
 
-    let bgR = 15, bgG = 15, bgB = 20, bgA = 255; // Dark slate background
-
-    // If maskable, full bleed background
     if (!isMaskable && squircleDist > 1.0) {
       return [0, 0, 0, 0]; // Transparent outside squircle
     }
 
-    // Gradient background: top left to bottom right
-    const bgGrad = (u + 1) * 0.3 + (v + 1) * 0.3;
-    bgR = Math.min(255, Math.floor(18 + bgGrad * 15));
-    bgG = Math.min(255, Math.floor(18 + bgGrad * 12));
-    bgB = Math.min(255, Math.floor(25 + bgGrad * 40));
-
-    // Outer subtle border
-    if (!isMaskable && squircleDist > 0.92) {
-      return [99, 102, 241, 180];
+    // Gradient background matching splash screen: linear-gradient(135deg, #4f46e5, #6366f1, #8b5cf6)
+    // tGrad ranges from 0 (top-left) to 1 (bottom-right)
+    const tGrad = Math.max(0, Math.min(1, (u + v + 2) / 4));
+    let bgR, bgG, bgB, bgA = 255;
+    if (tGrad < 0.5) {
+      const f = tGrad / 0.5;
+      bgR = Math.round(79 + f * (99 - 79));
+      bgG = Math.round(70 + f * (102 - 70));
+      bgB = Math.round(229 + f * (241 - 229));
+    } else {
+      const f = (tGrad - 0.5) / 0.5;
+      bgR = Math.round(99 + f * (139 - 99));
+      bgG = Math.round(102 + f * (92 - 102));
+      bgB = Math.round(241 + f * (246 - 241));
     }
 
-    // Sparkle star math: curve connecting (0, ±1) and (±1, 0)
-    // equation: |su|^0.5 + |sv|^0.5 <= 1
-    const starDist = Math.sqrt(Math.abs(su)) + Math.sqrt(Math.abs(sv));
-
-    if (starDist <= 0.95) {
-      // Inside star sparkle: rich Indigo/Violet/Pink gradient
-      const t = (su + sv + 2) / 4;
-      const r = Math.floor(99 + t * (236 - 99));
-      const g = Math.floor(102 + t * (72 - 102));
-      const b = Math.floor(241 + t * (153 - 241));
-
-      // Core white center
-      const coreDist = Math.sqrt(su * su + sv * sv);
-      if (coreDist < 0.18) {
-        return [255, 255, 255, 255];
-      }
-      return [r, g, b, 255];
+    // Outer subtle border (rgba(255, 255, 255, 0.22))
+    if (!isMaskable && squircleDist > 0.88) {
+      const borderAlpha = Math.min(1, (squircleDist - 0.88) / 0.12);
+      return [
+        Math.round(bgR * (1 - borderAlpha * 0.4) + 255 * (borderAlpha * 0.4)),
+        Math.round(bgG * (1 - borderAlpha * 0.4) + 255 * (borderAlpha * 0.4)),
+        Math.round(bgB * (1 - borderAlpha * 0.4) + 255 * (borderAlpha * 0.4)),
+        255
+      ];
     }
 
-    // Outer subtle glowing aura around star
-    if (starDist <= 1.25) {
-      const alpha = Math.floor((1.25 - starDist) * 120);
-      return [99, 102, 241, Math.min(255, bgA + alpha)];
+    // 4-point sparkle star math matching splash screen: |su|^0.55 + |sv|^0.55
+    const starDist = Math.pow(Math.abs(su), 0.55) + Math.pow(Math.abs(sv), 0.55);
+
+    if (starDist <= 0.82) {
+      // Crisp white sparkle star
+      return [255, 255, 255, 255];
     }
 
-    // 4 Satellite dots
-    const dotDist1 = Math.hypot(su, sv - 0.75);
-    const dotDist2 = Math.hypot(su, sv + 0.75);
-    const dotDist3 = Math.hypot(su - 0.75, sv);
-    const dotDist4 = Math.hypot(su + 0.75, sv);
-    if (dotDist1 < 0.08 || dotDist2 < 0.08 || dotDist3 < 0.08 || dotDist4 < 0.08) {
-      return [255, 255, 255, 240];
+    // Soft antialiased edge of sparkle star
+    if (starDist <= 0.94) {
+      const alpha = (0.94 - starDist) / 0.12;
+      return [
+        Math.round(255 * alpha + bgR * (1 - alpha)),
+        Math.round(255 * alpha + bgG * (1 - alpha)),
+        Math.round(255 * alpha + bgB * (1 - alpha)),
+        255
+      ];
     }
 
     return [bgR, bgG, bgB, bgA];
