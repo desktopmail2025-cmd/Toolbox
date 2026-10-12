@@ -21,51 +21,28 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
   const pushedRef = useRef(false);
 
   useEffect(() => {
-    // On native mobile platform (Android APK), native AdMob plugin controls the banner
-    if (isNative) {
-      try {
-        admobService?.showNativeBanner?.();
-      } catch {}
-      return () => {
-        try {
-          admobService?.hideNativeBanner?.();
-        } catch {}
-      };
+    // AdMob is intentionally enabled only in the native Android APK.
+    if (!isNative) return;
+
+    try {
+      admobService?.showNativeBanner?.();
+    } catch (err) {
+      console.error('[AdMob] Could not request Android banner:', err);
     }
 
-    // Web AdSense integration via official Google adsbygoogle script
-    if (!pushedRef.current && typeof window !== 'undefined') {
+    return () => {
       try {
-        const win = window as any;
-        win.adsbygoogle = win.adsbygoogle || [];
-        win.adsbygoogle.push({});
-        pushedRef.current = true;
+        admobService?.hideNativeBanner?.();
       } catch (err) {
-        console.warn('AdSense ad push notice:', err);
+        console.error('[AdMob] Could not hide Android banner:', err);
       }
-    }
-
-    // Inspect genuine Google AdSense response status from the DOM
-    const checkFill = setInterval(() => {
-      if (adSlotRef.current) {
-        const status = adSlotRef.current.getAttribute('data-ad-status');
-        if (status === 'filled') {
-          setAdStatus('filled');
-          clearInterval(checkFill);
-        } else if (status === 'unfilled') {
-          setAdStatus('unfilled');
-          clearInterval(checkFill);
-        }
-      }
-    }, 1200);
-
-    return () => clearInterval(checkFill);
+    };
   }, [isNative]);
 
-  // On native mobile platform, the native AdMob SDK displays the banner at the bottom of the device
-  if (isNative) {
-    return null;
-  }
+  // Do not render any ad placeholder on the web version.
+  if (!isNative) return null;
+
+  // Native Android banners are rendered by the Google Mobile Ads SDK, not React DOM.
 
   if (isMinimized) {
     return (
