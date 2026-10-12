@@ -32,8 +32,14 @@ jobs:
       - name: Install web dependencies
         run: npm install
 
+      - name: Install Capacitor Android
+        run: npm install @capacitor/android@^8.0.0
+
       - name: Verify production AdMob configuration
-        run: grep -q "USE_TEST_ADS: false" src/services/admobService.ts && grep -q "ca-app-pub-9097792601837119~1722736588" android/app/src/main/res/values/strings.xml
+        shell: bash
+        run: |
+          grep -Fq 'USE_TEST_ADS: false' src/services/admobService.ts
+          grep -Fq 'ca-app-pub-9097792601837119~1722736588' android/app/src/main/res/values/strings.xml
 
       - name: Build web app
         run: npm run build
