@@ -6,14 +6,23 @@ import {
   BannerAdPluginEvents,
   InterstitialAdPluginEvents,
   RewardAdPluginEvents,
+  AdmobConsentStatus,
 } from '@capacitor-community/admob';
 
 export const ADMOB_CONFIG = {
-  // Real Google AdMob Application ID & Ad Unit IDs provided by user
+  // Production IDs supplied by the app owner. Do not use these for development testing.
   APP_ID: 'ca-app-pub-9097792601837119~1722736588',
-  BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
-  INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
-  REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
+  PRODUCTION_BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
+  PRODUCTION_INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
+  PRODUCTION_REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
+  // Google official Android demo ad units. Keep enabled until the native integration is verified.
+  USE_TEST_ADS: true,
+  TEST_BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
+  TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
+  TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
+  get BANNER_ID() { return this.USE_TEST_ADS ? this.TEST_BANNER_ID : this.PRODUCTION_BANNER_ID; },
+  get INTERSTITIAL_ID() { return this.USE_TEST_ADS ? this.TEST_INTERSTITIAL_ID : this.PRODUCTION_INTERSTITIAL_ID; },
+  get REWARDED_ID() { return this.USE_TEST_ADS ? this.TEST_REWARDED_ID : this.PRODUCTION_REWARDED_ID; },
   PUBLISHER_ID: 'ca-pub-9097792601837119',
   BANNER_SLOT: '3759988398',
   INTERSTITIAL_SLOT: '6010747218',
@@ -249,6 +258,17 @@ class AdMobService {
 
     if (this.isNative) {
       try {
+        // Google UMP consent must be checked before requesting any ads.
+        // If a consent form is required and available, show it before SDK initialization.
+        let consentInfo = await AdMob.requestConsentInfo();
+        if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
+          consentInfo = await AdMob.showConsentForm();
+        }
+        if (!consentInfo.canRequestAds) {
+          console.info('AdMob: consent is not ready; ads are not requested.');
+          return;
+        }
+
         await AdMob.initialize({
           testingDevices: [],
           initializeForTesting: false,
