@@ -369,7 +369,7 @@ class AdMobService {
     try {
       await AdMob.prepareRewardVideoAd({
         adId: ADMOB_CONFIG.REWARDED_ID,
-        isTesting: false,
+        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
       });
       this.isRewardedPreloaded = true;
     } catch (e: any) {
@@ -388,7 +388,7 @@ class AdMobService {
         adSize: BannerAdSize.ADAPTIVE_BANNER,
         position: BannerAdPosition.BOTTOM_CENTER,
         margin: 0,
-        isTesting: false,
+        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
       });
       this.isNativeBannerShowing = true;
     } catch (e: any) {
@@ -527,7 +527,7 @@ class AdMobService {
         } else {
           await AdMob.prepareInterstitial({
             adId: ADMOB_CONFIG.INTERSTITIAL_ID,
-            isTesting: false,
+            isTesting: ADMOB_CONFIG.USE_TEST_ADS,
           });
           await AdMob.showInterstitial();
           this.preloadInterstitial();
@@ -575,7 +575,7 @@ class AdMobService {
         } else {
           await AdMob.prepareRewardVideoAd({
             adId: ADMOB_CONFIG.REWARDED_ID,
-            isTesting: false,
+            isTesting: ADMOB_CONFIG.USE_TEST_ADS,
           });
           await AdMob.showRewardVideoAd();
           this.preloadRewarded();
