@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { App as CapApp } from '@capacitor/app';
@@ -9,7 +9,38 @@ interface ExitConfirmModalProps {
 }
 
 export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onClose }) => {
-  const [isSessionClosed, setIsSessionClosed] = React.useState(false);
+  const [isSessionClosed, setIsSessionClosed] = useState(false);
+
+  // Freeze and stabilize background view completely when Exit Dialogue is active
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyTouchAction = document.body.style.touchAction;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    // Prevent any swipe-drag or wheel scrolling while dialogue is presented
+    const preventScroll = (e: Event) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.touchAction = prevBodyTouchAction;
+      window.scrollTo({ top: scrollY, behavior: 'instant' });
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -35,8 +66,16 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
 
   if (isSessionClosed) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950 text-white select-none animate-in fade-in duration-200">
-        <div className="relative w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl p-6 text-center space-y-4">
+      <div
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-zinc-950 text-white select-none animate-in fade-in duration-200"
+        style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+        onTouchMove={e => e.preventDefault()}
+        onWheel={e => e.preventDefault()}
+      >
+        <div
+          className="relative w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl p-6 text-center space-y-4"
+          onClick={e => e.stopPropagation()}
+        >
           <div className="w-14 h-14 mx-auto rounded-3xl bg-rose-950/60 border border-rose-900 flex items-center justify-center text-rose-400 shadow-inner">
             <LogOut className="w-7 h-7" />
           </div>
@@ -64,7 +103,10 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs select-none overscroll-none animate-in fade-in duration-200"
+      style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      onTouchMove={e => e.preventDefault()}
+      onWheel={e => e.preventDefault()}
       onClick={() => {
         sounds.playClick();
         onClose();
@@ -73,6 +115,7 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
       <div
         className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden p-6 text-center space-y-4"
         onClick={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
       >
         {/* Alert Confirmation Dialog */}
         <div className="w-14 h-14 mx-auto rounded-3xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
@@ -112,3 +155,4 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ isOpen, onCl
     </div>
   );
 };
+

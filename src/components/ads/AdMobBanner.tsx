@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronUp, Globe } from 'lucide-react';
 import { admobService, ADMOB_CONFIG } from '../../services/admobService';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAdChoicesBadge } from './GoogleAdIcons';
+import { ShieldCheck, AlertCircle, Sparkles, Smartphone, Globe } from 'lucide-react';
 
 interface AdMobBannerProps {
   onOpenPerformance?: () => void;
@@ -16,113 +15,129 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
 }) => {
   const isNative = Capacitor.isNativePlatform();
   const adSlotRef = useRef<HTMLModElement | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [adStatus, setAdStatus] = useState<'loading' | 'filled' | 'unfilled'>('loading');
   const pushedRef = useRef(false);
+  const [adStatus, setAdStatus] = useState<'loading' | 'filled' | 'unfilled' | 'blocked'>('loading');
+
+  const isDevDomain = typeof window !== 'undefined' && (
+    window.location.hostname.includes('run.app') ||
+    window.location.hostname.includes('localhost') ||
+    window.location.hostname.includes('127.0.0.1')
+  );
 
   useEffect(() => {
-    // AdMob is intentionally enabled only in the native Android APK.
-    if (!isNative) return;
-
-    try {
-      admobService?.showNativeBanner?.();
-    } catch (err) {
-      console.error('[AdMob] Could not request Android banner:', err);
+    // On native Android APK, Google AdMob native SDK controls and displays the banner
+    if (isNative) {
+      try {
+        admobService?.showNativeBanner?.();
+      } catch {}
+      return () => {
+        try {
+          admobService?.hideNativeBanner?.();
+        } catch {}
+      };
     }
 
-    return () => {
-      try {
-        admobService?.hideNativeBanner?.();
-      } catch (err) {
-        console.error('[AdMob] Could not hide Android banner:', err);
+    // Check if Google AdSense script was blocked by browser ad blocker
+    const scriptCheckTimer = setTimeout(() => {
+      const win = window as any;
+      if (!win.adsbygoogle) {
+        setAdStatus('blocked');
       }
+    }, 1500);
+
+    // On Web, Google AdSense SDK loads the live banner into the ins tag
+    if (!pushedRef.current && typeof window !== 'undefined') {
+      try {
+        const win = window as any;
+        win.adsbygoogle = win.adsbygoogle || [];
+        win.adsbygoogle.push({});
+        pushedRef.current = true;
+      } catch (err) {
+        console.warn('AdSense notice:', err);
+      }
+    }
+
+    // Monitor genuine Google AdSense response status from the DOM
+    const checkFill = setInterval(() => {
+      if (adSlotRef.current) {
+        const status = adSlotRef.current.getAttribute('data-ad-status');
+        if (status === 'filled') {
+          setAdStatus('filled');
+          clearInterval(checkFill);
+        } else if (status === 'unfilled') {
+          setAdStatus('unfilled');
+          clearInterval(checkFill);
+        }
+      }
+    }, 1500);
+
+    return () => {
+      clearTimeout(scriptCheckTimer);
+      clearInterval(checkFill);
     };
   }, [isNative]);
 
-  // Do not render any ad placeholder on the web version.
-  if (!isNative) return null;
-
-  // Native Android banners are rendered by the Google Mobile Ads SDK, not React DOM.
-
-  if (isMinimized) {
-    return (
-      <div className={`w-full flex justify-center py-1 ${className}`}>
-        <button
-          type="button"
-          onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/95 text-white dark:bg-zinc-100/95 dark:text-zinc-900 text-[10px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer border border-zinc-700/50"
-          title="Show Google AdSense Advertisement"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-          <span>Google AdSense</span>
-          <ChevronUp className="w-3 h-3 ml-0.5" />
-        </button>
-      </div>
-    );
+  // On native mobile devices, the native AdMob SDK renders the banner in native space
+  if (isNative) {
+    return null;
   }
 
+  // On Web, render real official Google AdSense slot
   return (
     <div
-      className={`ad-banner-container w-full flex justify-center transition-all ${
-        variant === 'bottom-docked' ? 'py-1 px-2' : 'my-2.5'
+      className={`w-full flex flex-col justify-center items-center my-3 transition-all ${
+        variant === 'bottom-docked' ? 'py-1 px-2' : 'py-2 px-3'
       } ${className}`}
     >
-      <div className="relative w-full max-w-[728px] rounded-xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm hover:shadow-md transition-all">
-        {/* AdSense Top Header */}
-        <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-100/90 dark:bg-zinc-900/90 border-b border-zinc-200/70 dark:border-zinc-800 text-[10px]">
-          <div className="flex items-center gap-1.5">
-            <span className="px-1.5 py-0.2 rounded bg-[#fbbc04] text-zinc-950 font-black text-[9px] shadow-xs">
-              Ad
-            </span>
-            <span className="text-zinc-600 dark:text-zinc-300 font-semibold text-[10px]">
-              Google AdSense
-            </span>
-            <span className="text-zinc-400 dark:text-zinc-500">·</span>
-            <span className="font-mono text-[9px] text-zinc-400 dark:text-zinc-500 truncate max-w-[120px]">
-              Slot {ADMOB_CONFIG.BANNER_SLOT}
-            </span>
-          </div>
+      <div className="w-full max-w-[728px] overflow-hidden flex flex-col justify-center items-center">
+        <ins
+          ref={adSlotRef}
+          className="adsbygoogle"
+          style={{ display: 'block', width: '100%', minHeight: '60px', textAlign: 'center' }}
+          data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
+          data-ad-slot={ADMOB_CONFIG.BANNER_SLOT}
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+          data-adtest={isDevDomain ? 'on' : undefined}
+        />
 
-          <div className="flex items-center gap-1.5">
-            <GoogleAdChoicesBadge />
-            <button
-              type="button"
-              onClick={() => setIsMinimized(true)}
-              className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 ml-1"
-              title="Minimize Ad"
-              aria-label="Minimize Ad"
-            >
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Live Google AdSense Container (Always accessible in DOM so Google AdSense engine can measure width and render) */}
-        <div className="w-full flex flex-col justify-center items-center py-2 px-2 min-h-[90px] overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/30">
-          <ins
-            ref={adSlotRef}
-            className="adsbygoogle"
-            style={{ display: 'block', width: '100%', minHeight: '60px', textAlign: 'center' }}
-            data-ad-client={ADMOB_CONFIG.PUBLISHER_ID}
-            data-ad-slot={ADMOB_CONFIG.BANNER_SLOT}
-            data-ad-format="auto"
-            data-full-width-responsive="true"
-          />
-
-          {/* Clean, authentic notice when Google AdSense is pending approval on unverified preview origin */}
-          {adStatus === 'unfilled' && (
-            <div className="text-center py-2 px-4 text-xs text-zinc-400 dark:text-zinc-500 flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                <Globe className="w-3 h-3 text-zinc-400" />
+        {/* Informative ad status notice when running on preview URLs or if blocked by client */}
+        {(adStatus === 'unfilled' || adStatus === 'blocked') && (
+          <div className="w-full mt-2 p-3 rounded-2xl bg-zinc-100/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-400">
+            <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-zinc-200/60 dark:border-zinc-800">
+              <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-zinc-200 text-xs">
+                <Globe className="w-3.5 h-3.5 text-indigo-500" />
                 <span>Google AdSense Slot {ADMOB_CONFIG.BANNER_SLOT}</span>
               </div>
-              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 max-w-sm">
-                Live advertisements will serve automatically on approved production domains registered in your AdSense Sites console.
-              </p>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
+                {adStatus === 'blocked' ? 'AdBlocker Detected' : 'Pending Domain Approval'}
+              </span>
             </div>
-          )}
-        </div>
+
+            <p className="leading-relaxed">
+              {adStatus === 'blocked' ? (
+                <span>
+                  Your browser or extension (such as Brave Shields or uBlock) is blocking the Google AdSense script (<code>pagead2.googlesyndication.com</code>). Disable your ad blocker for this tab to view test ads.
+                </span>
+              ) : (
+                <span>
+                  Google AdSense requires your production domain (e.g. <code>yourdomain.com</code>) to be added and verified under <strong>AdSense &rarr; Sites</strong>. Cloud Run preview domains (<code>*.run.app</code>) do not serve live advertiser inventory without domain authorization.
+                </span>
+              )}
+            </p>
+
+            <div className="mt-2 pt-2 border-t border-zinc-200/50 dark:border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+              <span className="flex items-center gap-1">
+                <Smartphone className="w-3 h-3 text-emerald-500" />
+                <span><strong>Android APK:</strong> AdMob App ID {ADMOB_CONFIG.APP_ID} is active</span>
+              </span>
+              <span><strong>Client:</strong> {ADMOB_CONFIG.PUBLISHER_ID}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+

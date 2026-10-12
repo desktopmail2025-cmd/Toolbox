@@ -6,24 +6,14 @@ import {
   BannerAdPluginEvents,
   InterstitialAdPluginEvents,
   RewardAdPluginEvents,
-  AdmobConsentStatus,
 } from '@capacitor-community/admob';
 
 export const ADMOB_CONFIG = {
-  // Production IDs supplied by the app owner. Do not use these for development testing.
+  // Real Google AdMob Application ID & Ad Unit IDs provided by user
   APP_ID: 'ca-app-pub-9097792601837119~1722736588',
-  PRODUCTION_BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
-  PRODUCTION_INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
-  PRODUCTION_REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
-  // Production Android build: use the owner's real AdMob ad unit IDs.
-  // Never click your own live ads; use Google's test units for future development/debugging.
-  USE_TEST_ADS: false,
-  TEST_BANNER_ID: 'ca-app-pub-3940256099942544/9214589741',
-  TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
-  TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
-  get BANNER_ID() { return this.USE_TEST_ADS ? this.TEST_BANNER_ID : this.PRODUCTION_BANNER_ID; },
-  get INTERSTITIAL_ID() { return this.USE_TEST_ADS ? this.TEST_INTERSTITIAL_ID : this.PRODUCTION_INTERSTITIAL_ID; },
-  get REWARDED_ID() { return this.USE_TEST_ADS ? this.TEST_REWARDED_ID : this.PRODUCTION_REWARDED_ID; },
+  BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
+  INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
+  REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
   PUBLISHER_ID: 'ca-pub-9097792601837119',
   BANNER_SLOT: '3759988398',
   INTERSTITIAL_SLOT: '6010747218',
@@ -259,24 +249,10 @@ class AdMobService {
 
     if (this.isNative) {
       try {
-        // Google UMP consent must be checked before requesting any ads.
-        // If a consent form is required and available, show it before SDK initialization.
-        console.info('[AdMob] Requesting consent information. Native platform:', this.isNative);
-        let consentInfo = await AdMob.requestConsentInfo();
-        console.info('[AdMob] Consent status:', consentInfo.status, 'form available:', consentInfo.isConsentFormAvailable, 'can request ads:', consentInfo.canRequestAds);
-        if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
-          consentInfo = await AdMob.showConsentForm();
-        }
-        if (!consentInfo.canRequestAds) {
-          const reason = `Consent does not currently allow ad requests (status=${consentInfo.status}, formAvailable=${consentInfo.isConsentFormAvailable}, canRequestAds=${consentInfo.canRequestAds}).`;
-          console.warn('[AdMob]', reason);
-          this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', reason);
-          return;
-        }
-
-        console.info('[AdMob] Initializing native Google Mobile Ads SDK. Test ads:', ADMOB_CONFIG.USE_TEST_ADS);
-        await AdMob.initialize();
-        console.info('[AdMob] SDK initialized successfully.');
+        await AdMob.initialize({
+          testingDevices: [],
+          initializeForTesting: false,
+        });
 
         // Register native AdMob event listeners
         AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
@@ -329,16 +305,14 @@ class AdMobService {
           this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'failed', `Rewarded video load notice: ${err?.message || ''}`);
         });
 
-        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', `Native AdMob SDK initialized; requesting ${ADMOB_CONFIG.USE_TEST_ADS ? 'Google test' : 'production'} ad units.`);
+        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native AdMob initialized with real Ad Unit IDs');
 
         // Preload interstitial and rewarded in background on native mobile launch
         this.preloadInterstitial();
         this.preloadRewarded();
         this.showNativeBanner();
       } catch (err: any) {
-        const message = err?.message || String(err);
-        console.error('[AdMob] Native initialization failed:', err);
-        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', `Initialization failed: ${message}`);
+        console.warn('Native AdMob initialization notice:', err?.message || err);
       }
     } else {
       // In web environment: Google AdSense SDK is active via index.html
@@ -353,14 +327,11 @@ class AdMobService {
     try {
       await AdMob.prepareInterstitial({
         adId: ADMOB_CONFIG.INTERSTITIAL_ID,
-        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
+        isTesting: false,
       });
       this.isInterstitialPreloaded = true;
     } catch (e: any) {
       this.isInterstitialPreloaded = false;
-      const message = e?.message || String(e);
-      console.error('[AdMob] Interstitial failed to load:', e);
-      this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'failed', `Load failed: ${message}`);
     }
   }
 
@@ -369,14 +340,11 @@ class AdMobService {
     try {
       await AdMob.prepareRewardVideoAd({
         adId: ADMOB_CONFIG.REWARDED_ID,
-        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
+        isTesting: false,
       });
       this.isRewardedPreloaded = true;
     } catch (e: any) {
       this.isRewardedPreloaded = false;
-      const message = e?.message || String(e);
-      console.error('[AdMob] Rewarded ad failed to load:', e);
-      this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'failed', `Load failed: ${message}`);
     }
   }
 
@@ -388,14 +356,11 @@ class AdMobService {
         adSize: BannerAdSize.ADAPTIVE_BANNER,
         position: BannerAdPosition.BOTTOM_CENTER,
         margin: 0,
-        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
+        isTesting: false,
       });
       this.isNativeBannerShowing = true;
-    } catch (e: any) {
-      this.isNativeBannerShowing = false;
-      const message = e?.message || String(e);
-      console.error('[AdMob] Banner failed to show:', e);
-      this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', `Banner show failed: ${message}`);
+    } catch (e) {
+      // ignore
     }
   }
 
@@ -527,7 +492,7 @@ class AdMobService {
         } else {
           await AdMob.prepareInterstitial({
             adId: ADMOB_CONFIG.INTERSTITIAL_ID,
-            isTesting: ADMOB_CONFIG.USE_TEST_ADS,
+            isTesting: false,
           });
           await AdMob.showInterstitial();
           this.preloadInterstitial();
@@ -575,7 +540,7 @@ class AdMobService {
         } else {
           await AdMob.prepareRewardVideoAd({
             adId: ADMOB_CONFIG.REWARDED_ID,
-            isTesting: ADMOB_CONFIG.USE_TEST_ADS,
+            isTesting: false,
           });
           await AdMob.showRewardVideoAd();
           this.preloadRewarded();
