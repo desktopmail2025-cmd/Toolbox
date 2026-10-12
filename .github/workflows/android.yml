@@ -38,8 +38,10 @@ jobs:
       - name: Verify production AdMob configuration
         shell: bash
         run: |
-          grep -Fq 'USE_TEST_ADS: true' src/services/admobService.ts
-          grep -Fq 'ca-app-pub-3940256099942544/9214589741' src/services/admobService.ts
+          grep -Fq 'USE_TEST_ADS: false' src/services/admobService.ts
+          grep -Fq 'ca-app-pub-9097792601837119/3759988398' src/services/admobService.ts
+          grep -Fq 'ca-app-pub-9097792601837119/6010747218' src/services/admobService.ts
+          grep -Fq 'ca-app-pub-9097792601837119/2867552435' src/services/admobService.ts
           grep -Fq 'ca-app-pub-9097792601837119~1722736588' android/app/src/main/res/values/strings.xml
 
       - name: Build web app
