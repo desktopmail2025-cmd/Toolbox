@@ -15,9 +15,9 @@ export const ADMOB_CONFIG = {
   PRODUCTION_BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
   PRODUCTION_INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
   PRODUCTION_REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
-  // TEMPORARY DIAGNOSTIC BUILD: use Google's official test ad units to verify native delivery.
-  // Set to false only after test ads are visible and production ad serving is ready.
-  USE_TEST_ADS: true,
+  // Production Android build: use the owner's real AdMob ad unit IDs.
+  // Never click your own live ads; use Google's test units for future development/debugging.
+  USE_TEST_ADS: false,
   TEST_BANNER_ID: 'ca-app-pub-3940256099942544/9214589741',
   TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
