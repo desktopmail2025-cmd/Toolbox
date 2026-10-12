@@ -18,7 +18,7 @@ export const ADMOB_CONFIG = {
   // TEMPORARY DIAGNOSTIC BUILD: use Google's official test ad units to verify native delivery.
   // Set to false only after test ads are visible and production ad serving is ready.
   USE_TEST_ADS: true,
-  TEST_BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
+  TEST_BANNER_ID: 'ca-app-pub-3940256099942544/9214589741',
   TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
   get BANNER_ID() { return this.USE_TEST_ADS ? this.TEST_BANNER_ID : this.PRODUCTION_BANNER_ID; },
