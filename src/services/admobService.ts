@@ -16,7 +16,7 @@ export const ADMOB_CONFIG = {
   PRODUCTION_INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
   PRODUCTION_REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
   // Google official Android demo ad units. Keep enabled until the native integration is verified.
-  USE_TEST_ADS: true,
+  USE_TEST_ADS: false,
   TEST_BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
   TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
