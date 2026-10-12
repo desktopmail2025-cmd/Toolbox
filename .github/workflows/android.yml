@@ -32,8 +32,8 @@ jobs:
       - name: Install web dependencies
         run: npm install
 
-      - name: Install Capacitor Android
-        run: npm install @capacitor/android@^8.0.0
+      - name: Verify AdMob is in test mode
+        run: grep -q "USE_TEST_ADS: true" src/services/admobService.ts
 
       - name: Build web app
         run: npm run build
