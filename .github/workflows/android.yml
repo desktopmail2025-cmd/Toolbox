@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           grep -Fq 'USE_TEST_ADS: true' src/services/admobService.ts
-          grep -Fq 'ca-app-pub-3940256099942544/6300978111' src/services/admobService.ts
+          grep -Fq 'ca-app-pub-3940256099942544/9214589741' src/services/admobService.ts
           grep -Fq 'ca-app-pub-9097792601837119~1722736588' android/app/src/main/res/values/strings.xml
 
       - name: Build web app
