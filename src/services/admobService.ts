@@ -15,8 +15,9 @@ export const ADMOB_CONFIG = {
   PRODUCTION_BANNER_ID: 'ca-app-pub-9097792601837119/3759988398',
   PRODUCTION_INTERSTITIAL_ID: 'ca-app-pub-9097792601837119/6010747218',
   PRODUCTION_REWARDED_ID: 'ca-app-pub-9097792601837119/2867552435',
-  // Google official Android demo ad units. Keep enabled until the native integration is verified.
-  USE_TEST_ADS: false,
+  // TEMPORARY DIAGNOSTIC BUILD: use Google's official test ad units to verify native delivery.
+  // Set to false only after test ads are visible and production ad serving is ready.
+  USE_TEST_ADS: true,
   TEST_BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
   TEST_INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   TEST_REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
@@ -260,19 +261,22 @@ class AdMobService {
       try {
         // Google UMP consent must be checked before requesting any ads.
         // If a consent form is required and available, show it before SDK initialization.
+        console.info('[AdMob] Requesting consent information. Native platform:', this.isNative);
         let consentInfo = await AdMob.requestConsentInfo();
+        console.info('[AdMob] Consent status:', consentInfo.status, 'form available:', consentInfo.isConsentFormAvailable, 'can request ads:', consentInfo.canRequestAds);
         if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
           consentInfo = await AdMob.showConsentForm();
         }
         if (!consentInfo.canRequestAds) {
-          console.info('AdMob: consent is not ready; ads are not requested.');
+          const reason = `Consent does not currently allow ad requests (status=${consentInfo.status}, formAvailable=${consentInfo.isConsentFormAvailable}, canRequestAds=${consentInfo.canRequestAds}).`;
+          console.warn('[AdMob]', reason);
+          this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', reason);
           return;
         }
 
-        await AdMob.initialize({
-          testingDevices: [],
-          initializeForTesting: false,
-        });
+        console.info('[AdMob] Initializing native Google Mobile Ads SDK. Test ads:', ADMOB_CONFIG.USE_TEST_ADS);
+        await AdMob.initialize();
+        console.info('[AdMob] SDK initialized successfully.');
 
         // Register native AdMob event listeners
         AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
@@ -325,14 +329,16 @@ class AdMobService {
           this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'failed', `Rewarded video load notice: ${err?.message || ''}`);
         });
 
-        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', 'Native AdMob initialized with real Ad Unit IDs');
+        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'loaded', `Native AdMob SDK initialized; requesting ${ADMOB_CONFIG.USE_TEST_ADS ? 'Google test' : 'production'} ad units.`);
 
         // Preload interstitial and rewarded in background on native mobile launch
         this.preloadInterstitial();
         this.preloadRewarded();
         this.showNativeBanner();
       } catch (err: any) {
-        console.warn('Native AdMob initialization notice:', err?.message || err);
+        const message = err?.message || String(err);
+        console.error('[AdMob] Native initialization failed:', err);
+        this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', `Initialization failed: ${message}`);
       }
     } else {
       // In web environment: Google AdSense SDK is active via index.html
@@ -347,11 +353,14 @@ class AdMobService {
     try {
       await AdMob.prepareInterstitial({
         adId: ADMOB_CONFIG.INTERSTITIAL_ID,
-        isTesting: false,
+        isTesting: ADMOB_CONFIG.USE_TEST_ADS,
       });
       this.isInterstitialPreloaded = true;
     } catch (e: any) {
       this.isInterstitialPreloaded = false;
+      const message = e?.message || String(e);
+      console.error('[AdMob] Interstitial failed to load:', e);
+      this.logEvent('interstitial', ADMOB_CONFIG.INTERSTITIAL_ID, 'failed', `Load failed: ${message}`);
     }
   }
 
@@ -365,6 +374,9 @@ class AdMobService {
       this.isRewardedPreloaded = true;
     } catch (e: any) {
       this.isRewardedPreloaded = false;
+      const message = e?.message || String(e);
+      console.error('[AdMob] Rewarded ad failed to load:', e);
+      this.logEvent('rewarded', ADMOB_CONFIG.REWARDED_ID, 'failed', `Load failed: ${message}`);
     }
   }
 
@@ -379,8 +391,11 @@ class AdMobService {
         isTesting: false,
       });
       this.isNativeBannerShowing = true;
-    } catch (e) {
-      // ignore
+    } catch (e: any) {
+      this.isNativeBannerShowing = false;
+      const message = e?.message || String(e);
+      console.error('[AdMob] Banner failed to show:', e);
+      this.logEvent('banner', ADMOB_CONFIG.BANNER_ID, 'failed', `Banner show failed: ${message}`);
     }
   }
 
